@@ -1,85 +1,63 @@
 import streamlit as st
 from openai import OpenAI
-from gtts import gTTS
-from io import BytesIO
 from streamlit_mic_recorder import mic_recorder
 import qrcode
-import base64
+import json
+from io import BytesIO
 
-# --- 1. CẤU HÌNH UI RESPONSIVE & LIGHT MODE ---
-st.set_page_config(page_title="AI Global Nexus", layout="wide", page_icon="🌐")
+# --- 1. GIAO DIỆN & HIỆU ỨNG CHỈ TAY (CSS) ---
+st.set_page_config(page_title="Nexus Masterclass v31", layout="wide", page_icon="🎓")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #ffffff; color: #1a1a1a; }
-    div[data-testid="stChatMessage"] {
-        border-radius: 15px;
-        padding: 12px;
-        margin-bottom: 10px;
-        border: 1px solid #e0e0e0;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
-    }
-    /* Fixed Input Bar */
-    .stChatInputContainer { position: fixed; bottom: 15px; z-index: 1000; }
+    @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;700&display=swap');
+    html, body, [class*="css"] { font-family: 'Lexend', sans-serif; }
     
-    /* Stop Button Styling */
-    .stop-btn {
-        background-color: #ff4b4b !important;
-        color: white !important;
-        border-radius: 20px !important;
-        font-weight: bold !important;
+    /* Hiệu ứng khoanh vùng đỏ rực rỡ */
+    .spotlight {
+        border: 4px solid #FF4B4B !important;
+        box-shadow: 0 0 20px #FF4B4B !important;
+        border-radius: 15px !important;
+        padding: 10px;
+        animation: pulse 1.5s infinite;
     }
+    @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
+
+    /* Mũi tên chỉ dẫn nhấp nháy */
+    .chi-dan {
+        color: #FF4B4B;
+        font-size: 24px;
+        font-weight: bold;
+        animation: bounce 0.5s infinite alternate;
+    }
+    @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-10px); } }
+    
+    /* Làm mờ các vùng không quan trọng khi hướng dẫn */
+    .vung-mo { opacity: 0.2; pointer-events: none; filter: blur(2px); transition: 0.5s; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. JAVASCRIPT: ĐA NGÔN NGỮ & DỪNG ĐỌC ---
-def speak_js(text, speed, lang_code):
-    clean_text = text.replace('"', "'").replace('\n', ' ')
-    return f"""
-    <script>
-    window.speechSynthesis.cancel();
-    var msg = new SpeechSynthesisUtterance("{clean_text}");
-    msg.lang = "{lang_code}";
-    msg.rate = {speed};
-    window.speechSynthesis.speak(msg);
-    </script>
-    """
+# --- 2. KHỞI TẠO STATE (CÓ GHI NHỚ) ---
+for key in ['messages', 'suggestions', 'guide_step', 'v_speed', 'da_ghi_nho']:
+    if key not in st.session_state:
+        st.session_state[key] = {'messages': [], 'suggestions': [], 'guide_step': 0, 'v_speed': 1.0, 'da_ghi_nho': False}[key]
 
-def stop_speak_js():
-    return "<script>window.speechSynthesis.cancel();</script>"
+client = OpenAI(api_key=st.secrets["GROQ_API_KEY"], base_url="https://api.groq.com/openai/v1")
 
-# --- 3. KHỞI TẠO STATE & API ---
-if "messages" not in st.session_state: st.session_state.messages = []
-if "voice_draft" not in st.session_state: st.session_state.voice_draft = ""
+# --- 3. LOGIC HƯỚNG DẪN THỰC HÀNH ---
+def hoan_tat_huong_dan():
+    st.session_state.messages = []
+    st.session_state.suggestions = []
+    st.session_state.guide_step = 0
+    if ghi_nho_checkbox:
+        st.session_state.da_ghi_nho = True
+    st.rerun()
 
-try:
-    client = OpenAI(api_key=st.secrets["GROQ_API_KEY"], base_url="https://api.groq.com/openai/v1")
-except:
-    st.error("⚠️ Lỗi: Kiểm tra GROQ_API_KEY trong Streamlit Secrets!")
-    st.stop()
-
-# --- 4. CÔNG CỤ TẢI FILE & XỬ LÝ AI ---
-def get_audio_download_link(text, lang):
-    try:
-        # Chuyển đổi mã ngôn ngữ Web sang mã gTTS (vd: vi-VN -> vi)
-        gtts_lang = lang.split('-')[0]
-        tts = gTTS(text=text, lang=gtts_lang)
-        fp = BytesIO()
-        tts.write_to_fp(fp)
-        b64 = base64.b64encode(fp.getvalue()).decode()
-        return f'<a href="data:audio/mp3;base64,{b64}" download="ai_speech.mp3" style="text-decoration:none;"><button style="background-color:#4CAF50; border:none; color:white; padding:4px 12px; border-radius:10px; cursor:pointer; font-size:12px;">📥 Tải .mp3</button></a>'
-    except: return ""
-
-def process_ai(user_input):
-    st.session_state.messages.append({"role": "user", "content": user_input})
+def goi_ai(prompt):
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("assistant"):
-        p = st.empty()
-        full = ""
-        res = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
-            stream=True
-        )
+        p = st.empty(); full = ""
+        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages], stream=True)
         for chunk in res:
             if chunk.choices[0].delta.content:
                 full += chunk.choices[0].delta.content
@@ -87,94 +65,97 @@ def process_ai(user_input):
         p.markdown(full)
         st.session_state.messages.append({"role": "assistant", "content": full})
         
-        if st.session_state.get("auto_read", True):
-            st.components.v1.html(speak_js(full, st.session_state.v_speed, st.session_state.target_lang), height=0)
+        # Gợi ý cực rõ
+        st.session_state.suggestions = ["Bạn khỏe không?", "Kể chuyện cười đi", "AI là gì?"]
+        if st.session_state.guide_step == 1: st.session_state.guide_step = 2
+        st.rerun()
 
-# --- 5. SIDEBAR: ĐIỀU KHIỂN ĐA NĂNG ---
+# --- 4. SIDEBAR (BẢNG ĐIỀU KHIỂN CHI TIẾT) ---
 with st.sidebar:
-    st.title("⚙️ AI Global Control")
+    st.header("🇻🇳 TRUNG TÂM ĐIỀU KHIỂN")
     
-    # CHỌN NGÔN NGỮ ĐỌC
-    st.subheader("🌐 Ngôn ngữ đọc (TTS)")
-    lang_options = {
-        "Tiếng Việt": "vi-VN",
-        "English (US)": "en-US",
-        "English (UK)": "en-GB",
-        "Français": "fr-FR",
-        "日本語 (Japanese)": "ja-JP",
-        "한국어 (Korean)": "ko-KR"
-    }
-    selected_lang_name = st.selectbox("Chọn giọng đọc:", list(lang_options.keys()))
-    st.session_state.target_lang = lang_options[selected_lang_name]
-
-    st.session_state.v_speed = st.slider("Tốc độ đọc", 0.5, 2.0, 1.1)
-    
-    # NÚT DỪNG ĐỌC KHẨN CẤP
-    if st.button("🛑 DỪNG ĐỌC NGAY", use_container_width=True, type="primary"):
-        st.components.v1.html(stop_speak_js(), height=0)
-        st.toast("Đã dừng giọng nói!")
+    if st.session_state.guide_step > 0:
+        st.error(f"📍 BƯỚC {st.session_state.guide_step}: THỰC HÀNH NGAY")
+        nhiem_vu = [
+            "",
+            "👇 Gõ 'Xin chào' vào ô nhập liệu bên dưới.",
+            "🔊 Nhấn nút 'NGHE' màu xanh dưới câu trả lời của AI.",
+            "✨ Nhấn vào một trong các 'Nút gợi ý' vừa xuất hiện.",
+            "📥 Kéo file JSON vào ô 'Nhập file' bên dưới đây."
+        ]
+        st.write(nhiem_vu[st.session_state.guide_step])
+        
+        if st.session_state.guide_step == 4:
+            st.markdown("---")
+            if st.button("🏁 XÁC NHẬN HOÀN TẤT", type="primary", use_container_width=True):
+                hoan_tat_huong_dan()
 
     st.divider()
-    st.session_state.auto_read = st.toggle("Tự động đọc phản hồi", value=True)
-    hands_free = st.toggle("⚡ Rảnh tay (Nói gửi luôn)", value=False)
+    st.subheader("🔊 Giọng nói")
+    st.session_state.v_speed = st.slider("Tốc độ", 0.5, 2.0, 1.0)
     
     st.divider()
-    st.subheader("💾 Dữ liệu")
-    history_txt = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
+    # Khu vực Nhập/Xuất (Spotlight ở bước 4)
+    if st.session_state.guide_step == 4: st.markdown('<div class="chi-dan">👇 THỰC HÀNH TẠI ĐÂY</div>', unsafe_allow_html=True)
+    with st.container(border=(st.session_state.guide_step == 4)):
+        st.download_button("📤 Xuất dữ liệu", data=json.dumps(st.session_state.messages), file_name="chat.json", use_container_width=True)
+        up = st.file_uploader("📥 Nhập file JSON", type="json")
+        if up: st.success("Đã nhận file! Bây giờ hãy nhấn nút Hoàn tất ở trên.")
+
+# --- 5. MÀN HÌNH CHÀO (KHÔNG HỎI LẠI NẾU ĐÃ GHI NHỚ) ---
+if st.session_state.guide_step == 0 and not st.session_state.messages and not st.session_state.da_ghi_nho:
+    st.title("Chào mừng đến với Nexus Elite 💎")
+    st.info("Để sử dụng hiệu quả, bạn cần 1 phút thực hành hướng dẫn cực kỹ.")
+    
     c1, c2 = st.columns(2)
-    with c1: st.download_button("📤 Xuất .txt", data=history_txt, file_name="history.txt")
-    with c2: 
-        if st.button("📱 QR"):
-            qr = qrcode.make(history_txt[:1000]); b = BytesIO(); qr.save(b, format="PNG")
-            st.image(b)
+    with c1:
+        if st.button("🚀 BẮT ĐẦU THỰC HÀNH", type="primary", use_container_width=True):
+            st.session_state.guide_step = 1; st.rerun()
+    with c2:
+        if st.button("⏩ BỎ QUA LUÔN", use_container_width=True):
+            st.session_state.da_ghi_nho = True; st.rerun()
+    
+    ghi_nho_checkbox = st.checkbox("✔️ Ghi nhớ lựa chọn (Không bao giờ hỏi lại bảng này)", value=True)
 
-    if st.button("🗑️ Xóa sạch hội thoại"):
-        st.session_state.messages = []; st.session_state.voice_draft = ""; st.rerun()
+# --- 6. KHU VỰC CHAT & THỰC HÀNH ---
 
-# --- 6. GIAO DIỆN CHÍNH ---
-st.title("AI Global Nexus 🚀")
-
-# Hiển thị chat
+# Hiển thị Chat
+vung_chat = "vung-mo" if st.session_state.guide_step in [1, 4] else ""
+st.markdown(f'<div class="{vung_chat}">', unsafe_allow_html=True)
 for i, m in enumerate(st.session_state.messages):
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
         if m["role"] == "assistant":
-            col_read, col_dl = st.columns([1, 4])
-            with col_read:
-                if st.button("🔊", key=f"r_{i}"):
-                    st.components.v1.html(speak_js(m["content"], st.session_state.v_speed, st.session_state.target_lang), height=0)
-            with col_dl:
-                st.markdown(get_audio_download_link(m["content"], st.session_state.target_lang), unsafe_allow_html=True)
+            # Spotlight bước 2
+            if st.session_state.guide_step == 2: st.markdown('<div class="chi-dan">👆 NHẤN NÚT NÀY</div>', unsafe_allow_html=True)
+            c1, c2, _ = st.columns([1,1,4])
+            with c1:
+                if st.button("🔊 NGHE", key=f"v_{i}", type=("primary" if st.session_state.guide_step == 2 else "secondary")):
+                    if st.session_state.guide_step == 2: st.session_state.guide_step = 3; st.rerun()
+            with c2:
+                if st.button("🛑 DỪNG", key=f"s_{i}"):
+                    st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
+st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 7. INPUT AREA (TỐI ƯU CHO MOBILE) ---
-st.write("<div style='height:100px'></div>", unsafe_allow_html=True)
+# Gợi ý thông minh (Bước 3)
+if st.session_state.suggestions:
+    vung_sug = "vung-mo" if st.session_state.guide_step in [1, 2, 4] else ""
+    st.markdown(f'<div class="{vung_sug}">', unsafe_allow_html=True)
+    st.divider()
+    if st.session_state.guide_step == 3: st.markdown('<div class="chi-dan">👇 BẤM VÀO 1 TRONG 3 NÚT NÀY</div>', unsafe_allow_html=True)
+    cols = st.columns(3)
+    for idx, sug in enumerate(st.session_state.suggestions):
+        if cols[idx].button(f"✨ {sug}", key=f"s_{idx}", use_container_width=True):
+            if st.session_state.guide_step == 3: st.session_state.guide_step = 4
+            goi_ai(sug)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-if st.session_state.voice_draft and not hands_free:
-    with st.container():
-        st.info("📝 Bản dịch giọng nói:")
-        txt = st.text_area("", value=st.session_state.voice_draft, height=80)
-        ca, cb = st.columns(2)
-        if ca.button("🚀 GỬI", use_container_width=True):
-            st.session_state.voice_draft = ""; process_ai(txt); st.rerun()
-        if cb.button("🗑️ HỦY", use_container_width=True):
-            st.session_state.voice_draft = ""; st.rerun()
-else:
-    c_m, c_i = st.columns([1, 8])
-    with c_m:
-        # Mic tự động nhận diện ngôn ngữ (Whisper Turbo)
-        audio = mic_recorder(start_prompt="🎤", stop_prompt="⏹️", key='mic_v7')
-    
-    if audio:
-        with st.spinner("⚡..."):
-            # Để language=None để Whisper tự nhận diện bạn đang nói tiếng Anh hay Việt
-            transcript = client.audio.transcriptions.create(
-                model="whisper-large-v3-turbo", file=("v.wav", audio['bytes']), language=None
-            )
-            if hands_free:
-                process_ai(transcript.text); st.rerun()
-            else:
-                st.session_state.voice_draft = transcript.text; st.rerun()
-
-    inp = st.chat_input("Nhập tin nhắn (Hỗ trợ đa ngôn ngữ)...")
-    if inp:
-        process_ai(inp); st.rerun()
+# Nhập liệu (Bước 1)
+vung_in = "vung-mo" if st.session_state.guide_step in [2, 3, 4] else ""
+st.markdown(f'<div class="{vung_in}">', unsafe_allow_html=True)
+st.write("<br><br><br>", unsafe_allow_html=True)
+if st.session_state.guide_step == 1: st.markdown('<div class="chi-dan" style="margin-left:100px;">👇 THỰC HÀNH: GÕ VÀO ĐÂY</div>', unsafe_allow_html=True)
+with st.container():
+    inp = st.chat_input("Nhập câu hỏi của bạn...")
+    if inp: goi_ai(inp)
+st.markdown('</div>', unsafe_allow_html=True)
