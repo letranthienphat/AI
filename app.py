@@ -1,147 +1,102 @@
 import streamlit as st
 from openai import OpenAI
 from streamlit_mic_recorder import mic_recorder, speech_to_text
-import time
 
-# --- 1. SIÊU GIAO DIỆN AURORA DYNAMIC OS ---
-st.set_page_config(page_title="Nexus Aurora v90", layout="wide", page_icon="✨")
+# --- 1. GIAO DIỆN SÓNG ĐỘNG (DYNAMIC OCEAN) ---
+st.set_page_config(page_title="Nexus Core v100", layout="wide")
 
 st.markdown("""
     <style>
-    /* Hình nền Động Aurora */
-    @keyframes aurora {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
+    @keyframes move { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
     .stApp {
-        background: linear-gradient(-45deg, #EE7752, #E73C7E, #23A6D5, #23D5AB) !important;
+        background: linear-gradient(-45deg, #00c6ff, #0072ff, #3a1c71, #d76d77) !important;
         background-size: 400% 400% !important;
-        animation: aurora 15s ease infinite !important;
+        animation: move 10s ease infinite !important;
     }
-
-    /* Thẻ Glassmorphism siêu tương phản */
+    /* Chữ Đen Tuyền - Tuyệt đối không bị mờ */
+    h1, h2, h3, p, b, span, .stMarkdown { color: #000000 !important; font-weight: 800 !important; }
     .glass-card {
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(10px);
-        border-radius: 25px;
-        padding: 25px;
-        border: 2px solid #FFFFFF;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        margin-bottom: 20px;
-    }
-    
-    /* Chữ đen tuyền đặc biệt */
-    h1, h2, h3, h4, p, b, span, label {
-        color: #000000 !important;
-        font-weight: 800 !important;
-        text-shadow: 0px 0px 1px rgba(255,255,255,0.5);
-    }
-
-    /* Dock Taskbar */
-    .dock {
-        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
         background: rgba(255, 255, 255, 0.95);
-        padding: 12px 40px; border-radius: 40px;
-        display: flex; gap: 30px; z-index: 1000;
-        border: 2px solid #23A6D5;
+        border-radius: 20px; padding: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        margin-bottom: 15px; border: 2px solid #FFFFFF;
     }
-
-    /* Nút gợi ý Gradient */
     .stButton > button {
-        border-radius: 20px !important;
-        background: white !important;
-        color: #111111 !important;
-        border: 2px solid #23A6D5 !important;
-        font-weight: bold !important;
+        background: #FFFFFF !important; color: #0072ff !important;
+        border: 2px solid #0072ff !important; border-radius: 15px !important;
+        font-weight: bold !important; width: 100%; height: 60px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. KHỞI TẠO STATE ---
+# --- 2. QUẢN LÝ TRẠNG THÁI ---
 if 'page' not in st.session_state:
-    st.session_state.update({
-        'page': 'launcher', 'messages': [], 'guide_step': 0, 
-        'done': False, 'v_speed': 1.0, 'live': False
-    })
+    st.session_state.update({'page': 'launcher', 'messages': [], 'guide_step': 0, 'done': False})
 
 client = OpenAI(api_key=st.secrets["GROQ_API_KEY"], base_url="https://api.groq.com/openai/v1")
 
-# --- 3. HỆ THỐNG DOCK ĐIỀU HƯỚNG ---
-st.markdown('<div class="dock">', unsafe_allow_html=True)
-c_nav1, c_nav2, c_nav3 = st.columns(3)
-with c_nav1:
-    if st.button("🏠"): st.session_state.page = 'launcher'; st.rerun()
-with c_nav2:
-    if st.button("🤖"): st.session_state.page = 'ai'; st.rerun()
-with c_nav3:
-    if st.button("⚙️"): st.session_state.page = 'settings'; st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
-
-# --- 4. HƯỚNG DẪN GIẢ LẬP (SIMULATION) ---
+# --- 3. HƯỚNG DẪN TRÊN MÀN HÌNH ---
 if st.session_state.guide_step > 0 and not st.session_state.done:
-    tasks = ["", 
-             "📱 Nhấn vào App 'TRÍ TUỆ AI' trên màn hình.", 
-             "🎤 Gõ/Nói điều gì đó với AI.", 
-             "📄 Nhấn nút 'LƯU .TXT' (Hệ thống sẽ giả lập tải file)."]
-    st.warning(f"🎯 **NHIỆM VỤ:** {tasks[st.session_state.guide_step]}")
+    steps = ["", "Bấm chọn '🤖 TRÍ TUỆ AI'", "Gõ tin nhắn bất kỳ", "Bấm 'LƯU TXT' (Mẫu)"]
+    st.error(f"🎯 HƯỚNG DẪN: {steps[st.session_state.guide_step]}")
 
-# --- 5. APP LAUNCHER (HOME) ---
+# --- 4. APP LAUNCHER (MÀN HÌNH CHỌN APP) ---
 if st.session_state.page == 'launcher':
-    st.title("✨ Nexus Aurora OS")
-    st.markdown("### Hệ điều hành AI thế hệ mới")
-    
+    st.title("🚀 NEXUS WORKSPACE")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("🔵\nTRÍ TUỆ AI", use_container_width=True):
+        if st.button("🤖\nTRÍ TUỆ AI"):
             st.session_state.page = 'ai'
             if st.session_state.guide_step == 1: st.session_state.guide_step = 2
             st.rerun()
     with col2:
-        if st.button("🟣\nCÀI ĐẶT", use_container_width=True):
-            st.session_state.page = 'settings'; st.rerun()
-            
-    if st.session_state.guide_step == 0 and not st.session_state.done:
-        if st.button("🚀 BẮT ĐẦU TRẢI NGHIỆM ĐỘT PHÁ", type="primary"):
-            st.session_state.guide_step = 1; st.rerun()
-
-# --- 6. AI ASSISTANT ---
-elif st.session_state.page == 'ai':
-    st.title("🤖 Trợ lý AI")
+        if st.button("⚙️\nCÀI ĐẶT"): st.session_state.page = 'settings'; st.rerun()
     
-    # Khung Chat Glassmorphism
-    with st.container():
-        for i, m in enumerate(st.session_state.messages):
-            with st.chat_message(m["role"]):
-                st.markdown(f"#### {m['content']}")
-                if m["role"] == "assistant":
-                    if st.session_state.guide_step == 3:
-                        if st.button("📄 LƯU .TXT (GIẢ LẬP)", key=f"sim_{i}"):
-                            st.success("✅ Đã giả lập lưu file thành công! Bạn không cần tải thật.")
-                            st.session_state.done = True; st.session_state.guide_step = 0; st.rerun()
-                    else:
-                        st.download_button("📝 Tải file .TXT", data=m['content'], file_name="chat.txt", key=f"real_{i}")
+    if st.session_state.guide_step == 0 and not st.session_state.done:
+        if st.button("🌟 BẮT ĐẦU HƯỚNG DẪN"): st.session_state.guide_step = 1; st.rerun()
 
-    # Gợi ý thông minh
-    st.write("---")
-    s_col1, s_col2 = st.columns(2)
-    if s_col1.button("✨ Kể chuyện cười"): 
-        st.session_state.messages.append({"role":"user","content":"Kể chuyện cười"}); st.rerun()
-    if s_col2.button("✨ Lên lịch làm việc"):
-        st.session_state.messages.append({"role":"user","content":"Lên lịch làm việc"}); st.rerun()
+# --- 5. APP TRÍ TUỆ AI (CHÍNH) ---
+elif st.session_state.page == 'ai':
+    st.title("🤖 TRÍ TUỆ AI")
+    if st.button("⬅️ THOÁT RA MÀN HÌNH CHÍNH"): st.session_state.page = 'launcher'; st.rerun()
 
-    # Nhập liệu
-    inp = st.chat_input("Hỏi Nexus...")
+    # Hiển thị hội thoại
+    for i, m in enumerate(st.session_state.messages):
+        with st.chat_message(m["role"]):
+            st.markdown(f"**{m['content']}**")
+            if m["role"] == "assistant":
+                if st.session_state.guide_step == 3:
+                    if st.button("📄 LƯU TXT (MẪU)"):
+                        st.success("✅ Tuyệt vời! Bạn đã biết cách lưu dữ liệu. Hướng dẫn kết thúc.")
+                        st.session_state.done = True; st.session_state.guide_step = 0; st.rerun()
+                else:
+                    st.download_button("📝 TẢI TXT", data=m['content'], file_name="chat.txt", key=f"dl_{i}")
+
+    # GỢI Ý THÔNG MINH
+    st.markdown("### ✨ Gợi ý cho bạn:")
+    cols = st.columns(3)
+    sugs = ["Kể chuyện hài", "Lập kế hoạch học tập", "Dịch sang tiếng Anh"]
+    for idx, s in enumerate(sugs):
+        if cols[idx].button(s):
+            prompt = s
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            # GỌI AI NGAY LẬP TỨC
+            res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages])
+            st.session_state.messages.append({"role": "assistant", "content": res.choices[0].message.content})
+            st.rerun()
+
+    # NHẬP LIỆU CHÍNH
+    inp = st.chat_input("Hỏi AI ngay tại đây...")
     if inp:
         st.session_state.messages.append({"role": "user", "content": inp})
         if st.session_state.guide_step == 2: st.session_state.guide_step = 3
-        # Logic gọi AI tại đây...
+        # XỬ LÝ AI PHẢN HỒI
+        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages])
+        st.session_state.messages.append({"role": "assistant", "content": res.choices[0].message.content})
         st.rerun()
 
-# --- 7. SETTINGS ---
+# --- 6. APP CÀI ĐẶT ---
 elif st.session_state.page == 'settings':
-    st.title("⚙️ Cài đặt")
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.session_state.live = st.toggle("Chế độ Live Voice", st.session_state.live)
-    st.session_state.v_speed = st.slider("Tốc độ đọc", 0.5, 2.0, st.session_state.v_speed)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.title("⚙️ CÀI ĐẶT")
+    if st.button("⬅️ QUAY LẠI"): st.session_state.page = 'launcher'; st.rerun()
+    st.write("Cấu hình hệ thống tại đây.")
