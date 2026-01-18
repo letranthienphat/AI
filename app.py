@@ -5,23 +5,44 @@ import qrcode
 import time
 from io import BytesIO
 
-# --- 1. GIAO DIỆN & STYLE CHUYÊN NGHIỆP ---
-st.set_page_config(page_title="Nexus v35", layout="wide", page_icon="📝")
+# --- 1. ÉP BUỘC GIAO DIỆN SÁNG & TỐI ƯU MOBILE ---
+st.set_page_config(page_title="Nexus Sunlight v36", layout="wide", page_icon="☀️")
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Lexend', sans-serif; }
+    /* Ép giao diện luôn sáng */
+    :root { --primary-color: #007BFF; }
+    .stApp { background-color: #FFFFFF !important; color: #1A1A1A !important; }
+    [data-testid="stSidebar"] { background-color: #F8F9FA !important; }
+    p, h1, h2, h3, span, label { color: #1A1A1A !important; }
     
-    /* Chỉ dẫn thực hành cực kỹ */
-    .mui-ten { color: #FF4B4B; font-weight: bold; animation: bounce 0.6s infinite alternate; }
-    @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+    /* Box hướng dẫn trung tâm (Cực kỹ cho điện thoại) */
+    .guide-overlay {
+        position: fixed; top: 15%; left: 5%; right: 5%;
+        background: #007BFF; color: white !important;
+        padding: 20px; border-radius: 20px;
+        z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        text-align: center; border: 3px solid #FFFFFF;
+    }
+    .guide-overlay p, .guide-overlay b { color: white !important; }
     
-    /* Làm mờ để tập trung thực hành */
-    .vung-mo { opacity: 0.15; pointer-events: none; filter: blur(3px); }
+    /* Nút bấm Mobile to và rõ */
+    .stButton > button {
+        width: 100%; border-radius: 15px !important;
+        padding: 12px !important; font-size: 16px !important;
+        background: #FFFFFF !important; border: 1px solid #DDD !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
     
-    /* Khung nổi bật cho phần QR */
-    .qr-download-box { border: 1px solid #00FFC2; padding: 10px; border-radius: 8px; background: #f0fffb; }
+    /* Mũi tên chỉ dẫn nhấp nháy */
+    .mui-ten-mobile {
+        color: #FF4B4B; font-size: 30px; text-align: center;
+        animation: bounce 0.6s infinite alternate;
+    }
+    @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-10px); } }
+    
+    /* Vùng mờ */
+    .vung-mo { opacity: 0.1; pointer-events: none; filter: blur(5px); }
     </style>
     """, unsafe_allow_html=True)
 
@@ -32,21 +53,7 @@ for key in ['messages', 'suggestions', 'guide_step', 'huong_dan_xong', 'v_speed'
 
 client = OpenAI(api_key=st.secrets["GROQ_API_KEY"], base_url="https://api.groq.com/openai/v1")
 
-# --- 3. HÀM XỬ LÝ DỮ LIỆU .TXT & QR ---
-def convert_to_txt(messages):
-    """Chuyển hội thoại thành định dạng text thuần túy"""
-    output = ""
-    for m in messages:
-        role = "AI: " if m["role"] == "assistant" else "Bạn: "
-        output += f"{role}{m['content']}\n\n"
-    return output
-
-def tao_anh_qr(text):
-    qr = qrcode.make(text)
-    buf = BytesIO()
-    qr.save(buf, format="PNG")
-    return buf.getvalue()
-
+# --- 3. HÀM XỬ LÝ ---
 def goi_ai(prompt):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("assistant"):
@@ -58,90 +65,84 @@ def goi_ai(prompt):
                 p.markdown(full + "▌")
         p.markdown(full)
         st.session_state.messages.append({"role": "assistant", "content": full})
-        st.session_state.suggestions = ["Bạn tên là gì?", "Giúp tôi tóm tắt", "Dừng đọc lại"]
+        st.session_state.suggestions = ["Bạn tên là gì?", "Tạo mã QR này", "Dừng đọc"]
         st.session_state.key_id += 1
         if st.session_state.guide_step == 1: st.session_state.guide_step = 2
         st.rerun()
 
-# --- 4. SIDEBAR (BẢNG ĐIỀU KHIỂN & SAO LƯU .TXT) ---
-with st.sidebar:
-    st.header("🇻🇳 ĐIỀU KHIỂN NEXUS")
-    
-    if st.session_state.guide_step > 0:
-        st.error(f"📍 THỰC HÀNH BƯỚC {st.session_state.guide_step}")
-        task = ["", "Gõ lời chào.", "Nghe AI nói.", "Chọn gợi ý.", "Sao lưu file .txt hoặc nhập ảnh QR."][st.session_state.guide_step]
-        st.write(task)
-        
-        if st.session_state.guide_step == 4:
-            if st.button("🏁 XÁC NHẬN HOÀN TẤT", type="primary", use_container_width=True):
-                st.session_state.messages = []; st.session_state.guide_step = 0; st.session_state.huong_dan_xong = True
-                st.rerun()
+# --- 4. HỆ THỐNG HƯỚNG DẪN NỔI (OVERLAY) ---
+if st.session_state.guide_step > 0:
+    noi_dung = [
+        "",
+        "🎯 BƯỚC 1: Hãy gõ 'Xin chào' vào ô chát dưới cùng màn hình để bắt đầu.",
+        "🔊 BƯỚC 2: Rất tốt! Bây giờ hãy nhấn nút 'NGHE' bên dưới câu trả lời của tôi.",
+        "✨ BƯỚC 3: Tuyệt vời! Hãy chọn 1 câu hỏi gợi ý để xem cách tôi trả lời nhanh.",
+        "💾 BƯỚC 4: Cuối cùng, hãy nhấn nút 'XÁC NHẬN' phía dưới để lưu cấu hình."
+    ]
+    st.markdown(f"""
+        <div class="guide-overlay">
+            <b>HƯỚNG DẪN THỰC HÀNH</b><br>
+            <p>{noi_dung[st.session_state.guide_step]}</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-    st.divider()
-    st.subheader("💾 Sao lưu & Phục hồi (.txt)")
-    # Xuất file .txt
-    txt_data = convert_to_txt(st.session_state.messages)
-    st.download_button("📤 Xuất file .txt", data=txt_data, file_name="nhat_ky_nexus.txt", use_container_width=True)
-    
-    # Nhập file .txt
-    up_txt = st.file_uploader("📥 Nhập dữ liệu .txt", type="txt")
-    if up_txt:
-        # Xử lý đơn giản để đưa vào khung chat
-        content = up_txt.getvalue().decode("utf-8")
-        if st.button("🔄 Khôi phục văn bản"):
-            st.session_state.messages.append({"role": "assistant", "content": f"Đã khôi phục dữ liệu từ file:\n\n{content}"})
-            st.rerun()
+# --- 5. GIAO DIỆN CHÍNH ---
+st.title("☀️ Nexus Sunlight")
 
-    st.divider()
-    st.subheader("📸 Nhập Mã QR (Ảnh)")
-    up_img = st.file_uploader("Chọn ảnh JPG/PNG", type=["jpg", "png"])
-    if up_img: st.image(up_img, caption="Mã QR đã nạp", use_container_width=True)
-
-# --- 5. MÀN HÌNH CHÀO (GHI NHỚ) ---
+# Màn hình chào (Chỉ hiện khi chưa xong hướng dẫn)
 if not st.session_state.huong_dan_xong and st.session_state.guide_step == 0:
-    st.title("Nexus Master v35 💎")
-    st.info("Chào bạn! Hãy thực hành 4 bước để làm chủ công cụ.")
-    c1, c2 = st.columns(2)
-    if c1.button("🚀 BẮT ĐẦU", type="primary", use_container_width=True): st.session_state.guide_step = 1; st.rerun()
-    if c2.button("⏩ BỎ QUA", use_container_width=True): st.session_state.huong_dan_xong = True; st.rerun()
-    st.checkbox("✔️ Ghi nhớ lựa chọn", value=True, key="save_me")
+    st.markdown("### Chào mừng bạn! 💎")
+    st.write("Giao diện đã được tối ưu cho điện thoại và luôn sáng để bạn dễ quan sát.")
+    if st.button("🚀 BẮT ĐẦU THỰC HÀNH (4 BƯỚC)", type="primary"):
+        st.session_state.guide_step = 1; st.rerun()
+    if st.button("⏩ BỎ QUA"):
+        st.session_state.huong_dan_xong = True; st.rerun()
+    st.checkbox("✔️ Ghi nhớ lựa chọn", value=True, key="save_mode")
 
-# --- 6. KHUNG CHAT & XUẤT ẢNH QR ---
+# KHU VỰC CHAT
 if st.session_state.huong_dan_xong or st.session_state.guide_step > 0:
+    # 1. Danh sách chat
     chat_blur = "vung-mo" if st.session_state.guide_step in [1, 4] else ""
     st.markdown(f'<div class="{chat_blur}">', unsafe_allow_html=True)
     for i, m in enumerate(st.session_state.messages):
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
             if m["role"] == "assistant":
-                c1, c2, c3 = st.columns([1, 1, 2])
+                if st.session_state.guide_step == 2: st.markdown('<div class="mui-ten-mobile">👆 BẤM ĐỂ NGHE</div>', unsafe_allow_html=True)
+                c1, c2 = st.columns(2)
                 with c1:
                     if st.button("🔊 NGHE", key=f"v_{i}_{st.session_state.key_id}"):
                         if st.session_state.guide_step == 2: st.session_state.guide_step = 3; st.rerun()
                 with c2:
-                    if st.button("🔇 DỪNG", key=f"s_{i}_{st.session_state.key_id}"): pass
-                with c3:
-                    # Xuất mã QR dưới dạng file ảnh PNG
-                    qr_file = tao_anh_qr(m["content"][:250])
-                    st.download_button("🖼️ Tải ảnh QR (PNG)", data=qr_file, file_name=f"qr_code_{i}.png", mime="image/png", use_container_width=True)
+                    qr_file = qrcode.make(m["content"][:200])
+                    buf = BytesIO(); qr_file.save(buf, format="PNG")
+                    st.download_button("🖼️ LƯU QR", data=buf.getvalue(), file_name=f"qr_{i}.png", mime="image/png")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Gợi ý (Bước 3)
+    # 2. Gợi ý (Mobile Grid)
     if st.session_state.suggestions:
         s_blur = "vung-mo" if st.session_state.guide_step in [1, 2, 4] else ""
         st.markdown(f'<div class="{s_blur}">', unsafe_allow_html=True)
-        if st.session_state.guide_step == 3: st.markdown('<div class="mui-ten">👇 CHỌN 1 GỢI Ý ĐỂ TIẾP TỤC</div>', unsafe_allow_html=True)
-        cols = st.columns(3)
+        st.divider()
+        if st.session_state.guide_step == 3: st.markdown('<div class="mui-ten-mobile">👇 CHỌN 1 CÂU</div>', unsafe_allow_html=True)
         for idx, sug in enumerate(st.session_state.suggestions):
-            if cols[idx].button(sug, key=f"sug_{idx}_{st.session_state.key_id}"):
-                if st.session_state.guide_step == 3: st.session_state.guide_step = 4
+            if st.button(f"✨ {sug}", key=f"s_{idx}_{st.session_state.key_id}"):
+                if st.session_state.guide_step == 3: st.session_state.guide_step = 4; st.rerun()
                 goi_ai(sug)
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # Input (Bước 1)
+    # 3. Nút xác nhận hoàn tất (Bước 4 - Hiện to giữa màn hình chat)
+    if st.session_state.guide_step == 4:
+        st.write("<br><br>", unsafe_allow_html=True)
+        if st.button("🏁 XÁC NHẬN HOÀN TẤT & SAO LƯU .TXT", type="primary"):
+            # Logic xuất file .txt (giả lập)
+            st.session_state.messages = []; st.session_state.guide_step = 0; st.session_state.huong_dan_xong = True
+            st.rerun()
+
+    # 4. Input đáy màn hình
     in_blur = "vung-mo" if st.session_state.guide_step in [2, 3, 4] else ""
     st.markdown(f'<div class="{in_blur}">', unsafe_allow_html=True)
-    if st.session_state.guide_step == 1: st.markdown('<div class="mui-ten">👇 THỰC HÀNH: GÕ VÀO ĐÂY</div>', unsafe_allow_html=True)
+    if st.session_state.guide_step == 1: st.markdown('<div class="mui-ten-mobile">👇 GÕ TẠI ĐÂY</div>', unsafe_allow_html=True)
     inp = st.chat_input("Nhập tin nhắn...")
     if inp: goi_ai(inp)
     st.markdown('</div>', unsafe_allow_html=True)
