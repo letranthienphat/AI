@@ -3,156 +3,131 @@ from openai import OpenAI
 from gtts import gTTS
 from io import BytesIO
 from streamlit_mic_recorder import mic_recorder
-import time
+import base64
 
-# --- CẤU HÌNH HỆ THỐNG ---
-st.set_page_config(page_title="AI Voice Commander", layout="wide", page_icon="🔥")
-
-# CSS: Tối ưu hóa khoảng cách, làm đẹp nút bấm và cố định khung chat
-st.markdown("""
-    <style>
-    .stTextArea textarea { font-size: 16px; background-color: #f0f2f6; border-radius: 10px; }
-    .stButton button { border-radius: 20px; font-weight: bold; }
-    div[data-testid="stChatMessageContent"] { background-color: #ffffff; border-radius: 15px; padding: 10px; border: 1px solid #e0e0e0; }
-    .draft-box { border: 2px solid #4CAF50; padding: 15px; border-radius: 15px; background-color: #e8f5e9; margin-bottom: 20px; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- CẤU HÌNH ---
+st.set_page_config(page_title="AI Nexus Gen", layout="wide", page_icon="⚡")
 
 # API SETUP
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
-client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
+# Sử dụng OpenAI API cho cả Chat, Audio và Image (Giả định bạn dùng OpenAI hoặc DALL-E)
+client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY", GROQ_API_KEY)) 
 
-# --- QUẢN LÝ TRẠNG THÁI (SESSION STATE) ---
+# --- JAVASCRIPT ĐỘT PHÁ (Xử lý Cuộn trang và Tốc độ đọc Instant) ---
+st.markdown("""
+    <script>
+    // 1. Tự động cuộn xuống dưới cùng khi có tin nhắn mới
+    const observer = new MutationObserver(() => {
+        const chatContainer = window.parent.document.querySelector('section.main');
+        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+    });
+    observer.observe(window.parent.document.body, { childList: true, subtree: true });
+
+    // 2. Hàm thay đổi tốc độ audio ngay lập tức
+    window.changeAudioSpeed = (speed) => {
+        const audios = window.parent.document.querySelectorAll('audio');
+        audios.forEach(audio => { audio.playbackRate = speed; });
+    }
+    </script>
+    """, unsafe_allow_html=True)
+
+# CSS làm đẹp giao diện
+st.markdown("""
+    <style>
+    .stChatMessage { border-radius: 15px; margin-bottom: 10px; border: 1px solid #eee; }
+    .stChatInputContainer { position: fixed; bottom: 20px; z-index: 1000; }
+    .img-gen-card { border: 2px solid #7000ff; border-radius: 15px; padding: 10px; background: #f9f0ff; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- QUẢN LÝ TRẠNG THÁI ---
 if "messages" not in st.session_state: st.session_state.messages = []
-if "voice_draft" not in st.session_state: st.session_state.voice_draft = None # Lưu bản nháp giọng nói
-if "last_read_index" not in st.session_state: st.session_state.last_read_index = -1 # Để không đọc lại tin cũ
-if "processing" not in st.session_state: st.session_state.processing = False
+if "voice_draft" not in st.session_state: st.session_state.voice_draft = None
+if "playback_speed" not in st.session_state: st.session_state.playback_speed = 1.0
 
-# --- HÀM XỬ LÝ ---
-def text_to_speech(text, speed=1.0):
-    try:
-        tts = gTTS(text=text, lang='vi')
-        fp = BytesIO()
-        tts.write_to_fp(fp)
-        return fp.getvalue()
-    except: return None
+# --- CÔNG CỤ XỬ LÝ ---
+def text_to_speech(text):
+    tts = gTTS(text=text, lang='vi')
+    fp = BytesIO()
+    tts.write_to_fp(fp)
+    b64 = base64.b64encode(fp.getvalue()).decode()
+    return f'<audio autoplay class="voice-audio" controls style="width:100%; height:30px;"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'
 
-def process_ai_response():
-    """Gửi tin nhắn đến AI và nhận phản hồi stream"""
-    st.session_state.processing = True
-    full_res = ""
-    res_area = st.empty()
-    
+def generate_image(prompt):
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
-            stream=True
+        response = client.images.generate(
+            model="dall-e-3", prompt=prompt, n=1, size="1024x1024"
         )
-        for chunk in response:
-            if chunk.choices[0].delta.content:
-                full_res += chunk.choices[0].delta.content
-                res_area.markdown(full_res + "▌")
-        
-        res_area.markdown(full_res)
-        st.session_state.messages.append({"role": "assistant", "content": full_res})
-    except Exception as e:
-        st.error(f"Lỗi AI: {e}")
-    finally:
-        st.session_state.processing = False
-        st.rerun()
+        return response.data[0].url
+    except:
+        return "https://via.placeholder.com/1024x1024.png?text=Loi+Tao+Anh"
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.header("🎛️ Bảng Điều Khiển")
-    speed = st.slider("Tốc độ đọc", 0.5, 2.0, 1.0, 0.1)
-    auto_read = st.toggle("Tự động đọc tin mới", value=True)
+    st.title("⚡ Nexus Control")
+    speed = st.slider("Tốc độ phát (Áp dụng tức thì)", 0.5, 2.0, st.session_state.playback_speed, 0.1)
+    if speed != st.session_state.playback_speed:
+        st.session_state.playback_speed = speed
+        st.components.v1.html(f"<script>window.changeAudioSpeed({speed})</script>", height=0)
     
     st.divider()
-    if st.button("🗑️ Xóa Lịch Sử Chat"):
-        st.session_state.messages = []
-        st.session_state.voice_draft = None
-        st.session_state.last_read_index = -1
-        st.rerun()
+    mode = st.radio("Chế độ phản hồi", ["Thông minh", "Chỉ tạo ảnh 🎨"])
 
-# --- GIAO DIỆN CHÍNH ---
-st.title("🔥 AI Voice Commander")
+# --- GIAO DIỆN CHAT ---
+for i, m in enumerate(st.session_state.messages):
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
+        if "image_url" in m:
+            st.image(m["image_url"], caption="Hình ảnh được tạo bởi AI")
+        if m["role"] == "assistant" and i == len(st.session_state.messages) - 1:
+            st.markdown(text_to_speech(m["content"]), unsafe_allow_html=True)
 
-# 1. HIỂN THỊ LỊCH SỬ CHAT
-chat_container = st.container()
-with chat_container:
-    for i, m in enumerate(st.session_state.messages):
-        with st.chat_message(m["role"]):
-            st.markdown(m["content"])
-            
-            # Logic đọc giọng nói thông minh: Chỉ đọc tin nhắn MỚI NHẤT của AI
-            if m["role"] == "assistant":
-                # Nút đọc thủ công luôn hiện
-                if st.button("🔊", key=f"read_{i}"):
-                    audio = text_to_speech(m["content"], speed)
-                    st.audio(audio, format="audio/mp3", autoplay=True)
-                
-                # Tự động đọc (Chỉ đọc 1 lần khi tin nhắn vừa xuất hiện)
-                if auto_read and i > st.session_state.last_read_index:
-                    st.session_state.last_read_index = i # Cập nhật đã đọc tin này rồi
-                    audio = text_to_speech(m["content"], speed)
-                    if audio:
-                        st.audio(audio, format="audio/mp3", autoplay=True)
+# --- KHU VỰC NHẬP LIỆU ---
+st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True) # Tạo khoảng trống cho chat input
 
-# 2. KHU VỰC TƯƠNG TÁC (ĐỘT PHÁ Ở ĐÂY)
-st.divider()
+col_mic, col_input = st.columns([1, 9])
+with col_mic:
+    audio_data = mic_recorder(start_prompt="🎤", stop_prompt="⏹️", key='mic')
 
-# Nếu đang có bản nháp giọng nói -> Hiện giao diện CHỈNH SỬA ĐẶC BIỆT
-if st.session_state.voice_draft is not None:
-    st.markdown('<div class="draft-box">🎙️ <b>Chế độ chỉnh sửa giọng nói</b></div>', unsafe_allow_html=True)
-    
-    # Text Area điền sẵn nội dung từ Mic
-    edited_text = st.text_area("Nội dung đã nghe được (Sửa lại nếu cần):", 
-                               value=st.session_state.voice_draft, 
-                               height=100,
-                               key="draft_editor")
-    
-    col_confirm, col_cancel = st.columns([1, 1])
-    with col_confirm:
-        if st.button("🚀 GỬI NGAY (Enter)", type="primary", use_container_width=True):
-            if edited_text.strip():
-                st.session_state.messages.append({"role": "user", "content": edited_text})
-                st.session_state.voice_draft = None # Xóa nháp
-                process_ai_response()
-    
-    with col_cancel:
-        if st.button("❌ Hủy bỏ", use_container_width=True):
-            st.session_state.voice_draft = None
-            st.rerun()
-
-# Nếu KHÔNG có bản nháp -> Hiện giao diện NHẬP LIỆU CHUẨN (Mic + Chat Input)
-else:
-    c1, c2 = st.columns([1, 8])
-    
-    with c1:
-        # Nút Mic
-        audio_data = mic_recorder(start_prompt="🎤", stop_prompt="⏹️", key='mic_main')
-    
-    with c2:
-        # Chat Input thường
-        user_input = st.chat_input("Gõ tin nhắn hoặc nhấn Mic bên trái...")
-
-    # LOGIC XỬ LÝ INPUT
-    
-    # Trường hợp A: Có Audio mới
-    if audio_data:
-        with st.spinner("⚡ Đang phân tích giọng nói..."):
-            with open("voice_temp.wav", "wb") as f:
-                f.write(audio_data['bytes'])
-            with open("voice_temp.wav", "rb") as af:
-                transcript = client.audio.transcriptions.create(
-                    model="whisper-large-v3-turbo", file=af, language="vi"
-                )
-            # LƯU VÀO DRAFT VÀ RELOAD ĐỂ HIỆN KHUNG SỬA
+# Xử lý input giọng nói
+if audio_data and not st.session_state.voice_draft:
+    with st.spinner("Đang nghe..."):
+        with open("temp.wav", "wb") as f: f.write(audio_data['bytes'])
+        with open("temp.wav", "rb") as af:
+            transcript = client.audio.transcriptions.create(model="whisper-1", file=af)
             st.session_state.voice_draft = transcript.text
             st.rerun()
 
-    # Trường hợp B: Người dùng gõ phím Enter
-    if user_input:
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        process_ai_response()
+# Hiển thị bản nháp giọng nói để sửa
+if st.session_state.voice_draft:
+    with st.container():
+        st.info(f"🎙️ Nháp: {st.session_state.voice_draft}")
+        c1, c2 = st.columns(2)
+        if c1.button("🚀 Gửi ngay"):
+            user_msg = st.session_state.voice_draft
+            st.session_state.voice_draft = None
+            # Tự động nhận diện ý định tạo ảnh
+            img_keywords = ["vẽ", "tạo hình", "ảnh", "bức tranh"]
+            if any(k in user_msg.lower() for k in img_keywords) or mode == "Chỉ tạo ảnh 🎨":
+                with st.spinner("🎨 Đang vẽ..."):
+                    url = generate_image(user_msg)
+                    st.session_state.messages.append({"role": "user", "content": user_msg})
+                    st.session_state.messages.append({"role": "assistant", "content": "Đây là tác phẩm của bạn:", "image_url": url})
+            else:
+                st.session_state.messages.append({"role": "user", "content": user_msg})
+                res = client.chat.completions.create(
+                    model="gpt-4o", # Hoặc model bạn có
+                    messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
+                )
+                st.session_state.messages.append({"role": "assistant", "content": res.choices[0].message.content})
+            st.rerun()
+        if c2.button("🗑️ Hủy"):
+            st.session_state.voice_draft = None
+            st.rerun()
+
+# Chat input mặc định
+user_input = st.chat_input("Nhập tin nhắn...")
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    # Logic tương tự cho chat input (AI hoặc Ảnh)
+    st.rerun()
