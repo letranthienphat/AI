@@ -1,109 +1,103 @@
 import streamlit as st
-from openai import OpenAI
 import google.generativeai as genai
+from openai import OpenAI
 
-# --- CẤU HÌNH GIAO DIỆN ---
-st.set_page_config(page_title="AI Multi-Hub Pro", layout="wide")
+# --- 1. CẤU HÌNH HỆ THỐNG ---
+st.set_page_config(page_title="AI Multi-Tool v2", layout="wide")
 
-# --- KHỞI TẠO BỘ NHỚ (SESSION STATE) ---
-if "api_keys" not in st.session_state:
-    st.session_state.api_keys = {"Gemini": "", "OpenAI": "", "DeepSeek": ""}
+# Khởi tạo kho lưu trữ trong Session State
+if "api_storage" not in st.session_state:
+    st.session_state.api_storage = {"Gemini": "", "OpenAI": "", "DeepSeek": ""}
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- SIDEBAR: QUẢN LÝ API KEY ---
+# --- 2. THANH BÊN (SIDEBAR) - NƠI QUẢN TRỊ API ---
 with st.sidebar:
-    st.title("⚙️ Cấu hình hệ thống")
+    st.title("🛡️ Trung tâm Điều khiển")
     
-    # Chọn hãng AI
-    provider = st.selectbox("Chọn nhà cung cấp:", ["Gemini", "OpenAI", "DeepSeek"])
+    # Chọn hãng AI để làm việc
+    provider = st.selectbox("Chọn hãng AI:", ["Gemini", "OpenAI", "DeepSeek"])
     
-    # Hiển thị trạng thái Key hiện tại
-    current_stored_key = st.session_state.api_keys.get(provider, "")
+    st.divider()
+    st.subheader("🔑 Quản lý Key")
     
-    if current_stored_key:
-        st.success(f"✅ Đã có Key cho {provider}")
-        if st.button(f"🗑️ Xóa/Sửa Key {provider}"):
-            st.session_state.api_keys[provider] = ""
+    # Kiểm tra xem hãng hiện tại đã có Key chưa
+    current_key = st.session_state.api_storage[provider]
+    
+    if current_key:
+        st.success(f"Đã lưu Key {provider}")
+        if st.button(f"Sửa / Xóa Key {provider}"):
+            st.session_state.api_storage[provider] = ""
             st.rerun()
     else:
-        new_key = st.text_input(f"Nhập API Key {provider}:", type="password")
-        remember = st.checkbox("Ghi nhớ Key này vĩnh viễn (trong phiên này)", value=True)
-        if st.button(f"💾 Lưu Key {provider}"):
+        new_key = st.text_input(f"Nhập Key {provider} mới:", type="password")
+        if st.button(f"Lưu & Kích hoạt {provider}"):
             if new_key:
-                st.session_state.api_keys[provider] = new_key
-                st.success("Đã lưu!")
+                st.session_state.api_storage[provider] = new_key
                 st.rerun()
             else:
-                st.error("Vui lòng không để trống!")
+                st.warning("Vui lòng nhập Key!")
 
     st.divider()
-    if st.button("🗑️ Xóa lịch sử chat"):
+    if st.button("🧹 Xóa lịch sử hội thoại"):
         st.session_state.messages = []
         st.rerun()
 
-# --- GIAO DIỆN CHAT ---
-st.title(f"🤖 Chat với {provider}")
+# --- 3. GIAO DIỆN CHAT ---
+st.title(f"🤖 Trợ lý {provider}")
 
-# Kiểm tra xem đã có Key cho hãng đang chọn chưa
-active_key = st.session_state.api_keys.get(provider)
-
+# Kiểm tra nếu chưa có Key thì chặn không cho chat
+active_key = st.session_state.api_storage[provider]
 if not active_key:
-    st.warning(f"⚠️ Vui lòng nhập và lưu API Key của {provider} ở thanh bên trái để bắt đầu!")
+    st.info(f"💡 Vui lòng nhập API Key cho **{provider}** ở thanh bên trái để bắt đầu.")
     st.stop()
 
-# Hiển thị tin nhắn
+# Hiển thị lịch sử
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # Xử lý nhập liệu
-if prompt := st.chat_input("Hỏi tôi bất cứ điều gì..."):
+if prompt := st.chat_input("Gõ câu hỏi tại đây..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        response_placeholder = st.empty()
-        full_response = ""
+        res_area = st.empty()
+        full_res = ""
         
         try:
-            # 🔵 XỬ LÝ GEMINI (Sửa lỗi 404)
             if provider == "Gemini":
+                # SỬA LỖI 404: Cấu hình chuẩn cho Gemini 1.5
                 genai.configure(api_key=active_key)
-                # Dùng tên model ổn định nhất
-                model = genai.GenerativeModel('gemini-1.5-flash') 
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(prompt)
-                full_response = response.text
-                response_placeholder.markdown(full_response)
-
-            # 🟢 XỬ LÝ OPENAI / DEEPSEEK
+                full_res = response.text
+                res_area.markdown(full_res)
+            
             else:
-                base_url = "https://api.openai.com/v1"
-                model_name = "gpt-3.5-turbo"
+                # Cấu hình cho OpenAI hoặc DeepSeek
+                b_url = "https://api.openai.com/v1" if provider == "OpenAI" else "https://api.deepseek.com"
+                m_name = "gpt-3.5-turbo" if provider == "OpenAI" else "deepseek-chat"
                 
-                if provider == "DeepSeek":
-                    base_url = "https://api.deepseek.com"
-                    model_name = "deepseek-chat"
-                
-                client = OpenAI(api_key=active_key, base_url=base_url)
+                client = OpenAI(api_key=active_key, base_url=b_url)
                 stream = client.chat.completions.create(
-                    model=model_name,
+                    model=m_name,
                     messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
                     stream=True
                 )
                 for chunk in stream:
                     if chunk.choices[0].delta.content:
-                        full_response += chunk.choices[0].delta.content
-                        response_placeholder.markdown(full_response + "▌")
-                response_placeholder.markdown(full_response)
+                        full_res += chunk.choices[0].delta.content
+                        res_area.markdown(full_res + "▌")
+                res_area.markdown(full_res)
 
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            st.session_state.messages.append({"role": "assistant", "content": full_res})
 
         except Exception as e:
+            # Bắt lỗi 402 cụ thể cho DeepSeek
             if "402" in str(e):
-                st.error("❌ DeepSeek báo lỗi 402: Tài khoản của bạn hết tiền. Vui lòng nạp thêm credit tại trang chủ DeepSeek.")
-            elif "404" in str(e):
-                st.error("❌ Lỗi 404: Không tìm thấy Model. Hãy đảm bảo bạn đã dùng đúng loại Key cho hãng tương ứng.")
+                st.error("💳 Tài khoản DeepSeek hết tiền! Hãy nạp thêm hoặc đổi sang Gemini.")
             else:
-                st.error(f"❌ Lỗi hệ thống: {str(e)}")
+                st.error(f"⚠️ Lỗi: {str(e)}")
