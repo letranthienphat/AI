@@ -9,27 +9,39 @@ from langdetect import detect
 import re
 import json
 
-# --- 1. CẤU HÌNH UI SPOTLIGHT ---
-st.set_page_config(page_title="Nexus v16 Spotlight", layout="wide", page_icon="🔦")
+# --- 1. CẤU HÌNH UI & CSS SPOTLIGHT CAO CẤP ---
+st.set_page_config(page_title="Nexus v17 Interactive", layout="wide", page_icon="💡")
 
 st.markdown("""
     <style>
-    /* Hiệu ứng làm nổi bật (Spotlight) */
-    .spotlight {
-        border: 3px solid #ff4b4b !important;
-        box-shadow: 0 0 20px #ff4b4b !important;
-        background-color: #fffde7 !important;
-        transition: 0.5s;
+    /* Spotlight & Hiệu ứng làm mờ */
+    .spotlight-active {
+        border: 4px solid #007bff !important;
+        box-shadow: 0 0 30px rgba(0,123,255,0.5) !important;
+        background: #f0f7ff !important;
+        z-index: 9999;
+        position: relative;
     }
-    .dimmed { opacity: 0.3; filter: blur(2px); pointer-events: none; }
+    .dimmed { opacity: 0.2; filter: blur(3px); pointer-events: none; transition: 0.5s; }
     
-    /* Giao diện chung */
+    /* Ghim bảng hướng dẫn ở giữa màn hình điện thoại/máy tính */
+    .floating-guide {
+        position: fixed;
+        top: 20%;
+        left: 50%;
+        transform: translate(-50%, -20%);
+        background: white;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        z-index: 10001;
+        width: 90%;
+        max-width: 500px;
+        border-top: 5px solid #007bff;
+    }
+    
     .stApp { background-color: #ffffff; }
-    div[data-testid="stChatMessage"] { border-radius: 15px; border: 1px solid #f0f0f0; }
-    .stButton > button { border-radius: 20px !important; font-weight: 600 !important; }
-    
-    /* Input dính đáy */
-    .stChatInputContainer { position: fixed; bottom: 0; background: white; z-index: 1000; padding: 10px 0; }
+    .stChatInputContainer { z-index: 1000; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -41,131 +53,120 @@ def speak_js(text, speed, lang):
 def get_lang_code(text):
     try:
         l = detect(text)
-        mapping = {"vi":"vi-VN", "en":"en-US", "ja":"ja-JP", "ko":"ko-KR"}
+        mapping = {"vi":"vi-VN", "en":"en-US"}
         return mapping.get(l, "vi-VN")
     except: return "vi-VN"
 
 # --- 3. KHỞI TẠO STATE ---
 if "messages" not in st.session_state: st.session_state.messages = []
-if "suggestions" not in st.session_state: st.session_state.suggestions = ["Chào bạn", "HD chi tiết", "Kể chuyện", "Dịch thuật"]
-if "guide_step" not in st.session_state: st.session_state.guide_step = 0 # 0: Chưa bắt đầu, 1-4: Các bước HD
-if "onboarding_done" not in st.session_state: st.session_state.onboarding_done = False
+if "guide_step" not in st.session_state: st.session_state.guide_step = 0 # 0: Ko có, 1-4: Các bước
+if "suggestions" not in st.session_state: st.session_state.suggestions = ["Chào bạn", "Tin tức", "Kể chuyện"]
 
 client = OpenAI(api_key=st.secrets["GROQ_API_KEY"], base_url="https://api.groq.com/openai/v1")
 
-# --- 4. HÀM XỬ LÝ DỮ LIỆU ---
-def save_chat():
-    data = json.dumps(st.session_state.messages, ensure_ascii=False)
-    return data
+# --- 4. HÀM XỬ LÝ AI ---
+def process_ai(user_input):
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    with st.chat_message("assistant"):
+        p = st.empty(); full = ""
+        res = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
+            stream=True
+        )
+        for chunk in res:
+            if chunk.choices[0].delta.content:
+                full += chunk.choices[0].delta.content
+                p.markdown(full + "▌")
+        p.markdown(full)
+        st.session_state.messages.append({"role": "assistant", "content": full})
 
-def load_chat(json_str):
-    try:
-        st.session_state.messages = json.loads(json_str)
-        st.success("Đã khôi phục dữ liệu!")
-    except:
-        st.error("File không hợp lệ!")
-
-# --- 5. SIDEBAR (KHÔI PHỤC FULL TÍNH NĂNG) ---
+# --- 5. SIDEBAR ---
 with st.sidebar:
-    st.title("🔦 Nexus Terminal")
-    
-    # Spotlight Bước 4: Sidebar & Backup
-    sidebar_class = "spotlight" if st.session_state.guide_step == 4 else ""
-    st.markdown(f'<div class="{sidebar_class}">', unsafe_allow_html=True)
-    
-    if st.button("📖 Xem lại hướng dẫn", use_container_width=True):
+    st.title("💎 Nexus Terminal")
+    if st.button("📖 Chạy hướng dẫn mẫu", use_container_width=True):
         st.session_state.guide_step = 1
         st.rerun()
-
+    
     st.divider()
-    st.subheader("💾 Quản lý dữ liệu")
-    chat_json = save_chat()
-    st.download_button("📤 Xuất file lưu trữ (JSON)", data=chat_json, file_name="nexus_backup.json", mime="application/json", use_container_width=True)
+    st.subheader("💾 Dữ liệu")
+    if st.button("📤 Lưu chat (.json)", use_container_width=True):
+        data = json.dumps(st.session_state.messages, ensure_ascii=False)
+        st.download_button("Tải file về", data=data, file_name="backup.json")
     
-    uploaded_file = st.file_uploader("📥 Nhập file lưu trữ", type="json")
-    if uploaded_file:
-        if st.button("🔄 Khôi phục ngay"):
-            load_chat(uploaded_file.getvalue().decode("utf-8"))
-            st.rerun()
-
-    if st.button("🗑️ Xóa hết hội thoại", use_container_width=True):
+    if st.button("🗑️ Xóa sạch", use_container_width=True):
         st.session_state.messages = []; st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 6. HỆ THỐNG HƯỚNG DẪN CHI TIẾT (SPOTLIGHT) ---
-if st.session_state.guide_step > 0 and st.session_state.guide_step <= 4:
-    with st.container():
-        if st.session_state.guide_step == 1:
-            st.info("🎯 **BƯỚC 1: NHẬP LIỆU** - Dùng Mic 🎤 để nói hoặc Chat Input ở đáy để nhập tin nhắn.")
-        elif st.session_state.guide_step == 2:
-            st.info("🎯 **BƯỚC 2: PHẢN HỒI** - AI sẽ trả lời và tự động đọc bằng ngôn ngữ tương ứng.")
-        elif st.session_state.guide_step == 3:
-            st.info("🎯 **BƯỚC 3: TIỆN ÍCH** - Dưới mỗi câu trả lời có nút 🔊 (Nghe lại), 📥 (Tải Mp3) và 📱 (QR Code).")
-        elif st.session_state.guide_step == 4:
-            st.info("🎯 **BƯỚC 4: LƯU TRỮ** - Sidebar bên trái giúp bạn xuất/nhập dữ liệu để không bị mất chat.")
-        
-        if st.button("Tiếp theo ➡️", use_container_width=True):
-            st.session_state.guide_step += 1
-            if st.session_state.guide_step > 4:
-                st.session_state.onboarding_done = True
-            st.rerun()
+# --- 6. GIAO DIỆN CHÍNH ---
+st.title("AI Nexus v17: Interactive 💡")
 
-# --- 7. GIAO DIỆN CHÍNH ---
-st.title("AI Nexus v16: Spotlight 🔦")
-
-# Kiểm tra nếu chưa từng Onboarding
-if not st.session_state.onboarding_done and st.session_state.guide_step == 0:
-    st.warning("👋 Chào mừng! Bạn có cần tôi hướng dẫn chi tiết cách dùng không?")
-    col_a, col_b = st.columns(2)
-    if col_a.button("Cần chứ! (Bắt đầu Tour)", use_container_width=True):
+# MÀN HÌNH CHÀO HỎI BAN ĐẦU
+if st.session_state.guide_step == 0 and not st.session_state.messages:
+    st.info("Chào mừng! Bạn muốn bắt đầu chat ngay hay trải nghiệm thử hướng dẫn mẫu?")
+    if st.button("Bắt đầu Hướng dẫn mẫu ✨", use_container_width=True):
         st.session_state.guide_step = 1
-        st.rerun()
-    if col_b.button("Không, tôi biết rồi", use_container_width=True):
-        st.session_state.onboarding_done = True
+        # Tạo dữ liệu mẫu để trải nghiệm luôn
+        st.session_state.messages = [
+            {"role": "user", "content": "Đây là hướng dẫn mẫu phải không?"},
+            {"role": "assistant", "content": "Chính xác! Tôi là AI Nexus. Đây là tin nhắn mẫu để bạn dùng thử các tính năng Nghe, Tải và quét mã QR."}
+        ]
         st.rerun()
 
-# HIỂN THỊ CHAT (Áp dụng hiệu ứng Dimmed nếu đang HD bước khác)
-chat_class = "dimmed" if st.session_state.guide_step in [1, 4] else ""
-st.markdown(f'<div class="{chat_class}">', unsafe_allow_html=True)
+# HỆ THỐNG FLOATING GUIDE (Bảng hướng dẫn nổi)
+if 1 <= st.session_state.guide_step <= 4:
+    guides = {
+        1: "🎤 **BƯỚC 1: NHẬP LIỆU** - Bạn có thể dùng Mic hoặc Chat Input bên dưới để nói chuyện với tôi.",
+        2: "🔊 **BƯỚC 2: TRẢI NGHIỆM MẪU** - Thử nhấn vào nút Nghe hoặc Tải Mp3 ở tin nhắn mẫu bên dưới!",
+        3: "💡 **BƯỚC 3: GỢI Ý NHANH** - Nhấn vào các nút gợi ý để hỏi tiếp mà không cần gõ.",
+        4: "⚙️ **BƯỚC 4: LƯU TRỮ** - Mọi cài đặt và sao lưu nằm ở thanh bên trái (Sidebar)."
+    }
+    st.markdown(f"""
+        <div class="floating-guide">
+            <h4>🎯 Hướng dẫn ({st.session_state.guide_step}/4)</h4>
+            <p>{guides[st.session_state.guide_step]}</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button(f"Tiếp theo ({st.session_state.guide_step}/4) ➡️", use_container_width=True):
+        st.session_state.guide_step += 1
+        if st.session_state.guide_step > 4: st.session_state.guide_step = 0
+        st.rerun()
 
+# HIỂN THỊ CHAT (Có hiệu ứng mờ/sáng theo bước)
 for i, m in enumerate(st.session_state.messages):
+    is_demo = (st.session_state.guide_step == 2 and m["role"] == "assistant")
+    chat_style = "spotlight-active" if is_demo else ("dimmed" if st.session_state.guide_step != 0 and st.session_state.guide_step != 2 else "")
+    
+    st.markdown(f'<div class="{chat_style}">', unsafe_allow_html=True)
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
         if m["role"] == "assistant":
-            # Spotlight Bước 3: Tiện ích
-            btn_class = "spotlight" if st.session_state.guide_step == 3 else ""
-            st.markdown(f'<div class="{btn_class}" style="padding:10px; border-radius:10px">', unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
             with c1:
-                if st.button("🔊 Nghe", key=f"v_{i}"):
+                if st.button("🔊 Nghe", key=f"s_{i}"):
                     st.components.v1.html(speak_js(m["content"], 1.1, get_lang_code(m["content"])), height=0)
             with c2:
-                try:
-                    tts = gTTS(text=m["content"][:200], lang=get_lang_code(m["content"]).split('-')[0])
-                    b = BytesIO(); tts.write_to_fp(b); b64 = base64.b64encode(b.getvalue()).decode()
-                    st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="voice.mp3"><button style="width:100%; border-radius:15px; border:1px solid #ddd; padding:5px;">📥 Tải</button></a>', unsafe_allow_html=True)
-                except: pass
+                # Tải Mp3 mẫu
+                tts = gTTS(text=m["content"][:100], lang="vi")
+                b = BytesIO(); tts.write_to_fp(b); b64 = base64.b64encode(b.getvalue()).decode()
+                st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="demo.mp3"><button style="width:100%; border-radius:10px; border:1px solid #ddd; padding:5px;">📥 Tải</button></a>', unsafe_allow_html=True)
             with c3:
                 if st.button("📱 QR", key=f"q_{i}"):
-                    qr = qrcode.make(m["content"][:500]); buf = BytesIO(); qr.save(buf, format="PNG"); st.image(buf, width=100)
-            st.markdown('</div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+                    qr = qrcode.make(m["content"][:200]); buf = BytesIO(); qr.save(buf, format="PNG"); st.image(buf, width=100)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# NÚT GỢI Ý (Spotlight Bước 2)
+# NÚT GỢI Ý (Mờ trừ khi ở bước 3)
 st.write("---")
-sug_class = "spotlight" if st.session_state.guide_step == 2 else ""
-st.markdown(f'<div class="{sug_class}">', unsafe_allow_html=True)
+sug_style = "spotlight-active" if st.session_state.guide_step == 3 else ("dimmed" if st.session_state.guide_step != 0 and st.session_state.guide_step != 3 else "")
+st.markdown(f'<div class="{sug_style}">', unsafe_allow_html=True)
 cols = st.columns(len(st.session_state.suggestions))
 for idx, sug in enumerate(st.session_state.suggestions):
-    if cols[idx].button(sug.strip(), key=f"s_{idx}", use_container_width=True):
-        # Hàm xử lý chat (process_ai bỏ qua để tối giản code hiển thị)
-        pass 
+    cols[idx].button(sug, key=f"s_{idx}", use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# INPUT AREA (Spotlight Bước 1)
+# INPUT AREA (Mờ trừ khi ở bước 1)
 st.write("<br><br><br><br>", unsafe_allow_html=True)
-input_class = "spotlight" if st.session_state.guide_step == 1 else ""
-st.markdown(f'<div class="{input_class}" style="position:fixed; bottom:0; width:100%; background:white; padding:10px;">', unsafe_allow_html=True)
-# (Phần Mic và Chat Input đặt ở đây)
-st.chat_input("Nhập tin nhắn để thử nghiệm...")
+in_style = "spotlight-active" if st.session_state.guide_step == 1 else ("dimmed" if st.session_state.guide_step != 0 and st.session_state.guide_step != 1 else "")
+st.markdown(f'<div class="{in_style}" style="position:fixed; bottom:0; width:100%; background:white; padding:10px;">', unsafe_allow_html=True)
+st.chat_input("Nhập tin nhắn...")
 st.markdown('</div>', unsafe_allow_html=True)
