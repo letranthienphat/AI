@@ -4,102 +4,93 @@ from gtts import gTTS
 from io import BytesIO
 import qrcode
 from streamlit_mic_recorder import mic_recorder
-import os
 
-# --- CẤU HÌNH ---
-st.set_page_config(page_title="AI Live Pro", layout="wide", page_icon="🎙️")
+# --- 1. CẤU HÌNH GIAO DIỆN CHUẨN CHAT ---
+st.set_page_config(page_title="AI Live Pro v3", layout="wide", page_icon="🎙️")
 
-# CSS để làm giao diện gọn gàng hơn
+# CSS để cố định khung chat và làm đẹp giao diện
 st.markdown("""
     <style>
-    .main { background-color: #f5f7f9; }
-    .stButton>button { width: 100%; border-radius: 20px; }
-    .chat-bubble { padding: 10px; border-radius: 15px; margin-bottom: 10px; }
+    .stChatFloatingInputContainer { bottom: 20px; }
+    .main { background-color: #ffffff; }
+    div[data-testid="stVerticalBlock"] > div:has(div.stButton) {
+        display: flex; align-items: center;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
-# Khởi tạo Session
 if "messages" not in st.session_state: st.session_state.messages = []
 if "speech_text" not in st.session_state: st.session_state.speech_text = ""
 if "interrupt" not in st.session_state: st.session_state.interrupt = False
 
-# --- HÀM TTS VỚI TỐC ĐỘ ---
 def text_to_speech(text, speed=1.0):
     tts = gTTS(text=text, lang='vi')
     fp = BytesIO()
     tts.write_to_fp(fp)
     return fp.getvalue()
 
-# --- SIDEBAR GỌN GÀNG ---
+# --- 2. SIDEBAR QUẢN LÝ ---
 with st.sidebar:
-    st.title("🎙️ AI Live Hub")
-    speed = st.slider("Tốc độ đọc của AI", 0.5, 2.0, 1.0, 0.1)
-    live_mode = st.toggle("Chế độ Live (Tự phản hồi)", value=True)
-    
+    st.title("🎙️ Cấu hình Live")
+    speed = st.slider("Tốc độ AI đọc", 0.5, 2.0, 1.0, 0.1)
     st.divider()
-    if st.button("📄 Xuất mã QR"):
-        full_text = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages])
-        # (Logic tạo QR giữ nguyên như bản cũ)
-        st.toast("Đã tạo QR bên dưới màn hình!")
-
-    if st.button("🛑 NGẮT LỜI AI"):
+    if st.button("🛑 NGẮT LỜI CHATBOT"):
         st.session_state.interrupt = True
         st.rerun()
+    if st.button("🗑️ Xóa lịch sử"):
+        st.session_state.messages = []
+        st.rerun()
 
-# --- GIAO DIỆN CHAT CHÍNH ---
-st.title("🤖 Trợ lý Live")
+# --- 3. HIỂN THỊ CHAT (TỰ ĐỘNG CUỘN) ---
+st.title("🤖 Trợ lý Thông minh")
 
-# Hiển thị hội thoại
-chat_container = st.container(height=400)
-with chat_container:
+# Container hiển thị nội dung chat để không bị đè bởi thanh nhập liệu
+chat_placeholder = st.container()
+with chat_placeholder:
     for i, m in enumerate(st.session_state.messages):
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
-            if m["role"] == "assistant" and not st.session_state.interrupt:
+            if m["role"] == "assistant":
                 st.audio(text_to_speech(m["content"], speed), format="audio/mp3")
 
-# --- KHU VỰC NHẬP LIỆU (STT & EDIT) ---
+# --- 4. KHU VỰC NHẬP LIỆU THÔNG MINH ---
+# Phần này xử lý việc "Dịch giọng nói xong hiện lên để sửa"
 st.write("---")
-col1, col2, col3 = st.columns([1, 7, 1])
+col_mic, col_status = st.columns([1, 5])
+with col_mic:
+    audio_record = mic_recorder(start_prompt="🎤 Nói", stop_prompt="✅ Dịch", key='mic_v3')
 
-with col1:
-    # Nút thu âm (Có tích hợp khử nhiễu từ phần cứng trình duyệt)
-    audio_record = mic_recorder(start_prompt="🎤 Nói", stop_prompt="✅ Xong", key='mic_pro')
-
-with col2:
-    # HIỆN NHỮNG GÌ DỊCH ĐƯỢC LÊN ĐÂY ĐỂ CHỈNH SỬA
-    user_input = st.text_input("Nội dung tin nhắn:", value=st.session_state.speech_text, key="chat_input_text")
-
-with col3:
-    send_btn = st.button("🚀 Gửi")
-
-# Xử lý khi có giọng nói mới
 if audio_record:
-    # Dùng Whisper để chuyển giọng nói thành văn bản (STT)
-    client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
-    
-    # Lưu tạm file âm thanh để dịch
-    with open("temp_audio.wav", "wb") as f:
-        f.write(audio_record['bytes'])
-    
-    with open("temp_audio.wav", "rb") as audio_file:
-        transcript = client.audio.transcriptions.create(
-            model="whisper-large-v3", 
-            file=audio_file,
-            language="vi"
-        )
-    
-    # Đưa kết quả dịch được vào ô nhập liệu để người dùng sửa
-    st.session_state.speech_text = transcript.text
-    st.rerun()
+    with st.spinner("Đang khử nhiễu và dịch..."):
+        client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
+        with open("temp.wav", "wb") as f:
+            f.write(audio_record['bytes'])
+        with open("temp.wav", "rb") as af:
+            transcript = client.audio.transcriptions.create(
+                model="whisper-large-v3", 
+                file=af, 
+                language="vi"
+            )
+        # Lưu vào session để hiện lên chat_input
+        st.session_state.speech_text = transcript.text
+        st.rerun()
 
-# --- LOGIC GỬI VÀ PHẢN HỒI ---
-if send_btn and user_input:
-    st.session_state.interrupt = False # Reset trạng thái ngắt lời
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    st.session_state.speech_text = "" # Xóa ô nhập sau khi gửi
+# Ô NHẬP LIỆU CHÍNH: Nhấn Enter là gửi, tự động xóa chữ sau khi gửi
+# Nếu có văn bản từ giọng nói, nó sẽ hiện sẵn ở đây để bạn sửa
+prompt = st.chat_input("Nhập tin nhắn hoặc sửa nội dung đã nói...", key="main_input")
+
+# Logic gửi tin (hỗ trợ cả Enter và click nút gửi của chat_input)
+final_input = prompt if prompt else (None if not st.session_state.speech_text else None)
+
+# Nếu người dùng sửa nội dung dịch hoặc gõ mới
+if prompt:
+    input_to_send = prompt
+    st.session_state.speech_text = "" # Xóa bộ nhớ đệm giọng nói
+    
+    st.session_state.interrupt = False
+    st.session_state.messages.append({"role": "user", "content": input_to_send})
     
     with st.chat_message("assistant"):
         res_area = st.empty()
@@ -113,7 +104,7 @@ if send_btn and user_input:
         )
         
         for chunk in response:
-            if st.session_state.interrupt: break # Kiểm tra nút ngắt lời
+            if st.session_state.interrupt: break
             if chunk.choices[0].delta.content:
                 full_res += chunk.choices[0].delta.content
                 res_area.markdown(full_res + "▌")
@@ -121,3 +112,7 @@ if send_btn and user_input:
         res_area.markdown(full_res)
         st.session_state.messages.append({"role": "assistant", "content": full_res})
         st.rerun()
+
+# Hiển thị thông báo nếu có văn bản đang chờ gửi từ Mic
+if st.session_state.speech_text:
+    st.info(f"💡 Nội dung vừa dịch: **{st.session_state.speech_text}**\n\n(Hãy copy vào ô chat hoặc gõ đè để sửa trước khi nhấn Enter)")
