@@ -7,52 +7,58 @@ import io
 from PIL import Image
 
 # --- 1. CẤU HÌNH HỆ THỐNG ---
-st.set_page_config(page_title="Nexus OS V55.0", layout="wide", page_icon="💠")
+st.set_page_config(page_title="Nexus OS V55.1", layout="wide", page_icon="💠")
 
-# LẤY API TỪ SECRET (Không dán Key trực tiếp vào code để tránh bị hack/khóa key)
+# Lấy Key an toàn từ Secrets
 try:
-    GROQ_KEYS = st.secrets["GROQ_KEYS"] # Phải đặt trong mục Secrets là một danh sách
+    GROQ_KEYS = st.secrets["GROQ_KEYS"]
     GEMINI_KEY = st.secrets["GEMINI_KEY"]
-except:
-    st.error("⚠️ Thiếu cấu hình API trong Secrets! Vui lòng kiểm tra lại.")
+except Exception as e:
+    st.error("❌ Không tìm thấy API Keys trong mục Secrets!")
     st.stop()
 
-# Khởi tạo dữ liệu
 if 'chat_log' not in st.session_state: st.session_state.chat_log = []
-if 'bg' not in st.session_state: st.session_state.bg = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop"
+if 'bg' not in st.session_state: st.session_state.bg = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072"
 
-# --- 2. GIAO DIỆN TITAN DARK GLASSMORPHISM ---
+# --- 2. GIAO DIỆN TƯƠNG PHẢN CAO (HIGH CONTRAST GLASSMORPHISM) ---
 st.markdown(f"""
     <style>
     .stApp {{
-        background: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), url("{st.session_state.bg}");
+        background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url("{st.session_state.bg}");
         background-size: cover; background-attachment: fixed;
     }}
-    /* Sidebar mờ ảo */
+    /* Làm Sidebar sáng và rõ hơn */
     [data-testid="stSidebar"] {{
-        background: rgba(10, 12, 16, 0.8) !important;
-        backdrop-filter: blur(20px);
-        border-right: 1px solid rgba(0, 210, 255, 0.2);
+        background: rgba(15, 18, 25, 0.9) !important;
+        backdrop-filter: blur(25px);
+        border-right: 2px solid #00d2ff;
     }}
-    /* Khung chat hiện đại */
+    /* Cải thiện độ hiển thị tin nhắn */
     .stChatMessage {{
-        background: rgba(255, 255, 255, 0.03) !important;
-        backdrop-filter: blur(10px);
-        border-radius: 20px !important;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        padding: 15px !important;
+        background: rgba(30, 35, 45, 0.85) !important; /* Tăng độ đục để rõ chữ */
+        border: 1px solid rgba(0, 210, 255, 0.3);
+        border-radius: 15px !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        margin-bottom: 15px;
+    }}
+    /* Đảm bảo chữ trong ô nhập liệu luôn trắng rõ */
+    .stChatInput input {{
+        color: white !important;
+        background: rgba(40, 45, 55, 1) !important;
+    }}
+    h1, h2, h3, p, span {{
+        color: white !important;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.8); /* Thêm bóng cho chữ để dễ đọc */
     }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. LÕI XỬ LÝ AI SIÊU CẤP ---
+# --- 3. LÕI XỬ LÝ AI ---
 def get_ai_response(prompt):
-    """Cơ chế xoay vòng Key thông minh & Fail-safe"""
-    # 1. Thử nghiệm với Groq (Llama 3.3)
-    available_keys = list(GROQ_KEYS)
-    random.shuffle(available_keys)
-    
-    for key in available_keys:
+    keys = list(GROQ_KEYS)
+    random.shuffle(keys)
+    for key in keys:
         try:
             client = OpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
             return client.chat.completions.create(
@@ -60,50 +66,43 @@ def get_ai_response(prompt):
                 messages=[{"role": "user", "content": prompt}],
                 stream=True
             ), "Groq (Llama 3.3)"
-        except Exception:
-            continue 
-
-    # 2. Dự phòng cuối cùng với Gemini
+        except: continue
     try:
         genai.configure(api_key=GEMINI_KEY)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        return model.generate_content(prompt, stream=True), "Gemini Flash"
-    except Exception as e:
-        return None, f"Lỗi: {str(e)}"
+        return genai.GenerativeModel('gemini-1.5-flash').generate_content(prompt, stream=True), "Gemini"
+    except: return None, None
 
-# --- 4. TÍNH NĂNG VẼ ẢNH AI (Hugging Face) ---
 def generate_nexus_art(prompt):
-    """Tạo ảnh nghệ thuật từ văn bản"""
+    """Xử lý lỗi UnidentifiedImageError bằng cách kiểm tra phản hồi"""
     API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
-    # Gợi ý: Thêm HF_TOKEN vào secret để không bị giới hạn tốc độ
+    # Bạn nên để HF_TOKEN vào secret để tránh bị từ chối yêu cầu
     headers = {"Authorization": f"Bearer {st.secrets.get('HF_TOKEN', '')}"}
     try:
-        response = requests.post(API_URL, headers=headers, json={"inputs": prompt}, timeout=30)
-        return response.content
+        response = requests.post(API_URL, headers=headers, json={"inputs": prompt}, timeout=40)
+        # Kiểm tra nếu kết quả trả về không phải là ảnh (thường là JSON báo lỗi)
+        if response.status_code == 200 and b"PNG" in response.content[:10] or b"JFIF" in response.content[:10]:
+            return response.content
+        else:
+            return None
     except: return None
 
-# --- 5. GIAO DIỆN CHÍNH ---
+# --- 4. GIAO DIỆN CHÍNH ---
 def main():
     with st.sidebar:
-        st.title("💠 NEXUS OS")
-        st.subheader("V55.0 Professional")
+        st.title("💠 NEXUS TERMINAL")
+        menu = st.radio("Menu", ["🤖 Neural Chat", "🎨 Art Studio", "⚙️ Cài đặt"])
         st.divider()
-        menu = st.radio("Tính năng", ["🤖 Neural Chat", "🎨 Art Studio", "⚙️ Hệ thống"])
-        
-        if st.button("🗑️ Reset Terminal"):
+        if st.button("🗑️ Dọn dẹp nhật ký"):
             st.session_state.chat_log = []
             st.rerun()
 
     if menu == "🤖 Neural Chat":
         st.title("🤖 Neural Terminal")
-        
-        # Hiển thị lịch sử
         for msg in st.session_state.chat_log:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        # Chat input
-        if p := st.chat_input("Gõ lệnh hoặc tin nhắn..."):
+        if p := st.chat_input("Nhập lệnh..."):
             st.session_state.chat_log.append({"role": "user", "content": p})
             with st.chat_message("user"): st.markdown(p)
 
@@ -112,33 +111,35 @@ def main():
                 if res:
                     box = st.empty(); full = ""
                     for chunk in res:
-                        # Xử lý khác biệt giữa OpenAI Stream và Gemini Stream
-                        content = chunk.choices[0].delta.content if "Groq" in provider else chunk.text
+                        content = chunk.choices[0].delta.content if provider == "Groq (Llama 3.3)" else chunk.text
                         if content:
                             full += content
                             box.markdown(full + "▌")
                     box.markdown(full)
-                    st.caption(f"⚡ Đã xử lý bởi: {provider}")
                     st.session_state.chat_log.append({"role": "assistant", "content": full})
                 else:
-                    st.error("Tất cả lõi AI đang quá tải.")
+                    st.error("Lõi AI không phản hồi.")
 
     elif menu == "🎨 Art Studio":
         st.title("🎨 Nexus Art Studio")
-        art_prompt = st.text_area("Mô tả bức ảnh bạn muốn tạo:", placeholder="Ví dụ: Một phi hành gia cưỡi ngựa trên sao Hỏa, phong cách cyberpunk...")
-        if st.button("Bắt đầu vẽ"):
-            if art_prompt:
-                with st.spinner("Đang sử dụng lõi FLUX để phác họa..."):
-                    img_data = generate_nexus_art(art_prompt)
-                    if img_data:
-                        st.image(img_data, caption="Kết quả sáng tạo từ Nexus OS")
-                    else:
-                        st.error("Lõi vẽ ảnh đang bận, thử lại sau nhé!")
+        p = st.text_input("Mô tả ảnh:")
+        if st.button("Sáng tạo"):
+            with st.spinner("Đang xử lý dữ liệu ảnh..."):
+                img_data = generate_nexus_art(p)
+                if img_data:
+                    # Chống lỗi PIL bằng cách kiểm tra dữ liệu trước khi mở
+                    try:
+                        image = Image.open(io.BytesIO(img_data))
+                        st.image(image, caption="AI Generated Image")
+                    except Exception:
+                        st.error("Dữ liệu ảnh bị lỗi cấu trúc.")
+                else:
+                    st.warning("⚠️ API Vẽ ảnh đang bận hoặc hết hạn mức miễn phí. Hãy thử lại sau 1 phút.")
 
-    elif menu == "⚙️ Hệ thống":
-        st.title("⚙️ Cài đặt hệ thống")
-        st.session_state.bg = st.text_input("Link hình nền mới (URL):", st.session_state.bg)
-        st.success("Cấu hình hệ thống đã sẵn sàng.")
+    elif menu == "⚙️ Cài đặt":
+        st.title("⚙️ Tùy chỉnh hệ thống")
+        st.session_state.bg = st.text_input("Thay đổi URL hình nền:", st.session_state.bg)
+        if st.button("Cập nhật"): st.rerun()
 
 if __name__ == "__main__":
     main()
