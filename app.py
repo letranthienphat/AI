@@ -4,160 +4,138 @@ import google.generativeai as genai
 import random
 import time
 
-# --- 1. CẤU HÌNH HỆ THỐNG & GIAO DIỆN ---
-st.set_page_config(page_title="NEXUS OS v51.0", layout="wide", page_icon="🌐")
+# --- 1. CẤU HÌNH GIAO DIỆN & HÌNH NỀN ---
+st.set_page_config(page_title="NEXUS OS ULTIMATE", layout="wide", page_icon="💠")
 
-# Giao diện Cyberpunk/Dark Titan
-st.markdown("""
+# Khởi tạo trạng thái hệ thống
+if 'bg_url' not in st.session_state:
+    st.session_state.bg_url = "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070" # Hình nền mặc định (Nebula)
+
+# CSS cao cấp cho giao diện hệ điều hành
+st.markdown(f"""
     <style>
-    .stApp { background: radial-gradient(circle, #0f172a 0%, #020617 100%); color: #e2e8f0; }
-    [data-testid="stSidebar"] { background-color: rgba(15, 23, 42, 0.95) !important; border-right: 1px solid #1e293b; }
+    .stApp {{
+        background: url("{st.session_state.bg_url}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+    /* Làm mờ các panel để tạo hiệu ứng Glassmorphism */
+    [data-testid="stSidebar"], .stMarkdown, .stChatFloatingInputContainer, .block-container {{
+        background: rgba(15, 23, 42, 0.7) !important;
+        backdrop-filter: blur(12px);
+        border-radius: 15px;
+        color: white !important;
+    }}
+    .stChatMessage {{ background: rgba(30, 41, 59, 0.6) !important; border: 1px solid rgba(255,255,255,0.1); }}
     
-    /* Hiệu ứng thẻ App */
-    .card {
-        background: rgba(30, 41, 59, 0.5);
-        border: 1px solid #334155;
+    /* Hiệu ứng Desktop Icons */
+    .icon-card {{
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
         padding: 20px;
-        border-radius: 16px;
+        border-radius: 20px;
         text-align: center;
-        transition: all 0.3s ease;
-        cursor: pointer;
-    }
-    .card:hover {
-        border-color: #38bdf8;
-        transform: translateY(-5px);
-        box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.3);
-    }
-    
-    /* Bong bóng chat */
-    .user-msg { background: #0284c7; color: white; padding: 12px; border-radius: 15px 15px 0 15px; margin: 10px 0 10px auto; width: fit-content; max-width: 80%; }
-    .ai-msg { background: #1e293b; border-left: 4px solid #38bdf8; padding: 12px; border-radius: 15px 15px 15px 0; margin: 10px auto 10px 0; width: fit-content; max-width: 80%; }
+        transition: 0.4s;
+    }}
+    .icon-card:hover {{ background: rgba(56, 189, 248, 0.3); transform: scale(1.05); }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. KHỞI TẠO DỮ LIỆU ---
-if 'db_users' not in st.session_state:
-    st.session_state.db_users = {"admin": "123", "user": "123"} # Tài khoản mặc định
-
-if 'logged_in' not in st.session_state:
-    st.session_state.update({
-        'logged_in': False,
-        'user_role': None,
-        'user_name': None,
-        'page': 'login',
-        'messages': []
-    })
-
-# --- 3. LÕI XỬ LÝ AI ---
-def nexus_ai_engine(prompt):
+# --- 2. LOGIC AI ---
+def get_ai_response(prompt):
     try:
         keys = st.secrets["GROQ_KEYS"]
         client = OpenAI(api_key=random.choice(keys), base_url="https://api.groq.com/openai/v1")
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            stream=True
-        )
-        return response, "Groq"
+        return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], stream=True), "Groq"
     except:
         try:
             genai.configure(api_key=st.secrets["GEMINI_KEY"])
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            return model.generate_content(prompt, stream=True), "Gemini"
-        except:
-            return None, None
+            return genai.GenerativeModel('gemini-1.5-flash').generate_content(prompt, stream=True), "Gemini"
+        except: return None, None
 
-# --- 4. CÁC MÀN HÌNH ---
+# --- 3. QUẢN LÝ PHIÊN ---
+if 'logged_in' not in st.session_state:
+    st.session_state.update({'logged_in': False, 'user': None, 'role': 'Guest', 'page': 'auth', 'history': []})
 
-# A. TRANG ĐĂNG NHẬP / ĐĂNG KÝ
-def show_auth():
-    st.title("🌐 NEXUS QUANTUM LOGIN")
-    tab1, tab2, tab3 = st.tabs(["🔐 Đăng nhập", "📝 Đăng ký", "👤 Khách"])
-    
-    with tab1:
-        u = st.text_input("Username", key="login_u")
-        p = st.text_input("Password", type="password", key="login_p")
-        if st.button("Xác thực hệ thống"):
-            if u in st.session_state.db_users and st.session_state.db_users[u] == p:
-                st.session_state.update({'logged_in': True, 'user_role': 'Member', 'user_name': u, 'page': 'dashboard'})
+# --- 4. CÁC PHÂN VÙNG CHỨC NĂNG ---
+
+# A. MÀN HÌNH KHÓA (AUTH)
+if not st.session_state.logged_in:
+    st.title("🛡️ NEXUS GATEWAY")
+    col1, col2 = st.columns(2)
+    with col1:
+        u = st.text_input("Username")
+        p = st.text_input("Password", type="password")
+        if st.button("Xâm nhập hệ thống"):
+            if u == "admin" and p == "123":
+                st.session_state.update({'logged_in': True, 'user': u, 'role': 'Administrator', 'page': 'desktop'})
                 st.rerun()
-            else: st.error("Sai thông tin!")
-
-    with tab2:
-        new_u = st.text_input("Tên tài khoản mới")
-        new_p = st.text_input("Mật khẩu mới", type="password")
-        if st.button("Tạo tài khoản"):
-            if new_u and new_p:
-                st.session_state.db_users[new_u] = new_p
-                st.success("Đăng ký thành công! Hãy quay lại Đăng nhập.")
-            else: st.warning("Không được để trống.")
-
-    with tab3:
-        st.write("Truy cập với quyền hạn hạn chế.")
-        if st.button("Vào chế độ Khách"):
-            st.session_state.update({'logged_in': True, 'user_role': 'Guest', 'user_name': 'Guest_User', 'page': 'dashboard'})
+            else: st.error("Từ chối truy cập!")
+    with col2:
+        if st.button("Tiếp tục với quyền Khách"):
+            st.session_state.update({'logged_in': True, 'user': 'Guest', 'role': 'Guest', 'page': 'desktop'})
             st.rerun()
 
-# B. TRANG CHỦ (DASHBOARD)
-def show_dashboard():
-    st.title(f"🚀 Chào mừng, {st.session_state.user_name}")
-    st.caption(f"Quyền hạn: {st.session_state.user_role}")
-    
-    cols = st.columns(3)
-    with cols[0]:
-        st.markdown('<div class="card"><h2>🤖</h2><h3>Neural Chat</h3><p>Trò chuyện với AI Llama 3.3</p></div>', unsafe_allow_html=True)
-        if st.button("Mở Terminal"): st.session_state.page = 'chat'; st.rerun()
-    with cols[1]:
-        st.markdown('<div class="card"><h2>📊</h2><h3>Data Analys</h3><p>Phân tích dữ liệu (Sắp ra mắt)</p></div>', unsafe_allow_html=True)
-        st.button("🔒 Locked", disabled=True, key="b1")
-    with cols[2]:
-        st.markdown('<div class="card"><h2>⚙️</h2><h3>Settings</h3><p>Cấu hình Nexus OS</p></div>', unsafe_allow_html=True)
-        if st.button("Mở Cấu hình"): st.session_state.page = 'settings'; st.rerun()
-
-# C. TRANG CHAT AI
-def show_chat():
-    st.subheader("💬 Nexus Neural Terminal")
-    for m in st.session_state.messages:
-        role = "user-msg" if m["role"] == "user" else "ai-msg"
-        st.markdown(f'<div class="{role}">{m["content"]}</div>', unsafe_allow_html=True)
-
-    if prompt := st.chat_input("Gửi lệnh cho Nexus..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        st.rerun()
-
-    if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
-        with st.chat_message("assistant"):
-            res_area = st.empty()
-            full_text = ""
-            resp, engine = nexus_ai_engine(st.session_state.messages[-1]["content"])
-            if resp:
-                if engine == "Groq":
-                    for chunk in resp:
-                        if chunk.choices[0].delta.content:
-                            full_text += chunk.choices[0].delta.content
-                            res_area.markdown(full_text)
-                else:
-                    for chunk in resp:
-                        full_text += chunk.text
-                        res_area.markdown(full_text)
-                st.session_state.messages.append({"role": "assistant", "content": full_text})
-            else:
-                st.error("Lỗi kết nối!")
-
-# --- 5. ĐIỀU HƯỚNG CHÍNH ---
-if not st.session_state.logged_in:
-    show_auth()
+# B. GIAO DIỆN CHÍNH (SIDEBAR & DESKTOP)
 else:
     with st.sidebar:
-        st.image("https://cdn-icons-png.flaticon.com/512/2103/2103633.png", width=80)
-        st.title("NEXUS MENU")
-        if st.button("🏠 Trang chủ"): st.session_state.page = 'dashboard'; st.rerun()
-        if st.button("🤖 AI Chat"): st.session_state.page = 'chat'; st.rerun()
+        st.header("💠 Nexus OS")
+        st.write(f"👤 {st.session_state.user} ({st.session_state.role})")
         st.divider()
-        if st.button("🚪 Đăng xuất"):
+        if st.button("🏠 Màn hình chính"): st.session_state.page = 'desktop'; st.rerun()
+        if st.button("🤖 Neural Chat"): st.session_state.page = 'chat'; st.rerun()
+        if st.button("⚙️ Cài đặt hệ thống"): st.session_state.page = 'settings'; st.rerun()
+        st.divider()
+        if st.button("🔴 Logout"): 
             st.session_state.logged_in = False
             st.rerun()
 
-    if st.session_state.page == 'dashboard': show_dashboard()
-    elif st.session_state.page == 'chat': show_chat()
-    elif st.session_state.page == 'settings': st.write("Cài đặt hệ thống đang được cập nhật...")
+    # TRANG DESKTOP
+    if st.session_state.page == 'desktop':
+        st.title("🖥️ Workspace")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown('<div class="icon-card"><h1>🤖</h1><h3>Chat AI</h3></div>', unsafe_allow_html=True)
+            if st.button("Mở Chat"): st.session_state.page = 'chat'; st.rerun()
+        with c2:
+            st.markdown('<div class="icon-card"><h1>⚙️</h1><h3>Settings</h3></div>', unsafe_allow_html=True)
+            if st.button("Mở Cài đặt"): st.session_state.page = 'settings'; st.rerun()
+        with c3:
+            st.markdown('<div class="icon-card"><h1>📦</h1><h3>Apps</h3></div>', unsafe_allow_html=True)
+            st.button("Soon...")
+
+    # TRANG CHAT
+    elif st.session_state.page == 'chat':
+        st.title("💬 Neural Terminal")
+        for m in st.session_state.history:
+            with st.chat_message(m["role"]): st.write(m["content"])
+        
+        if p := st.chat_input("Nhập lệnh..."):
+            st.session_state.history.append({"role": "user", "content": p})
+            with st.chat_message("user"): st.write(p)
+            with st.chat_message("assistant"):
+                res_box = st.empty()
+                full = ""
+                resp, eng = get_ai_response(p)
+                if resp:
+                    for chunk in resp:
+                        txt = chunk.choices[0].delta.content if eng == "Groq" else chunk.text
+                        if txt: full += txt; res_box.markdown(full + "▌")
+                    res_box.markdown(full)
+                    st.session_state.history.append({"role": "assistant", "content": full})
+                    st.caption(f"Engine: {eng}")
+
+    # TRANG CÀI ĐẶT
+    elif st.session_state.page == 'settings':
+        st.title("⚙️ System Configuration")
+        st.write("### 🖼️ Wallpaper")
+        new_bg = st.text_input("Dán URL ảnh nền mới:", st.session_state.bg_url)
+        if st.button("Cập nhật hình nền"):
+            st.session_state.bg_url = new_bg
+            st.rerun()
+        
+        st.divider()
+        st.write("### 🛠️ Hardware Info")
+        st.info(f"API Pool: 3 Groq Keys Active")
+        st.warning(f"Quyền hạn của bạn: {st.session_state.role}")
