@@ -2,132 +2,150 @@ import streamlit as st
 from openai import OpenAI
 import google.generativeai as genai
 import random
+import time
 
-# --- CÀI ĐẶT GIAO DIỆN ---
-st.set_page_config(page_title="Hệ điều hành Nexus", layout="wide")
+# --- 1. THIẾT LẬP GIAO DIỆN TITAN DARK (UI GỐC) ---
+st.set_page_config(page_title="Nexus OS V54", layout="wide", page_icon="💠")
 
-# Thiết lập hình nền và phong cách "kính mờ"
-if 'hinh_nen' not in st.session_state:
-    st.session_state.hinh_nen = "https://wallpaperaccess.com/full/1155013.jpg"
+# Khởi tạo hình nền
+if 'bg' not in st.session_state:
+    st.session_state.bg = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070"
 
+# CSS chuẩn Titan Dark
 st.markdown(f"""
     <style>
     .stApp {{
-        background: url("{st.session_state.hinh_nen}");
+        background: linear-gradient(rgba(5, 7, 10, 0.8), rgba(5, 7, 10, 0.8)), url("{st.session_state.bg}");
         background-size: cover;
+        color: #ffffff !important;
     }}
-    .stMarkdown, .stButton, [data-testid="stSidebar"] {{
-        background: rgba(0, 0, 0, 0.7) !important;
-        color: white !important;
-        border-radius: 10px;
+    [data-testid="stSidebar"] {{
+        background-color: #0a0c10 !important;
+        border-right: 1px solid #1e2630;
     }}
+    .chat-user {{
+        background: #0084ff; color: white; padding: 12px 16px;
+        border-radius: 15px 15px 0 15px; margin: 8px 0 8px auto;
+        max-width: 80%; width: fit-content;
+    }}
+    .chat-ai {{
+        background: #1c1f26; color: #e0e0e0; padding: 12px 16px;
+        border-radius: 15px 15px 15px 0; margin: 8px auto 8px 0;
+        max-width: 80%; width: fit-content; border-left: 3px solid #00d2ff;
+    }}
+    .stButton>button {{
+        width: 100%; border-radius: 8px; background: #1c1f26; 
+        color: white; border: 1px solid #1e2630;
+    }}
+    .stButton>button:hover {{ border-color: #00d2ff; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- QUẢN LÝ TÀI KHOẢN ---
-if 'danh_sach_user' not in st.session_state:
-    st.session_state.danh_sach_user = {"admin": "8888"} # Tài khoản chủ lực
+# --- 2. HỆ THỐNG TÀI KHOẢN (BÍ MẬT) ---
+if 'users' not in st.session_state:
+    st.session_state.users = {"admin": "8888"}  # Tài khoản chủ lực
 
-if 'dang_nhap_chua' not in st.session_state:
-    st.session_state.dang_nhap_chua = False
-    st.session_state.ten_user = ""
-    st.session_state.quyen = "Khách"
-    st.session_state.tin_nhan = []
+if 'auth' not in st.session_state:
+    st.session_state.update({
+        'ok': False, 'user': None, 'role': 'Guest', 'page': 'home', 'chat_log': []
+    })
 
-# --- HÀM CHAT AI ---
-def goi_ai_tra_loi(cau_hoi):
+# --- 3. LÕI XỬ LÝ AI ---
+def call_ai(p):
     try:
         keys = st.secrets["GROQ_KEYS"]
         client = OpenAI(api_key=random.choice(keys), base_url="https://api.groq.com/openai/v1")
-        return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": cau_hoi}], stream=True), "Groq"
+        return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": p}], stream=True), "Groq"
     except:
         try:
             genai.configure(api_key=st.secrets["GEMINI_KEY"])
-            return genai.GenerativeModel('gemini-1.5-flash').generate_content(cau_hoi, stream=True), "Gemini"
+            return genai.GenerativeModel('gemini-1.5-flash').generate_content(p, stream=True), "Gemini"
         except: return None, None
 
-# --- GIAO DIỆN ĐĂNG NHẬP / ĐĂNG KÝ ---
-if not st.session_state.dang_nhap_chua:
-    st.title("🛡️ CỔNG VÀO NEXUS")
-    lua_chon = st.radio("Bạn muốn làm gì?", ["Đăng nhập", "Đăng ký tài khoản mới", "Dùng thử (Khách)"], horizontal=True)
+# --- 4. GIAO DIỆN ĐĂNG NHẬP / ĐĂNG KÝ ---
+if not st.session_state.ok:
+    st.title("💠 NEXUS OS GATEWAY")
+    col1, col2 = st.columns(2)
     
-    if lua_chon == "Đăng nhập":
+    with col1:
+        st.subheader("🔐 Đăng nhập")
         u = st.text_input("Tên đăng nhập")
         p = st.text_input("Mật khẩu", type="password")
-        if st.button("Vào hệ thống"):
-            if u in st.session_state.danh_sach_user and st.session_state.danh_sach_user[u] == p:
-                st.session_state.dang_nhap_chua = True
-                st.session_state.ten_user = u
-                st.session_state.quyen = "Chủ phòng" if u == "admin" else "Thành viên"
+        if st.button("Truy cập"):
+            if u in st.session_state.users and st.session_state.users[u] == p:
+                st.session_state.update({'ok': True, 'user': u, 'role': 'Admin' if u == 'admin' else 'Member'})
                 st.rerun()
-            else: st.error("Sai tên hoặc mật khẩu rồi bạn ơi!")
+            else: st.error("Sai thông tin!")
             
-    elif lua_chon == "Đăng ký tài khoản mới":
-        new_u = st.text_input("Chọn tên muốn đặt")
-        new_p = st.text_input("Chọn mật khẩu", type="password")
-        if st.button("Tạo tài khoản ngay"):
-            if new_u in st.session_state.danh_sach_user: st.error("Tên này có người dùng rồi!")
-            elif new_u and new_p:
-                st.session_state.danh_sach_user[new_u] = new_p
-                st.success("Đã tạo xong! Giờ qua tab Đăng nhập để vào nhé.")
-            else: st.warning("Đừng để trống ô nào cả.")
-            
-    else:
-        if st.button("Vào xem chơi (Khách)"):
-            st.session_state.dang_nhap_chua = True
-            st.session_state.ten_user = "Khách vãng lai"
-            st.session_state.quyen = "Khách"
-            st.rerun()
+    with col2:
+        st.subheader("📝 Tạo tài khoản")
+        nu = st.text_input("Tên mới")
+        np = st.text_input("Mật khẩu mới", type="password")
+        if st.button("Đăng ký ngay"):
+            if nu and np:
+                st.session_state.users[nu] = np
+                st.success("Xong! Đăng nhập đi bạn.")
+            else: st.warning("Điền đủ vào chứ!")
+    
+    if st.button("👤 Vào xem với quyền Khách"):
+        st.session_state.update({'ok': True, 'user': 'Khách', 'role': 'Guest'})
+        st.rerun()
 
-# --- GIAO DIỆN SAU KHI VÀO TRONG ---
+# --- 5. GIAO DIỆN CHÍNH (SIDEBAR ĐIỀU HƯỚNG) ---
 else:
     with st.sidebar:
-        st.title(f"Chào, {st.session_state.ten_user}")
-        st.write(f"Cấp bậc: {st.session_state.quyen}")
+        st.title("💠 NEXUS OS")
+        st.write(f"Chào, **{st.session_state.user}**")
+        st.caption(f"Quyền hạn: {st.session_state.role}")
         st.divider()
-        menu = st.selectbox("Chọn chức năng", ["Màn hình chính", "Chat với AI", "Khu vực bí mật 🔐", "Cài đặt"])
-        if st.button("Thoát hệ thống"):
-            st.session_state.dang_nhap_chua = False
-            st.rerun()
+        if st.button("🏠 Màn hình chính"): st.session_state.page = 'home'; st.rerun()
+        if st.button("🤖 Trợ lý AI"): st.session_state.page = 'chat'; st.rerun()
+        if st.button("🤫 Khu vực bí mật"): st.session_state.page = 'vault'; st.rerun()
+        if st.button("⚙️ Cài đặt"): st.session_state.page = 'settings'; st.rerun()
+        st.divider()
+        if st.button("🔴 Thoát"): st.session_state.ok = False; st.rerun()
 
-    if menu == "Màn hình chính":
-        st.title("🏠 BẢNG ĐIỀU KHIỂN")
-        st.write(f"Hôm nay bạn thế nào, {st.session_state.ten_user}?")
-        col1, col2 = st.columns(2)
-        col1.metric("Số người đang online", random.randint(1, 100))
-        col2.metric("Trạng thái API", "Đang chạy tốt ✅")
+    # MÀN HÌNH CHỦ
+    if st.session_state.page == 'home':
+        st.title(f"Xin chào {st.session_state.user}!")
+        st.info("Hệ thống Titan Dark đã sẵn sàng.")
+        st.write("Dùng menu bên trái để bắt đầu khám phá.")
 
-    elif menu == "Chat với AI":
-        st.title("🤖 TRỢ LÝ THÔNG MINH")
-        for m in st.session_state.tin_nhan:
-            with st.chat_message(m["role"]): st.write(m["content"])
-        
-        if cau_hoi := st.chat_input("Hỏi AI bất cứ điều gì..."):
-            st.session_state.tin_nhan.append({"role": "user", "content": cau_hoi})
-            with st.chat_message("user"): st.write(cau_hoi)
-            with st.chat_message("assistant"):
+    # MÀN HÌNH CHAT
+    elif st.session_state.page == 'chat':
+        st.title("🤖 AI Terminal")
+        for m in st.session_state.chat_log:
+            role = "chat-user" if m["role"] == "user" else "chat-ai"
+            st.markdown(f'<div class="{role}">{m["content"]}</div>', unsafe_allow_html=True)
+
+        if p := st.chat_input("Hỏi gì đó..."):
+            st.session_state.chat_log.append({"role": "user", "content": p})
+            st.markdown(f'<div class="chat-user">{p}</div>', unsafe_allow_html=True)
+            with st.empty():
                 box = st.empty(); full = ""
-                tra_loi, kieu = goi_ai_tra_loi(cau_hoi)
-                if tra_loi:
-                    for chunk in tra_loi:
-                        text = chunk.choices[0].delta.content if kieu == "Groq" else chunk.text
-                        if text: full += text; box.markdown(full + "▌")
-                    box.markdown(full)
-                    st.session_state.tin_nhan.append({"role": "assistant", "content": full})
+                res, eng = call_ai(p)
+                if res:
+                    for chunk in res:
+                        t = chunk.choices[0].delta.content if eng == "Groq" else chunk.text
+                        if t: full += t; box.markdown(f'<div class="chat-ai">{full} ▌</div>', unsafe_allow_html=True)
+                    box.markdown(f'<div class="chat-ai">{full}</div>', unsafe_allow_html=True)
+                    st.session_state.chat_log.append({"role": "assistant", "content": full})
 
-    elif menu == "Khu vực bí mật 🔐":
-        if st.session_state.quyen != "Chủ phòng":
-            st.error("⚠️ Lỗiii! Chỗ này chỉ dành cho Chủ phòng (Admin). Bạn không đủ tuổi!")
+    # MÀN HÌNH BÍ MẬT
+    elif st.session_state.page == 'vault':
+        if st.session_state.role != 'Admin':
+            st.error("⛔ Cảnh báo: Bạn không có quyền Admin để xem khu vực này!")
         else:
-            st.title("🕵️ PHÒNG BÍ MẬT")
-            st.write("Đây là nơi chứa các bí mật của bạn...")
-            st.text_area("Ghi chú bí mật của bạn:", "Dán thông tin nhạy cảm vào đây...")
-            st.write("Danh sách mật khẩu lưu trữ: 123456, abcdef, ...")
+            st.title("🤫 PHÒNG BÍ MẬT (Chỉ Admin)")
+            st.write("Nơi lưu trữ các file nhạy cảm và ghi chú ẩn.")
+            st.text_area("Nhập nhật ký bí mật của bạn:", "Hôm nay tôi đã...")
+            st.warning("Mọi dữ liệu ở đây sẽ mất khi Refresh trình duyệt (Bản Pro sẽ lưu vĩnh viễn).")
 
-    elif menu == "Cài đặt":
-        st.title("⚙️ CÀI ĐẶT HỆ THỐNG")
-        st.subheader("Đổi hình nền")
-        link = st.text_input("Dán link ảnh bạn thích vào đây:", st.session_state.hinh_nen)
-        if st.button("Đổi ngay và luôn"):
-            st.session_state.hinh_nen = link
+    # MÀN HÌNH CÀI ĐẶT
+    elif st.session_state.page == 'settings':
+        st.title("⚙️ Cài đặt")
+        st.subheader("Đổi diện mạo")
+        new_bg = st.text_input("Link ảnh nền:", st.session_state.bg)
+        if st.button("Lưu thay đổi"):
+            st.session_state.bg = new_bg
             st.rerun()
