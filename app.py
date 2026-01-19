@@ -2,128 +2,116 @@ import streamlit as st
 from openai import OpenAI
 import google.generativeai as genai
 import random
-import requests
-import io
-from PIL import Image
 
-# --- 1. Cấu hình hệ thống & Trí nhớ ---
-st.set_page_config(page_title="Nexus OS V55.2", layout="wide")
+# --- 1. CẤU HÌNH HỆ THỐNG & VAI DIỄN ---
+st.set_page_config(page_title="Nexus OS V55.3 - Case File", layout="wide")
 
-# Khởi tạo bộ nhớ tóm tắt nếu chưa có
+# Hệ thống vai diễn mặc định (System Message)
+DETECTIVE_ROLE = "Bạn là một Cảnh sát chuyên nghiệp đang hỗ trợ Thám tử (người dùng). Nhiệm vụ của bạn là cung cấp báo cáo, hồ sơ và trả lời mọi câu hỏi điều tra một cách nghiêm túc, chi tiết."
+
 if 'chat_log' not in st.session_state: st.session_state.chat_log = []
-if 'summary' not in st.session_state: st.session_state.summary = ""
-if 'bg' not in st.session_state: st.session_state.bg = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072"
+if 'summary' not in st.session_state: st.session_state.summary = "Chưa có tóm tắt vụ án."
+if 'case_status' not in st.session_state: st.session_state.case_status = "Đang mở rộng điều tra"
 
-# --- 2. Giao diện Tương phản cao ---
+# --- 2. GIAO DIỆN TƯƠNG PHẢN CAO ---
 st.markdown(f"""
     <style>
     .stApp {{
-        background: linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.65)), url("{st.session_state.bg}");
-        background-size: cover; background-attachment: fixed;
+        background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url("https://images.unsplash.com/photo-1505816014357-96b5ff457e9a?q=80&w=2070");
+        background-size: cover;
     }}
     .stChatMessage {{
-        background: rgba(20, 25, 35, 0.9) !important; /* Độ đậm cao để rõ chữ */
-        border: 1px solid #00d2ff;
-        border-radius: 15px !important;
-        color: white !important;
-        margin-bottom: 10px;
+        background: rgba(15, 20, 30, 0.95) !important;
+        border-left: 5px solid #00d2ff !important;
+        border-radius: 10px !important;
     }}
-    /* Nút gợi ý xịn */
     .stButton button {{
+        width: 100%;
         background: rgba(0, 210, 255, 0.1);
         border: 1px solid #00d2ff;
         color: #00d2ff;
-        border-radius: 20px;
-        transition: 0.3s;
-    }}
-    .stButton button:hover {{
-        background: #00d2ff;
-        color: black;
-    }}
-    h1, h2, h3, p, b {{
-        color: #ffffff !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,1);
     }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. Lõi xử lý AI (Tóm tắt & Phản hồi) ---
-def get_ai_response(prompt, context_summary=""):
-    """Gửi kèm tóm tắt để AI luôn nhớ mình đang nói về gì"""
-    full_prompt = f"Bối cảnh trước đó: {context_summary}\n\nNgười dùng: {prompt}"
+# --- 3. LÕI XỬ LÝ AI ---
+def get_ai_response(prompt, history_summary):
+    # Kết hợp Vai diễn + Tóm tắt + Câu hỏi mới
+    context = f"{DETECTIVE_ROLE}\n\nTóm tắt hồ sơ trước đó: {history_summary}\n\nThám tử hỏi: {prompt}"
     
-    keys = list(st.secrets["GROQ_KEYS"])
-    random.shuffle(keys)
-    for key in keys:
+    try:
+        keys = list(st.secrets["GROQ_KEYS"])
+        random.shuffle(keys)
+        client = OpenAI(api_key=keys[0], base_url="https://api.groq.com/openai/v1")
+        return client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": context}],
+            stream=True
+        ), "Groq"
+    except:
         try:
-            client = OpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
-            return client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": full_prompt}],
-                stream=True
-            ), "Groq"
-        except: continue
-    
-    genai.configure(api_key=st.secrets["GEMINI_KEY"])
-    return genai.GenerativeModel('gemini-1.5-flash').generate_content(full_prompt, stream=True), "Gemini"
+            genai.configure(api_key=st.secrets["GEMINI_KEY"])
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            return model.generate_content(context, stream=True), "Gemini"
+        except Exception as e:
+            return None, str(e)
 
 def update_summary():
-    """Tự động tóm tắt khi chat đạt trên 5 câu để tiết kiệm bộ nhớ"""
-    if len(st.session_state.chat_log) > 5:
-        history = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.chat_log[-4:]])
-        summary_prompt = f"Hãy tóm tắt ngắn gọn cuộc trò chuyện này trong 2 câu để tôi ghi nhớ: {history}"
-        # Gọi Gemini để tóm tắt nhanh
-        genai.configure(api_key=st.secrets["GEMINI_KEY"])
-        res = genai.GenerativeModel('gemini-1.5-flash').generate_content(summary_prompt)
-        st.session_state.summary = res.text
+    """Tóm tắt vụ án để ghi nhớ vĩnh viễn - Có bẫy lỗi NotFound"""
+    if len(st.session_state.chat_log) > 4:
+        try:
+            history = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.chat_log[-4:]])
+            sum_p = f"Tóm tắt các tình tiết chính của vụ án từ đối thoại này (ngắn gọn): {history}"
+            genai.configure(api_key=st.secrets["GEMINI_KEY"])
+            res = genai.GenerativeModel('gemini-1.5-flash').generate_content(sum_p)
+            st.session_state.summary = res.text
+        except:
+            pass # Nếu lỗi tóm tắt thì bỏ qua để không sập app
 
-# --- 4. Giao diện chính ---
+# --- 4. GIAO DIỆN ĐIỀU TRA ---
 def main():
     with st.sidebar:
-        st.title("💠 NEXUS OS V55.2")
-        st.write(f"🧠 Trí nhớ hiện tại: {st.session_state.summary[:50]}...")
-        if st.button("🗑️ Xóa trí nhớ"):
+        st.title("🚓 CƠ QUAN ĐIỀU TRA")
+        st.info(f"📁 Trạng thái: {st.session_state.case_status}")
+        st.markdown(f"**Hồ sơ ghi nhớ:**\n{st.session_state.summary}")
+        if st.button("🚨 Đóng hồ sơ (Reset)"):
             st.session_state.chat_log = []
-            st.session_state.summary = ""
+            st.session_state.summary = "Chưa có tóm tắt vụ án."
             st.rerun()
-        st.divider()
-        st.session_state.bg = st.text_input("Đổi hình nền:", st.session_state.bg)
 
-    st.title("🤖 Neural Terminal")
+    st.title("🕵️ Kho lưu trữ bằng chứng")
 
-    # Hiển thị Chat
+    # Hiển thị hội thoại
     for msg in st.session_state.chat_log:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Nút gợi ý chủ động
+    # Nút gợi ý nghiệp vụ
     if st.session_state.chat_log:
-        cols = st.columns(3)
-        suggestions = ["Giải thích rõ hơn", "Ví dụ cụ thể", "Viết code tính năng này"]
-        for i, sug in enumerate(suggestions):
-            if cols[i].button(f"💡 {sug}"):
-                process_chat(sug)
+        c1, c2, c3 = st.columns(3)
+        if c1.button("🔍 Khám nghiệm hiện trường"): process_chat("Cảnh sát cho tôi xem danh sách vật chứng tại hiện trường.")
+        if c2.button("👥 Thẩm vấn nghi phạm"): process_chat("Hãy triệu tập nghi phạm chính để tôi thẩm vấn.")
+        if c3.button("🧪 Giám định pháp y"): process_chat("Kết quả giám định mảnh vải/dấu tay thế nào rồi?")
 
-    # Input người dùng
-    if p := st.chat_input("Hỏi Nexus bất cứ điều gì..."):
+    # Input
+    if p := st.chat_input("Nhập lệnh điều tra..."):
         process_chat(p)
 
 def process_chat(user_input):
     st.session_state.chat_log.append({"role": "user", "content": user_input})
-    
     with st.chat_message("assistant"):
         res, provider = get_ai_response(user_input, st.session_state.summary)
-        box = st.empty(); full = ""
         if res:
+            box = st.empty(); full = ""
             for chunk in res:
-                content = chunk.choices[0].delta.content if provider == "Groq" else chunk.text
-                if content:
-                    full += content
-                    box.markdown(full + "▌")
+                t = chunk.choices[0].delta.content if provider == "Groq" else chunk.text
+                if t: full += t; box.markdown(full + "▌")
             box.markdown(full)
             st.session_state.chat_log.append({"role": "assistant", "content": full})
-            update_summary() # Cập nhật trí nhớ sau mỗi lần chat
+            update_summary()
             st.rerun()
+        else:
+            st.error("⚠️ Mất liên lạc với trung tâm chỉ huy (API Error).")
 
 if __name__ == "__main__":
     main()
