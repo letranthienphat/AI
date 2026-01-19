@@ -3,230 +3,206 @@ from openai import OpenAI
 import time
 from datetime import datetime
 
-# --- 1. CẤU HÌNH TITAN OS (DARK MODE ENFORCED) ---
-st.set_page_config(page_title="Nexus Titan OS v300", layout="wide", page_icon="🪐")
+# --- 1. CẤU HÌNH HỆ THỐNG & GIAO DIỆN DARK MODE ---
+st.set_page_config(page_title="Nexus OS v400", layout="wide", page_icon="🛡️")
 
 st.markdown("""
     <style>
-    /* ÉP BUỘC CHẾ ĐỘ TỐI - KHÔNG THỂ BỊ LỖI TRẮNG/TRẮNG */
+    /* 1. Giao diện tối hoàn toàn (Fix lỗi trắng chữ) */
     .stApp {
-        background: linear-gradient(180deg, #0b0f19 0%, #16222A 100%) !important;
+        background-color: #0E1117 !important;
         color: #FFFFFF !important;
     }
     
-    /* Typography */
-    h1, h2, h3, h4, h5, p, div, span, label { color: #FFFFFF !important; }
-    
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #050505 !important;
-        border-right: 1px solid #333;
+    /* 2. Fix lỗi nút bấm màn hình chính */
+    div.stButton > button {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid #333;
+        background-color: #262730;
+        color: white;
+        transition: 0.3s;
+        font-weight: bold;
+        padding: 20px 10px; /* Tăng độ cao bằng padding thay vì height cố định */
+    }
+    div.stButton > button:hover {
+        border-color: #00d2ff;
+        color: #00d2ff;
+        background-color: #1a1c24;
     }
 
-    /* App Icon Grid */
-    .app-grid {
-        display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 20px;
-    }
-    .app-icon {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 20px; padding: 20px; text-align: center;
-        cursor: pointer; transition: 0.3s; height: 150px;
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
-    }
-    .app-icon:hover {
-        background: rgba(0, 200, 255, 0.2); border: 1px solid #00c8ff;
-        transform: translateY(-5px);
-    }
-    .app-emoji { font-size: 40px; margin-bottom: 10px; }
-    .app-name { font-weight: bold; font-size: 16px; color: #fff; }
-
-    /* Chat Bubbles */
+    /* 3. Bong bóng chat giao diện mới */
     .chat-user {
-        background: #007bff; color: white; padding: 10px 15px;
-        border-radius: 15px 15px 0 15px; margin: 5px 0; text-align: right;
-        margin-left: auto; max-width: 70%;
+        background: linear-gradient(135deg, #007bff, #00d2ff);
+        color: white; padding: 12px 18px;
+        border-radius: 18px 18px 0 18px;
+        margin: 5px 0 5px auto; /* Căn phải */
+        max-width: 80%; width: fit-content;
+        box-shadow: 0 2px 10px rgba(0,123,255,0.2);
     }
     .chat-ai {
-        background: #2b2b2b; color: #e0e0e0; padding: 10px 15px;
-        border-radius: 15px 15px 15px 0; margin: 5px 0; text-align: left;
-        border-left: 4px solid #00c8ff; max-width: 70%;
+        background: #2b2b2b; color: #e0e0e0;
+        padding: 12px 18px;
+        border-radius: 18px 18px 18px 0;
+        margin: 5px auto 5px 0; /* Căn trái */
+        max-width: 80%; width: fit-content;
+        border-left: 4px solid #00d2ff;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
     
-    /* Input Fields Fix */
-    input, textarea {
-        background-color: #1a1a1a !important; color: white !important;
-        border: 1px solid #444 !important;
-    }
+    /* 4. Ẩn menu mặc định của Streamlit */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. INIT SYSTEM STATE ---
-if 'system' not in st.session_state:
+# --- 2. KHỞI TẠO STATE (TRÁNH LỖI MẤT DỮ LIỆU) ---
+if 'init_v400' not in st.session_state:
     st.session_state.update({
-        'system': True, 'page': 'auth', 'user': None,
-        'messages': [{"role": "system", "content": "Bạn là Nexus, trợ lý ảo trong hệ điều hành Titan OS."}], 
-        'notes': [], 'feedbacks': [], 'admin_unlocked': False,
-        'logo_clicks': 0, 'ok_clicks': 0, 'blocked': False,
-        'settings': {'brightness': 80, 'vol': 50, 'ai_speed': 1.0}
+        'init_v400': True,
+        'page': 'auth', 
+        'user': 'Khách',
+        'messages': [],  # Lưu toàn bộ chat để hiển thị
+        'feedbacks': [],
+        'admin_unlocked': False,
+        'ok_clicks': 0,
+        'logo_clicks': 0,
+        'blocked': False
     })
 
+# Cấu hình Client AI
 client = OpenAI(api_key=st.secrets["GROQ_API_KEY"], base_url="https://api.groq.com/openai/v1")
 
-# --- 3. GLOBAL SIDEBAR (THANH ĐIỀU HƯỚNG BÊN TRÁI) ---
-# Sidebar luôn hiển thị để người dùng quay về bất cứ lúc nào
+# --- 3. SIDEBAR ĐIỀU HƯỚNG ---
 if st.session_state.page != 'auth':
     with st.sidebar:
-        st.markdown(f"### 👤 {st.session_state.user}")
+        st.markdown(f"### 👤 User: {st.session_state.user}")
         st.divider()
-        if st.button("🏠 MÀN HÌNH CHÍNH", use_container_width=True):
-            st.session_state.page = 'home'; st.rerun()
-        
-        st.markdown("### 📱 Ứng dụng chạy nền")
-        if st.button("🤖 AI Chat", use_container_width=True): st.session_state.page = 'chat'; st.rerun()
-        if st.button("📝 Ghi chú", use_container_width=True): st.session_state.page = 'notes'; st.rerun()
-        if st.button("⚙️ Cài đặt", use_container_width=True): st.session_state.page = 'settings'; st.rerun()
+        if st.button("🏠 TRANG CHỦ"): st.session_state.page = 'home'; st.rerun()
+        if st.button("🤖 CHAT AI"): st.session_state.page = 'chat'; st.rerun()
+        if st.button("⚙️ CÀI ĐẶT"): st.session_state.page = 'settings'; st.rerun()
         
         st.divider()
-        st.markdown("### 🗂 Lịch sử phiên")
-        with st.expander("Xem nhật ký nhanh"):
-             for m in st.session_state.messages:
-                 if m['role'] == 'user': st.caption(f"Bạn: {m['content'][:20]}...")
+        st.caption("Công cụ nhanh:")
+        if st.button("🗑️ Xóa lịch sử Chat"):
+            st.session_state.messages = []
+            st.toast("Đã dọn dẹp bộ nhớ!", icon="🧹")
+            st.rerun()
 
 # --- 4. TRANG ĐĂNG NHẬP (AUTH) ---
 if st.session_state.page == 'auth':
-    st.title("🪐 NEXUS TITAN OS")
-    st.write("Đăng nhập để khởi động hệ điều hành.")
-    
-    col1, col2 = st.columns(2)
-    with col1:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.title("🛡️ NEXUS LOGIN")
+        st.write("Hệ điều hành bảo mật v400")
+        
         name = st.text_input("Tên định danh:")
+        # Input password chuẩn
         pwd = st.text_input("Mật khẩu:", type="password")
-        if st.button("KHỞI ĐỘNG (ĐĂNG NHẬP)", type="primary"):
+        
+        c1, c2 = st.columns(2)
+        if c1.button("ĐĂNG NHẬP"):
             if name:
                 st.session_state.user = name
                 st.session_state.page = 'home'
                 st.rerun()
-    with col2:
-        st.info("Chế độ Khách (Guest Mode) không cần mật khẩu.")
-        if st.button("VÀO NHANH (KHÁCH)"):
-            st.session_state.user = "Guest"
+            else: st.error("Vui lòng nhập tên!")
+            
+        if c2.button("CHẾ ĐỘ KHÁCH"):
+            st.session_state.user = "Khách vãng lai"
             st.session_state.page = 'home'
             st.rerun()
 
-# --- 5. MÀN HÌNH CHÍNH (OS LAUNCHER) ---
+# --- 5. TRANG CHỦ (HOME DASHBOARD) ---
 elif st.session_state.page == 'home':
-    # Trigger Admin bí mật (Logo click)
-    c_head, _ = st.columns([1, 15])
-    if c_head.button("💠"):
+    # Trigger Admin ẩn (Click logo 10 lần)
+    c_logo, _ = st.columns([1, 10])
+    if c_logo.button("💠"):
         st.session_state.logo_clicks += 1
         if st.session_state.logo_clicks >= 10:
             st.session_state.page = 'admin_gate'; st.rerun()
-            
-    st.title(f"Xin chào, {st.session_state.user}")
-    st.write("Chọn một ứng dụng để bắt đầu:")
-    
-    # Lưới ứng dụng (Grid)
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        if st.button("🤖\nTRỢ LÝ AI", use_container_width=True, height=120): st.session_state.page = 'chat'; st.rerun()
-    with c2:
-        if st.button("📝\nGHI CHÚ", use_container_width=True, height=120): st.session_state.page = 'notes'; st.rerun()
-    with c3:
-        if st.button("⚙️\nCÀI ĐẶT", use_container_width=True, height=120): st.session_state.page = 'settings'; st.rerun()
-    with c4:
-        if st.button("📩\nPHẢN HỒI", use_container_width=True, height=120): st.session_state.page = 'feedback'; st.rerun()
-    
-    st.write("") # Spacer
-    c5, c6, c7, c8 = st.columns(4)
-    with c5:
-        if st.button("🧮\nMÁY TÍNH", use_container_width=True, height=120): st.warning("App Máy tính đang cập nhật...")
-    with c6:
-        if st.button("📁\nFILE", use_container_width=True, height=120): st.warning("Trình quản lý file đang xây dựng...")
 
-# --- 6. ỨNG DỤNG CHAT (AI CORE - FIXED) ---
+    st.title("📱 Màn hình chính")
+    st.markdown("---")
+
+    # Lưới ứng dụng (Grid Layout)
+    # Dùng st.columns chuẩn để không bị vỡ giao diện
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info("🤖 **TRỢ LÝ AI**")
+        if st.button("Mở Chatbot AI"): st.session_state.page = 'chat'; st.rerun()
+        
+        st.warning("📩 **PHẢN HỒI**")
+        if st.button("Gửi ý kiến"): st.session_state.page = 'feedback'; st.rerun()
+
+    with col2:
+        st.success("⚙️ **CÀI ĐẶT**")
+        if st.button("Cấu hình hệ thống"): st.session_state.page = 'settings'; st.rerun()
+
+        st.error("🔐 **ADMIN**")
+        if st.button("Khu vực quản trị"): 
+            st.toast("Bạn cần nhập mã bí mật!", icon="🔒")
+
+# --- 6. CHAT AI (FIX LỖI RATE LIMIT & CRASH) ---
 elif st.session_state.page == 'chat':
-    st.title("🤖 Nexus Intelligence")
+    st.title("🤖 Nexus AI Core")
     
-    # 1. HIỂN THỊ LỊCH SỬ TRƯỚC (QUAN TRỌNG ĐỂ KHÔNG MẤT TIN NHẮN)
+    # Hiển thị lịch sử chat
     chat_container = st.container()
     with chat_container:
+        if not st.session_state.messages:
+            st.info("👋 Hãy nói 'Xin chào' để bắt đầu!")
+        
         for m in st.session_state.messages:
-            if m["role"] == "system": continue # Ẩn system prompt
             if m["role"] == "user":
                 st.markdown(f'<div class="chat-user">{m["content"]}</div>', unsafe_allow_html=True)
             else:
                 st.markdown(f'<div class="chat-ai">{m["content"]}</div>', unsafe_allow_html=True)
 
-    # 2. XỬ LÝ INPUT
-    prompt = st.chat_input("Nhập lệnh cho Nexus...")
-    
-    if prompt:
-        # Append User Msg
+    # Input (Luôn nằm dưới cùng)
+    if prompt := st.chat_input("Nhập tin nhắn..."):
+        # 1. Hiện tin nhắn người dùng ngay lập tức
         st.session_state.messages.append({"role": "user", "content": prompt})
-        # Rerun ngay lập tức để hiện tin nhắn user lên màn hình
-        st.rerun()
-
-    # 3. LOGIC TRẢ LỜI (CHẠY SAU KHI RERUN)
-    # Kiểm tra nếu tin nhắn cuối là user thì AI mới trả lời
-    if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
         with chat_container:
-            with st.empty():
+            st.markdown(f'<div class="chat-user">{prompt}</div>', unsafe_allow_html=True)
+
+        # 2. Xử lý AI trả lời (Có Try-Except chống sập)
+        with chat_container:
+            status_box = st.empty()
+            status_box.caption("🔄 AI đang suy nghĩ...")
+            
+            try:
                 full_res = ""
-                # GỬI TOÀN BỘ CONTEXT (LỊCH SỬ) CHO AI
+                # FIX LỖI RATE LIMIT: CHỈ GỬI 6 TIN NHẮN CUỐI CÙNG (CONTEXT WINDOW)
+                recent_history = st.session_state.messages[-6:] 
+                
                 stream = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
-                    messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
-                    stream=True
+                    messages=[{"role": m["role"], "content": m["content"]} for m in recent_history],
+                    stream=True,
+                    max_tokens=1024 # Giới hạn độ dài trả lời để tránh lỗi
                 )
+                
+                status_box.empty() # Xóa dòng 'đang suy nghĩ'
+                res_box = st.empty()
+                
                 for chunk in stream:
                     if chunk.choices[0].delta.content:
-                        full_res += chunk.choices[0].delta.content.replace("**", "")
-                        st.markdown(f'<div class="chat-ai">{full_res} ▌</div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="chat-ai">{full_res}</div>', unsafe_allow_html=True)
-        
-        st.session_state.messages.append({"role": "assistant", "content": full_res})
-        # Không rerun ở đây để tránh loop vô tận, stream đã hiển thị rồi.
+                        text = chunk.choices[0].delta.content.replace("**", "") # Xóa in đậm
+                        full_res += text
+                        res_box.markdown(f'<div class="chat-ai">{full_res} ▌</div>', unsafe_allow_html=True)
+                
+                res_box.markdown(f'<div class="chat-ai">{full_res}</div>', unsafe_allow_html=True)
+                st.session_state.messages.append({"role": "assistant", "content": full_res})
+                
+            except Exception as e:
+                status_box.error(f"⚠️ Lỗi kết nối AI: {str(e)}")
+                st.error("Server quá tải. Vui lòng bấm 'Xóa lịch sử Chat' ở Sidebar và thử lại.")
 
-# --- 7. ỨNG DỤNG CÀI ĐẶT (100 OPTIONS GIẢ LẬP) ---
-elif st.session_state.page == 'settings':
-    st.title("⚙️ Control Center")
-    
-    tab1, tab2, tab3 = st.tabs(["Hiển thị", "Âm thanh", "Hệ thống"])
-    
-    with tab1:
-        st.session_state.settings['brightness'] = st.slider("Độ sáng màn hình", 0, 100, st.session_state.settings['brightness'])
-        st.toggle("Chế độ bảo vệ mắt", True)
-        st.toggle("Hiệu ứng chuyển cảnh (Animations)", True)
-        st.select_slider("Kích thước font chữ", options=["Nhỏ", "Vừa", "Lớn", "Siêu lớn"], value="Vừa")
-    
-    with tab2:
-        st.session_state.settings['vol'] = st.slider("Âm lượng hệ thống", 0, 100, st.session_state.settings['vol'])
-        st.toggle("Âm thanh bàn phím", False)
-        st.toggle("Đọc tin nhắn tự động", True)
-    
-    with tab3:
-        st.write("Thông tin phiên bản: Titan OS v300 (Stable)")
-        st.write(f"User ID: {st.session_state.user}")
-        if st.button("Xóa dữ liệu bộ nhớ đệm"): st.success("Đã dọn dẹp RAM!")
-
-# --- 8. ỨNG DỤNG GHI CHÚ ---
-elif st.session_state.page == 'notes':
-    st.title("📝 Ghi chú cá nhân")
-    new_note = st.text_area("Nhập ghi chú mới:")
-    if st.button("Lưu ghi chú"):
-        st.session_state.notes.append(f"{datetime.now().strftime('%H:%M')}: {new_note}")
-        st.success("Đã lưu.")
-    
-    st.write("---")
-    st.write("Danh sách ghi chú:")
-    for n in st.session_state.notes:
-        st.info(n)
-
-# --- 9. ADMIN CỔNG SAU (BACKDOOR) ---
+# --- 7. ADMIN GATE (MẸO MỞ KHÓA) ---
 elif st.session_state.page == 'admin_gate':
-    st.title("🔐 Security Layer 4")
-    st.write("Nhập mã xác thực:")
+    st.title("🔐 Cổng bảo mật lớp 4")
+    st.write("Nhập mã PIN 4 số:")
     
     c = st.columns(4)
     v1 = c[0].text_input("", key="p1", max_chars=1)
@@ -234,7 +210,7 @@ elif st.session_state.page == 'admin_gate':
     v3 = c[2].text_input("", key="p3", max_chars=1)
     v4 = c[3].text_input("", key="p4", max_chars=1)
     
-    # TRICK: ĐỂ TRỐNG VÀ BẤM OK 4 LẦN
+    # MẸO: ĐỂ TRỐNG + BẤM OK 4 LẦN
     is_empty = not any([v1, v2, v3, v4])
     
     if st.button("XÁC NHẬN (OK)"):
@@ -242,23 +218,39 @@ elif st.session_state.page == 'admin_gate':
             st.session_state.ok_clicks += 1
             if st.session_state.ok_clicks >= 4:
                 st.session_state.admin_unlocked = True
+                st.rerun()
         else:
             st.error("Truy cập bị từ chối.")
 
     if st.session_state.admin_unlocked:
-        st.warning("⚠️ BẢNG ĐIỀU KHIỂN QUẢN TRỊ VIÊN")
-        st.write(f"Đang theo dõi người dùng: {st.session_state.user}")
-        st.json(st.session_state.messages) # Xem toàn bộ log chat dưới dạng JSON
-        if st.button("🛑 CHẶN THIẾT BỊ"):
-            st.session_state.blocked = True; st.rerun()
-    
-    if st.button("Thoát"):
-        st.session_state.page = 'home'; st.session_state.ok_clicks = 0; st.rerun()
+        st.success("🔓 ADMIN DASHBOARD - ĐÃ MỞ KHÓA")
+        st.metric("Tổng tin nhắn đã lưu", len(st.session_state.messages))
+        st.write("Nhật ký phản hồi:")
+        for fb in st.session_state.feedbacks: st.text(fb)
+        
+        if st.button("🚫 CHẶN NGƯỜI DÙNG NÀY"):
+            st.session_state.blocked = True
+            st.session_state.page = 'auth'
+            st.rerun()
 
-# --- 10. APP PHẢN HỒI ---
+    if st.button("Thoát"):
+        st.session_state.page = 'home'
+        st.session_state.ok_clicks = 0
+        st.rerun()
+
+# --- 8. SETTINGS & FEEDBACK ---
+elif st.session_state.page == 'settings':
+    st.title("⚙️ Cài đặt")
+    st.toggle("Chế độ tối (Luôn bật)", True, disabled=True)
+    st.slider("Tốc độ AI", 1, 10, 5)
+    if st.button("Quay lại"): st.session_state.page = 'home'; st.rerun()
+
 elif st.session_state.page == 'feedback':
-    st.title("📩 Gửi ý kiến")
-    fb = st.text_area("Bạn muốn cải thiện điều gì?")
-    if st.button("Gửi tới Admin"):
-        st.session_state.feedbacks.append({"user": st.session_state.user, "time": str(datetime.now()), "msg": fb})
+    st.title("📩 Gửi phản hồi")
+    txt = st.text_area("Nhập nội dung:")
+    if st.button("Gửi"):
+        st.session_state.feedbacks.append(f"{datetime.now()}: {txt}")
         st.success("Đã gửi!")
+        time.sleep(1)
+        st.session_state.page = 'home'; st.rerun()
+    if st.button("Hủy"): st.session_state.page = 'home'; st.rerun()
