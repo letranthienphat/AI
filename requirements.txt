@@ -1,6 +1,3 @@
 streamlit
 openai
-gTTS
-streamlit-mic-recorder
-qrcode[pil]
-langdetect
+google-generativeai
