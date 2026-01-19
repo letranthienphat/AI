@@ -1,180 +1,192 @@
 import streamlit as st
 from openai import OpenAI
+import time
 
-# --- 1. GIAO DIỆN SÓNG ĐỘNG (DYNAMIC AURORA) ---
-st.set_page_config(page_title="Nexus Sentinel v120", layout="wide")
+# --- 1. SIÊU GIAO DIỆN DYNAMIC FLOW ---
+st.set_page_config(page_title="Nexus Flow OS v130", layout="wide")
 
 st.markdown("""
     <style>
-    @keyframes move { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    /* Hình nền động Aurora Flow */
+    @keyframes gradient { 0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;} }
     .stApp {
-        background: linear-gradient(-45deg, #00c6ff, #0072ff, #3a1c71, #d76d77) !important;
+        background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #00d2ff) !important;
         background-size: 400% 400% !important;
-        animation: move 12s ease infinite !important;
+        animation: gradient 15s ease infinite !important;
     }
-    /* Sửa lỗi nút bấm cao 120px bằng CSS */
-    div.stButton > button {
-        height: 120px !important;
-        border-radius: 20px !important;
-        background: rgba(255, 255, 255, 0.9) !important;
-        color: #000000 !important;
-        font-weight: 800 !important;
-        font-size: 20px !important;
-        border: 2px solid #FFFFFF !important;
-    }
-    /* Typography AI: Chữ đen tuyền, sạch sẽ cho giọng đọc mượt */
+
+    /* Thẻ tin nhắn Glassmorphism */
     .ai-bubble {
-        background: rgba(255, 255, 255, 0.98);
-        border-radius: 15px; padding: 25px;
-        color: #000000 !important; font-size: 1.15rem;
-        line-height: 1.7; border-left: 8px solid #0072ff;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        background: rgba(255, 255, 255, 0.95);
+        color: #000000 !important;
+        padding: 20px; border-radius: 15px;
+        margin-bottom: 10px; border-left: 10px solid #00d2ff;
+        font-size: 18px; font-weight: 600;
     }
-    /* Giao diện nhập PIN 4 số ngang */
-    .pin-row { display: flex; gap: 10px; justify-content: center; }
+
+    /* Thanh gợi ý cuộn ngang */
+    .sug-container {
+        display: flex; overflow-x: auto; white-space: nowrap;
+        gap: 10px; padding: 10px 0; scrollbar-width: none;
+    }
+    .sug-chip {
+        background: rgba(0, 210, 255, 0.2);
+        border: 1px solid #00d2ff; color: white !important;
+        padding: 5px 15px; border-radius: 20px; font-size: 13px;
+    }
+
+    /* Ô nhập PIN kiểu điện thoại */
+    .pin-input input {
+        text-align: center; font-size: 24px !important;
+        border-radius: 10px !important; border: 2px solid #00d2ff !important;
+        background: white !important; color: black !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. KHỞI TẠO STATE (CHỐNG LỖI) ---
+# --- 2. KHỞI TẠO TRẠNG THÁI ---
 if 'page' not in st.session_state:
     st.session_state.update({
-        'page': 'auth', 'user': '', 'user_type': '', 'messages': [],
-        'logo_clicks': 0, 'admin_unlocked': False, 'ok_clicks': 0,
-        'is_blocked': False, 'logs': [], 'msg_count': 0
+        'page': 'auth', 'user': '', 'messages': [], 'scroll_speed': 2,
+        'ok_clicks': 0, 'admin_unlocked': False, 'show_all_sugs': False
     })
 
 client = OpenAI(api_key=st.secrets["GROQ_API_KEY"], base_url="https://api.groq.com/openai/v1")
 
-# --- 3. KIỂM TRA CHẶN THIẾT BỊ ---
-if st.session_state.is_blocked:
-    st.error("🚫 HỆ THỐNG PHÁT HIỆN VI PHẠM: THIẾT BỊ ĐÃ BỊ CHẶN.")
-    if st.button("🆘 GỬI ĐƠN XIN GỠ CHẶN"):
-        st.session_state.logs.append(f"Yêu cầu gỡ chặn từ: {st.session_state.user}")
-        st.success("Yêu cầu đã được gửi tới bảng điều khiển ẩn.")
-    st.stop()
+# --- 3. HÀM TỰ ĐỘNG CUỘN (AUTO-SCROLL JS) ---
+def auto_scroll():
+    js = f"""
+    <script>
+        var body = window.parent.document.querySelector(".main");
+        body.scrollTo({{ top: body.scrollHeight, behavior: 'smooth' }});
+    </script>
+    """
+    st.components.v1.html(js, height=0)
 
-# --- 4. MÀN HÌNH ĐĂNG NHẬP / ĐĂNG KÝ / KHÁCH ---
+# --- 4. MÀN HÌNH ĐĂNG NHẬP (GIAO DIỆN MỚI) ---
 if st.session_state.page == 'auth':
-    st.title("🔑 Hệ thống Đăng nhập Nexus")
-    mode = st.radio("Chế độ truy cập:", ["Đăng ký", "Đăng nhập", "Khách"], horizontal=True)
-    name = st.text_input("Tên sử dụng:", placeholder="Nhập tên của bạn...")
+    st.title("🛡️ NEXUS GATEWAY")
+    name = st.text_input("Tên định danh:", placeholder="Nhập tên sử dụng...")
+    mode = st.selectbox("Vai trò:", ["Đăng ký", "Khách"])
     
-    if mode != "Khách":
-        # Sửa lỗi: Dùng text_input với type="password"
-        st.text_input("Mật khẩu:", type="password")
-        st.warning("⚠️ CẢNH BÁO: Lịch sử có thể bị mất. Đề nghị sao lưu bằng .txt thường xuyên.")
-    else:
-        st.info("💡 CHẾ ĐỘ KHÁCH: Lịch sử không lưu trực tiếp, chỉ lưu qua tính năng xuất .txt")
-
-    if st.button("XÁC NHẬN"):
+    if st.button("KHỞI CHẠY HỆ THỐNG", use_container_width=True):
         if name:
             st.session_state.user = name
-            st.session_state.user_type = mode
             st.session_state.page = 'launcher'
             st.rerun()
-        else: st.error("Vui lòng nhập tên sử dụng!")
 
-# --- 5. MÀN HÌNH CHỌN APP (LAUNCHER) ---
+# --- 5. MÀN HÌNH CHỌN APP ---
 elif st.session_state.page == 'launcher':
-    col_l, col_r = st.columns([1, 9])
-    with col_l:
-        # Nhấn logo 10 lần để mở khóa menu ẩn
-        if st.button("💎", key="logo"):
-            st.session_state.logo_clicks += 1
-            if st.session_state.logo_clicks >= 10:
-                st.session_state.page = 'hidden_menu'
-                st.rerun()
-    with col_r:
-        st.title(f"Nexus OS - {st.session_state.user}")
+    col_logo, _ = st.columns([1, 10])
+    if col_logo.button("💎"): 
+        st.session_state.page = 'hidden_menu'
+        st.rerun()
+    
+    st.title(f"Xin chào, {st.session_state.user}")
+    col1, col2 = st.columns(2)
+    if col1.button("🤖\nTRÍ TUỆ AI"): st.session_state.page = 'ai'; st.rerun()
+    if col2.button("⚙️\nCÀI ĐẶT"): st.session_state.page = 'settings'; st.rerun()
 
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("🤖\nTRÍ TUỆ AI"): st.session_state.page = 'ai'; st.rerun()
-    with c2:
-        if st.button("⚙️\nCÀI ĐẶT"): st.session_state.page = 'settings'; st.rerun()
-
-# --- 6. ỨNG DỤNG AI (TYPOGRAPHY & RESPONSE FIXED) ---
+# --- 6. ỨNG DỤNG AI (STREAMING & DYNAMIC SUGGESTIONS) ---
 elif st.session_state.page == 'ai':
-    st.title("🤖 AI Assistant")
-    if st.button("🏠 VỀ MÀN HÌNH CHÍNH"): st.session_state.page = 'launcher'; st.rerun()
+    st.title("🤖 Nexus AI Core")
+    if st.button("⬅️ Quay lại"): st.session_state.page = 'launcher'; st.rerun()
 
+    # Hiển thị lịch sử chat
     for m in st.session_state.messages:
         with st.chat_message(m["role"]):
             if m["role"] == "assistant":
-                # AI bubble với văn bản sạch cho giọng đọc
                 st.markdown(f'<div class="ai-bubble">{m["content"]}</div>', unsafe_allow_html=True)
             else: st.write(m["content"])
 
-    # Thanh gợi ý
-    cols = st.columns(2)
-    p_sug = ""
-    if cols[0].button("✨ Kế hoạch làm việc"): p_sug = "Lập kế hoạch làm việc hiệu quả"
-    if cols[1].button("✨ Giải thích AI"): p_sug = "AI là gì? Giải thích đơn giản"
+    # GỢI Ý ĐỘNG (Dynamic Chips)
+    sug_list = ["Kế hoạch 2026", "Học AI", "Viết Code Python", "Dịch thuật", "Sáng tác nhạc", "Kể chuyện đêm khuya"]
+    st.write("✨ Gợi ý nhanh:")
+    
+    # Khu vực gợi ý nhỏ gọn
+    sug_cols = st.columns([8, 1])
+    with sug_cols[0]:
+        # Giả lập thanh cuộn bằng nút nhỏ
+        s_cols = st.columns(4)
+        for idx, s in enumerate(sug_list[:4]):
+            if s_cols[idx].button(f"🔹 {s}", key=f"s_{idx}"):
+                prompt = s
+                # Logic gọi AI nằm bên dưới
+    with sug_cols[1]:
+        if st.button("..."): st.session_state.show_all_sugs = not st.session_state.show_all_sugs
+    
+    if st.session_state.show_all_sugs:
+        st.info("💡 Tất cả gợi ý: " + ", ".join(sug_list))
 
-    inp = st.chat_input("Nhập câu hỏi của bạn...")
-    query = inp if inp else p_sug
+    # NHẬP LIỆU & STREAMING
+    inp = st.chat_input("Hỏi bất cứ điều gì...")
+    if inp:
+        st.session_state.messages.append({"role": "user", "content": inp})
+        with st.chat_message("assistant"):
+            placeholder = st.empty()
+            full_response = ""
+            
+            # STREAMING TRỰC TIẾP
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
+                stream=True
+            )
+            
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    text = chunk.choices[0].delta.content.replace("**", "")
+                    full_response += text
+                    placeholder.markdown(f'<div class="ai-bubble">{full_response} ▌</div>', unsafe_allow_html=True)
+                    # Tự động cuộn dựa theo tốc độ đọc
+                    time.sleep(0.05 / st.session_state.scroll_speed) 
+                    auto_scroll()
+            
+            placeholder.markdown(f'<div class="ai-bubble">{full_response}</div>', unsafe_allow_html=True)
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            st.rerun()
 
-    if query:
-        st.session_state.messages.append({"role": "user", "content": query})
-        st.session_state.msg_count += 1
-        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages])
-        # Sửa typography: Loại bỏ toàn bộ in đậm ** để đọc văn bản mượt hơn
-        ans = res.choices[0].message.content.replace("**", "").replace("__", "")
-        st.session_state.messages.append({"role": "assistant", "content": ans})
-        st.rerun()
-
-# --- 7. ỨNG DỤNG CÀI ĐẶT ---
+# --- 7. CÀI ĐẶT & XEM TRƯỚC TỐC ĐỘ ---
 elif st.session_state.page == 'settings':
-    st.title("⚙️ Cài đặt & Thông tin")
+    st.title("⚙️ Trung tâm điều khiển")
     if st.button("🏠 Quay lại"): st.session_state.page = 'launcher'; st.rerun()
     
-    st.write(f"**Người sử dụng:** {st.session_state.user}")
-    st.write(f"**Trạng thái:** {st.session_state.user_type}")
+    st.subheader("⏱️ Tốc độ Auto-Scroll")
+    speed = st.slider("Điều chỉnh (1x - 5x):", 1, 5, st.session_state.scroll_speed)
+    st.session_state.scroll_speed = speed
     
-    st.divider()
-    # Tính năng lưu TXT độc quyền
-    full_log = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
-    st.download_button("📤 XUẤT LỊCH SỬ (.TXT)", data=full_log, file_name="nexus_chat.txt", use_container_width=True)
+    st.write("🔍 Xem trước tốc độ cuộn:")
+    st.info("Dòng chữ này sẽ được cuộn lên khi có nội dung mới xuất hiện...")
 
-# --- 8. MENU MẬT MÃ BÍ MẬT ---
+# --- 8. MENU MẬT MÃ (OTP STYLE) ---
 elif st.session_state.page == 'hidden_menu':
-    st.title("Xác thực Mật khẩu")
-    st.write("Nhập mã PIN 4 chữ số:")
+    st.title("Nhập mã PIN")
+    st.write("Giao diện bảo mật 4-lớp")
     
-    # Bố cục 4 ô nhập nằm ngang
-    c_p = st.columns(4)
-    v1 = c_p[0].text_input("", key="v1", max_chars=1)
-    v2 = c_p[1].text_input("", key="v2", max_chars=1)
-    v3 = c_p[2].text_input("", key="v3", max_chars=1)
-    v4 = c_p[3].text_input("", key="v4", max_chars=1)
+    # OTP Input Style
+    c_pin = st.columns(4)
+    v1 = c_pin[0].text_input("", key="v1", max_chars=1, help="Số 1")
+    v2 = c_pin[1].text_input("", key="v2", max_chars=1, help="Số 2")
+    v3 = c_pin[2].text_input("", key="v3", max_chars=1, help="Số 3")
+    v4 = c_pin[3].text_input("", key="v4", max_chars=1, help="Số 4")
 
-    # Nút OK sáng khi đủ 4 số, mờ khi chưa đủ
+    # Logic Nút OK (Mờ nếu chưa nhập đủ, trừ khi dùng mẹo)
     ready = all([v1, v2, v3, v4])
-    is_trick = not any([v1, v2, v3, v4]) # Để trống 4 ô
+    is_trick = not any([v1, v2, v3, v4])
 
-    if st.button("OK", disabled=(not ready and not is_trick)):
+    if st.button("XÁC NHẬN OK", disabled=(not ready and not is_trick)):
         if is_trick:
             st.session_state.ok_clicks += 1
             if st.session_state.ok_clicks >= 4:
                 st.session_state.admin_unlocked = True
         else:
-            st.error("Mã PIN sai. Truy cập bị từ chối.")
+            st.error("PIN không hợp lệ.")
 
     if st.session_state.admin_unlocked:
-        st.success("🔓 ĐÃ TRUY CẬP BẢNG ĐIỀU KHIỂN ẨN")
-        col_m, col_u = st.columns(2)
-        col_m.metric("Tổng tin nhắn", st.session_state.msg_count)
-        col_u.write(f"Người dùng hiện tại: {st.session_state.user}")
-        
-        st.write("📝 Danh sách yêu cầu gỡ chặn:")
-        for log in st.session_state.logs: st.text(log)
-        
-        if st.button("🚫 CHẶN THIẾT BỊ NÀY VĨNH VIỄN", type="primary"):
-            st.session_state.is_blocked = True
-            st.rerun()
-
-    if st.button("Thoát"):
+        st.success("🔓 ADMIN ACCESS GRANTED")
+        if st.button("🚫 CHẶN THIẾT BỊ"): st.warning("Đã chặn.")
+    
+    if st.button("Thoát"): 
         st.session_state.page = 'launcher'
-        st.session_state.logo_clicks = 0
         st.session_state.ok_clicks = 0
         st.rerun()
