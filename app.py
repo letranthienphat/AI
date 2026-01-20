@@ -1,143 +1,200 @@
 import streamlit as st
 from openai import OpenAI
 import google.generativeai as genai
+import time
 
-# --- 1. CẤU HÌNH HỆ THỐNG & GIAO DIỆN ---
-st.set_page_config(page_title="Nexus OS V56.0 - Hyper Memory", layout="wide")
+# --- 1. CẤU HÌNH HỆ THỐNG CỰC MẠNH ---
+st.set_page_config(page_title="NEXUS ULTIMATE", layout="wide", page_icon="☢️")
 
-# Lấy Keys từ Secrets
+# Lấy API Keys
 GROQ_KEYS = st.secrets.get("GROQ_KEYS", [])
 GEMINI_KEY = st.secrets.get("GEMINI_KEY", "")
 
-# Khởi tạo Session State
+# Khởi tạo bộ nhớ (SESSION STATE)
 if 'chat_log' not in st.session_state: st.session_state.chat_log = []
-if 'bg' not in st.session_state: st.session_state.bg = "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070"
-if 'current_model' not in st.session_state: st.session_state.current_model = "Auto-Sync"
+if 'selected_model' not in st.session_state: st.session_state.selected_model = "Groq 1 (Llama 3.3)"
 
-# CSS Tương phản cao - Chống mỏi mắt và nhìn rõ chữ
-st.markdown(f"""
+# --- 2. GIAO DIỆN CYBERPUNK (CSS NÂNG CAO) ---
+st.markdown("""
     <style>
-    .stApp {{
-        background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url("{st.session_state.bg}");
-        background-size: cover;
-    }}
-    /* Khung chat tối đặc để chữ trắng nổi bật */
-    .stChatMessage {{
-        background: rgba(10, 15, 25, 0.98) !important;
-        border: 1px solid #00d2ff;
-        color: #ffffff !important;
-        border-radius: 15px !important;
-    }}
-    .stMarkdown p {{ color: #ffffff !important; font-size: 1.1rem; }}
-    /* Sidebar chuyên nghiệp */
-    [data-testid="stSidebar"] {{
-        background: rgba(5, 10, 20, 0.95) !important;
-        border-right: 2px solid #00d2ff;
-    }}
+    /* Hình nền động dạng lưới */
+    .stApp {
+        background-color: #000000;
+        background-image: 
+            linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 30px 30px;
+    }
+    
+    /* Hiệu ứng chữ phát sáng */
+    h1 {
+        color: #00e5ff !important;
+        text-shadow: 0 0 10px #00e5ff, 0 0 20px #00e5ff;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+    }
+    
+    /* Khung chat người dùng */
+    .stChatMessage[data-testid="stChatMessage"]:nth-child(odd) {
+        background: rgba(0, 229, 255, 0.1) !important;
+        border-right: 3px solid #00e5ff;
+        border-radius: 10px 0 0 10px;
+        color: white !important;
+    }
+
+    /* Khung chat AI */
+    .stChatMessage[data-testid="stChatMessage"]:nth-child(even) {
+        background: rgba(255, 0, 85, 0.1) !important;
+        border-left: 3px solid #ff0055;
+        border-radius: 0 10px 10px 0;
+        color: white !important;
+    }
+
+    /* Sidebar kính cường lực */
+    [data-testid="stSidebar"] {
+        background: rgba(10, 10, 10, 0.95) !important;
+        border-right: 1px solid #333;
+    }
+    
+    /* Nút bấm Neon */
+    .stButton button {
+        border: 1px solid #00e5ff;
+        background: transparent;
+        color: #00e5ff;
+        transition: all 0.3s;
+    }
+    .stButton button:hover {
+        background: #00e5ff;
+        color: black;
+        box-shadow: 0 0 15px #00e5ff;
+    }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# --- 2. LÕI QUẢN LÝ BỘ NHỚ & PHẢN HỒI ---
-def get_ai_response(user_input, model_mode):
-    # Chuẩn bị lịch sử hội thoại (Trí nhớ dài hạn)
-    # Lấy 10 câu gần nhất để AI không bị quá tải nhưng vẫn hiểu bối cảnh
-    history = []
-    for m in st.session_state.chat_log[-10:]:
-        history.append({"role": m["role"], "content": m["content"]})
-    history.append({"role": "user", "content": user_input})
+# --- 3. BỘ NÃO XỬ LÝ (THE BRAIN) ---
+def get_groq_response(messages, key_index):
+    """Gọi Groq và gửi TOÀN BỘ lịch sử"""
+    try:
+        client = OpenAI(api_key=GROQ_KEYS[key_index], base_url="https://api.groq.com/openai/v1")
+        return client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=messages, # Gửi toàn bộ list messages để AI nhớ
+            stream=True
+        )
+    except Exception as e:
+        return None
 
-    # DANH SÁCH KEY ĐỂ THỬ
-    target_keys = []
-    if model_mode == "Auto-Sync":
-        target_keys = GROQ_KEYS
-    elif "Groq" in model_mode:
-        idx = int(model_mode.split(" ")[-1]) - 1
-        target_keys = [GROQ_KEYS[idx]]
-    
-    # 1. THỬ VỚI GROQ
-    for i, key in enumerate(target_keys):
-        try:
-            client = OpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
-            return client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=history, # Gửi toàn bộ lịch sử thay vì chỉ 1 câu
-                stream=True
-            ), f"Groq {i+1 if model_mode == 'Auto-Sync' else model_mode}"
-        except Exception:
-            if model_mode != "Auto-Sync": break # Nếu chọn Manual mà lỗi thì dừng luôn
-            continue
-
-    # 2. DỰ PHÒNG GEMINI (Nếu Auto hoặc Manual Gemini được chọn)
-    if model_mode == "Auto-Sync" or model_mode == "Gemini":
-        try:
-            genai.configure(api_key=GEMINI_KEY)
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            # Chuyển đổi format history sang format của Gemini
-            gemini_history = []
-            for m in history[:-1]:
-                role = "user" if m["role"] == "user" else "model"
-                gemini_history.append({"role": role, "parts": [m["content"]]})
-            
-            chat = model.start_chat(history=gemini_history)
-            return chat.send_message(user_input, stream=True), "Gemini Flash"
-        except Exception as e:
-            return None, str(e)
-    
-    return None, "Lỗi kết nối API"
-
-# --- 3. GIAO DIỆN ĐIỀU KHIỂN ---
-def main():
-    with st.sidebar:
-        st.title("💠 NEXUS CORE V56")
+def get_gemini_response(messages):
+    """Gọi Gemini và gửi TOÀN BỘ lịch sử"""
+    try:
+        genai.configure(api_key=GEMINI_KEY)
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
-        # BỘ CHỌN CHATBOT REAL-TIME
-        st.subheader("🤖 Cấu hình AI")
-        options = ["Auto-Sync"] + [f"Groq {i+1}" for i in range(len(GROQ_KEYS))] + ["Gemini"]
-        st.session_state.current_model = st.selectbox(
-            "Chọn luồng xử lý:", 
-            options, 
-            index=options.index(st.session_state.current_model)
+        # Chuyển đổi định dạng lịch sử cho Gemini
+        gemini_hist = []
+        for msg in messages[:-1]: # Lấy quá khứ
+            role = "user" if msg["role"] == "user" else "model"
+            gemini_hist.append({"role": role, "parts": [msg["content"]]})
+        
+        chat = model.start_chat(history=gemini_hist)
+        return chat.send_message(messages[-1]["content"], stream=True)
+    except Exception as e:
+        return None
+
+def ai_engine(user_input, preferred_model):
+    # 1. Cập nhật vào bộ nhớ tạm để gửi đi (nhưng chưa lưu vào session state vội)
+    temp_memory = st.session_state.chat_log.copy()
+    temp_memory.append({"role": "user", "content": user_input})
+
+    stream = None
+    used_model = ""
+
+    # 2. Xử lý theo lựa chọn của người dùng
+    if "Groq" in preferred_model:
+        idx = int(preferred_model.split(" ")[1]) - 1 # Lấy số 1, 2, 3...
+        stream = get_groq_response(temp_memory, idx)
+        used_model = preferred_model
+        
+        # Nếu Groq này lỗi, TỰ ĐỘNG nhảy sang Groq khác (Fail-over)
+        if not stream:
+            for i in range(len(GROQ_KEYS)):
+                if i != idx:
+                    stream = get_groq_response(temp_memory, i)
+                    if stream: 
+                        used_model = f"Groq {i+1} (Auto-Switch)"
+                        break
+    
+    # 3. Nếu vẫn chưa có (hoặc chọn Gemini), dùng Gemini
+    if not stream or "Gemini" in preferred_model:
+        stream = get_gemini_response(temp_memory)
+        used_model = "Gemini" if stream else "SYSTEM FAILURE"
+
+    return stream, used_model
+
+# --- 4. GIAO DIỆN CHÍNH ---
+def main():
+    # SIDEBAR: Trung tâm chỉ huy
+    with st.sidebar:
+        st.title("🎛️ SYSTEM CONTROL")
+        st.markdown("---")
+        
+        # Model Selector
+        model_options = [f"Groq {i+1} (Llama 3.3)" for i in range(len(GROQ_KEYS))] + ["Gemini (Google)"]
+        st.session_state.selected_model = st.radio(
+            "📡 Chọn Kênh Kết Nối:", 
+            model_options,
+            index=model_options.index(st.session_state.selected_model) if st.session_state.selected_model in model_options else 0
         )
         
-        st.divider()
-        st.write(f"🧠 Trí nhớ: **{len(st.session_state.chat_log)} tin nhắn**")
-        if st.button("🗑️ Xóa sạch bộ nhớ"):
+        st.markdown("---")
+        st.write(f"🧠 Bộ nhớ đệm: **{len(st.session_state.chat_log)} dòng**")
+        if st.button("🔴 KHỞI ĐỘNG LẠI (RESET)"):
             st.session_state.chat_log = []
             st.rerun()
 
-    st.title("🤖 Neural Terminal")
-    st.caption(f"Đang sử dụng chế độ: **{st.session_state.current_model}** | Chữ đã được tối ưu độ tương phản.")
-
-    # Hiển thị lịch sử chat
+    # MAIN SCREEN
+    st.title("NEXUS /// ULTIMATE")
+    
+    # Hiển thị lịch sử chat (Memory Playback)
     for msg in st.session_state.chat_log:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Xử lý nhập liệu
-    if p := st.chat_input("Nhập tin nhắn để tiếp tục cuộc trò chuyện..."):
-        st.session_state.chat_log.append({"role": "user", "content": p})
-        with st.chat_message("user"): st.markdown(p)
+    # Ô nhập liệu
+    if prompt := st.chat_input("Nhập lệnh kích hoạt..."):
+        # Hiển thị tin nhắn người dùng ngay lập tức
+        st.session_state.chat_log.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
+        # Xử lý AI
         with st.chat_message("assistant"):
-            res, source = get_ai_response(p, st.session_state.current_model)
+            status_box = st.empty()
+            status_box.caption("🔄 Đang kết nối neural network...")
             
-            if res:
-                box = st.empty(); full = ""
-                for chunk in res:
-                    # Kiểm tra xem là Groq (OpenAI style) hay Gemini
+            stream, source = ai_engine(prompt, st.session_state.selected_model)
+            
+            if stream:
+                status_box.caption(f"⚡ Đã kết nối: **{source}**")
+                response_container = st.empty()
+                full_response = ""
+                
+                # Streaming effect
+                for chunk in stream:
+                    content = ""
                     if "Groq" in source:
                         content = chunk.choices[0].delta.content or ""
                     else:
                         content = chunk.text
                     
-                    full += content
-                    box.markdown(full + "▌")
+                    full_response += content
+                    response_container.markdown(full_response + "█") # Con trỏ nhấp nháy
                 
-                box.markdown(full)
-                st.caption(f"⚡ Phản hồi qua: {source}")
-                st.session_state.chat_log.append({"role": "assistant", "content": full})
+                response_container.markdown(full_response)
+                # LƯU VÀO BỘ NHỚ VĨNH CỬU
+                st.session_state.chat_log.append({"role": "assistant", "content": full_response})
             else:
-                st.error(f"⚠️ Model {st.session_state.current_model} đang bận hoặc sai cấu hình.")
+                st.error("❌ MẤT KẾT NỐI TOÀN BỘ SERVER!")
 
 if __name__ == "__main__":
     main()
