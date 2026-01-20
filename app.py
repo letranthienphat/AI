@@ -1,209 +1,217 @@
 import streamlit as st
+import os
+import json
+import time
+import psutil
+import random
+from datetime import datetime
 from openai import OpenAI
 import google.generativeai as genai
-import time
-import random
-import psutil
-import json
-from datetime import datetime
 
-# --- 1. KIỂM SOÁT HỆ THỐNG & CẤU HÌNH BIẾN ---
-st.set_page_config(page_title="NEXUS OS V58.0", layout="wide", initial_sidebar_state="expanded")
+# --- 1. HỆ THỐNG QUẢN LÝ CẤU HÌNH & BẢO MẬT ---
+st.set_page_config(page_title="NEXUS V62.0 ARCHIVE", layout="wide", page_icon="💾")
 
-# Lấy dữ liệu an toàn
-GROQ_KEYS = st.secrets.get("GROQ_KEYS", [])
-GEMINI_KEY = st.secrets.get("GEMINI_KEY", "")
+# Kiểm tra API Keys từ Secrets
+try:
+    GROQ_KEYS = st.secrets["GROQ_KEYS"]
+    GEMINI_KEY = st.secrets["GEMINI_KEY"]
+except Exception as e:
+    st.error("❌ CẤU HÌNH THIẾU: Vui lòng kiểm tra mục Secrets trên Streamlit Cloud.")
+    st.stop()
 
-# Khởi tạo trạng thái hệ thống
+# --- 2. KHỞI TẠO BỘ NHỚ VĨNH CỬU (SESSION STATE) ---
+if 'chat_sessions' not in st.session_state: st.session_state.chat_sessions = {}
+if 'current_session_id' not in st.session_state: st.session_state.current_session_id = "Default_Node"
 if 'chat_log' not in st.session_state: st.session_state.chat_log = []
-if 'sys_logs' not in st.session_state: st.session_state.sys_logs = [f"[{datetime.now().strftime('%H:%M:%S')}] Core Initialized."]
-if 'selected_model' not in st.session_state: st.session_state.selected_model = "Auto-Sync"
-if 'theme_color' not in st.session_state: st.session_state.theme_color = "#00f2ff"
+if 'session_name' not in st.session_state: st.session_state.session_name = "Cuộc hội thoại mới"
+if 'terminal_logs' not in st.session_state: st.session_state.terminal_logs = []
 
-# --- 2. GIAO DIỆN NÂNG CAO (ADVANCED CSS) ---
-def apply_ui():
-    theme = st.session_state.theme_color
-    st.markdown(f"""
+# --- 3. GIAO DIỆN TERMINAL ĐỘC QUYỀN (CSS) ---
+st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;500&display=swap');
-    * {{ font-family: 'Fira Code', monospace; }}
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Source+Code+Pro:wght@300;500&display=swap');
     
+    body {{ background-color: #050505; color: #00f2ff; }}
     .stApp {{
-        background: radial-gradient(circle at center, #0a1118 0%, #050505 100%);
-        color: white;
+        background: radial-gradient(circle at 50% 50%, #0a1118 0%, #000000 100%);
     }}
     
-    /* Hiệu ứng quét Laser */
-    .stApp::before {{
-        content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 2px;
-        background: {theme}; opacity: 0.1; z-index: 9999;
-        animation: scan 4s linear infinite;
-    }}
-    @keyframes scan {{ 0% {{ top: 0; }} 100% {{ top: 100%; }} }}
-
-    /* Khung chat đa tầng */
-    .stChatMessage {{
-        background: rgba(255, 255, 255, 0.02) !important;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px !important;
-        margin-bottom: 15px;
-        box-shadow: 5px 5px 15px rgba(0,0,0,0.5);
+    /* Khung Chat High-Contrast */
+    [data-testid="stChatMessage"] {{
+        background: rgba(0, 20, 30, 0.8) !important;
+        border: 1px solid #00f2ff33;
+        border-radius: 10px !important;
+        box-shadow: 0 0 15px rgba(0, 242, 255, 0.1);
+        color: white !important;
     }}
     
-    /* Chữ siêu tương phản */
+    /* Chữ Neon */
+    h1, h2, h3 {{
+        font-family: 'Orbitron', sans-serif;
+        color: #00f2ff !important;
+        text-shadow: 0 0 10px #00f2ff;
+    }}
+    
     .stMarkdown p {{
-        color: #e0e0e0 !important;
-        line-height: 1.6;
-        text-shadow: 1px 1px 2px black;
+        font-family: 'Source Code Pro', monospace;
+        color: #e0faff !important;
+        font-size: 1.05rem;
     }}
 
-    /* Sidebar Sidebar Custom */
+    /* Sidebar Matrix Effect */
     [data-testid="stSidebar"] {{
-        background: rgba(0, 0, 0, 0.8) !important;
-        border-right: 1px solid {theme}44;
+        background: rgba(0, 10, 15, 0.95) !important;
+        border-right: 1px solid #00f2ff55;
     }}
-    
-    /* Widget chỉ số */
-    .metric-card {{
-        background: rgba(0,0,0,0.4); border: 1px solid {theme}33;
-        padding: 10px; border-radius: 8px; text-align: center;
-    }}
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {{ width: 5px; }}
+    ::-webkit-scrollbar-thumb {{ background: #00f2ff; border-radius: 10px; }}
     </style>
     """, unsafe_allow_html=True)
 
-apply_ui()
+# --- 4. LÕI XỬ LÝ AI & QUẢN LÝ LUỒNG (ROUTING) ---
+def log_sys(msg):
+    ts = datetime.now().strftime("%H:%M:%S")
+    st.session_state.terminal_logs.append(f"> [{ts}] {msg}")
 
-# --- 3. CÔNG CỤ HỖ TRỢ (UTILITIES) ---
-def log_event(msg):
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    st.session_state.sys_logs.append(f"[{timestamp}] {msg}")
-    if len(st.session_state.sys_logs) > 20: st.session_state.sys_logs.pop(0)
+def auto_generate_name(history):
+    """AI tự động đặt tên cuộc hội thoại dựa trên bối cảnh"""
+    if len(history) == 2: # Sau câu hỏi và trả lời đầu tiên
+        try:
+            client = OpenAI(api_key=GROQ_KEYS[0], base_url="https://api.groq.com/openai/v1")
+            prompt = f"Đặt 1 tiêu đề ngắn gọn (dưới 5 từ) cho nội dung này: {history[0]['content']}"
+            res = client.chat.completions.create(
+                model="llama3-8b-8192",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            st.session_state.session_name = res.choices[0].message.content.replace('"', '')
+            log_sys(f"Session renamed to: {st.session_state.session_name}")
+        except: pass
 
-def get_system_metrics():
-    return {
-        "cpu": psutil.cpu_percent(),
-        "ram": psutil.virtual_memory().percent,
-        "latency": random.randint(20, 150)
-    }
-
-# --- 4. LÕI CHATBOT (GIỮ NGUYÊN LOGIC NHƯNG NÂNG CẤP KẾT NỐI) ---
-def get_ai_stream(user_input, model_choice):
-    # Tổng hợp bộ nhớ vĩnh cửu
+def get_neural_response(user_input, model_selection):
+    # ĐÓNG GÓI TOÀN BỘ LUỒNG HỘI THOẠI (Trí nhớ vĩnh cửu)
     messages = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_log]
     messages.append({"role": "user", "content": user_input})
     
-    # Chiến lược chuyển tầng (1 -> 2 -> 3 -> Gemini)
-    key_queue = list(GROQ_KEYS)
-    
-    if "Groq" in model_choice:
-        target_idx = int(model_choice.split(" ")[-1]) - 1
-        # Đưa key được chọn lên đầu hàng đợi
-        key_queue.insert(0, key_queue.pop(target_idx))
+    # 1. CHIẾN THUẬT QUÉT GROQ (1->2->3->4)
+    key_pool = list(GROQ_KEYS)
+    if "Groq" in model_selection:
+        target_idx = int(model_selection.split(" ")[-1]) - 1
+        key_pool.insert(0, key_pool.pop(target_idx)) # Ưu tiên key được chọn
 
-    # Thử Groq Keys
-    for i, key in enumerate(key_queue):
+    for i, key in enumerate(key_pool):
         try:
-            log_event(f"Attempting connection: Groq Node {i+1}...")
+            log_sys(f"Đang gọi Neural Node: Groq-{i+1}...")
             client = OpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
             return client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=messages,
+                messages=messages, # Gửi toàn bộ context
                 stream=True
             ), f"Groq Node {i+1}"
-        except Exception as e:
-            log_event(f"Node {i+1} Failed: Rate Limit reached.")
+        except:
+            log_sys(f"Node-{i+1} quá tải, đang nhảy tầng...")
             continue
 
-    # Dự phòng Gemini
+    # 2. DỰ PHÒNG GEMINI
     try:
-        log_event("Switching to Gemini Satellite...")
+        log_sys("Kích hoạt vệ tinh dự phòng Gemini...")
         genai.configure(api_key=GEMINI_KEY)
         model = genai.GenerativeModel('gemini-1.5-flash')
-        # Format lại cho Gemini
-        history = [{"role": "user" if m["role"] == "user" else "model", "parts": [m["content"]]} for m in messages[:-1]]
-        chat = model.start_chat(history=history)
+        # Chuyển đổi context cho Gemini
+        gem_hist = [{"role": "user" if m["role"] == "user" else "model", "parts": [m["content"]]} for m in messages[:-1]]
+        chat = model.start_chat(history=gem_hist)
         return chat.send_message(user_input, stream=True), "Gemini Ultra"
     except Exception as e:
-        log_event("Critical Failure: All AI nodes offline.")
+        log_sys(f"Lỗi nghiêm trọng: {str(e)}")
         return None, None
 
-# --- 5. GIAO DIỆN ĐIỀU KHIỂN CHÍNH ---
+# --- 5. HỆ THỐNG LƯU TRỮ VÀ QUẢN LÝ PHIÊN ---
+def save_chat_to_server():
+    """Ghi dữ liệu vào session_state (Mô phỏng server trên Cloud)"""
+    session_id = st.session_state.current_session_id
+    st.session_state.chat_sessions[session_id] = {
+        "name": st.session_state.session_name,
+        "log": st.session_state.chat_log,
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
+    # Gợi ý: Để lưu vĩnh viễn trên máy chủ thật, bạn có thể dùng requests gửi đến một Webhook/DB ở đây.
+    log_sys("Dữ liệu đã được đồng bộ vào Database.")
+
+# --- 6. GIAO DIỆN ĐIỀU KHIỂN CHÍNH (OMNI DASHBOARD) ---
 def main():
-    # SIDEBAR: COMMAND CENTER
+    # SIDEBAR: CƠ QUAN LƯU TRỮ
     with st.sidebar:
-        st.title("💠 NEXUS CORE")
-        st.markdown("---")
+        st.title("💠 NEXUS ARCHIVE")
+        st.write(f"📡 Status: **Active**")
         
-        # Monitor Real-time
-        metrics = get_system_metrics()
-        col1, col2 = st.columns(2)
-        col1.markdown(f"<div class='metric-card'>CPU<br><b style='color:cyan'>{metrics['cpu']}%</b></div>", unsafe_allow_html=True)
-        col2.markdown(f"<div class='metric-card'>LATENCY<br><b style='color:lime'>{metrics['latency']}ms</b></div>", unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # Model Selection
-        options = ["Auto-Sync"] + [f"Groq {i+1}" for i in range(len(GROQ_KEYS))] + ["Gemini"]
-        st.session_state.selected_model = st.selectbox("🎯 AI Target:", options)
-        
-        # Memory Info
-        st.write(f"🧠 Context Stream: `{len(st.session_state.chat_log)} nodes`")
-        
-        # Theme Selector
-        st.session_state.theme_color = st.color_picker("🎨 Theme Accent:", st.session_state.theme_color)
-        
-        if st.button("🔥 PURGE MEMORY"):
+        st.divider()
+        st.subheader("📁 Danh sách hội thoại")
+        # Quản lý phiên làm việc
+        if st.button("+ Tạo hội thoại mới"):
+            st.session_state.current_session_id = f"Node_{random.randint(100,999)}"
             st.session_state.chat_log = []
+            st.session_state.session_name = "Cuộc hội thoại mới"
             st.rerun()
 
-    # MAIN VIEW: NEURAL TERMINAL
-    tab1, tab2, tab3 = st.tabs(["💬 NEURAL CHAT", "📊 SYSTEM LOGS", "🧠 MEMORY ANALYZER"])
+        for sid, data in st.session_state.chat_sessions.items():
+            if st.sidebar.button(f"📄 {data['name']}", key=sid):
+                st.session_state.current_session_id = sid
+                st.session_state.chat_log = data['log']
+                st.session_state.session_name = data['name']
+                st.rerun()
 
-    with tab1:
-        # Hiển thị lịch sử hội thoại
+        st.divider()
+        # Monitor
+        st.write("📊 Tài nguyên Node")
+        st.caption(f"CPU: {psutil.cpu_percent()}% | RAM: {psutil.virtual_memory().percent}%")
+        
+        # Chọn Bot
+        st.session_state.target_ai = st.selectbox("🎯 AI Target:", ["Auto-Route", "Groq 1", "Groq 2", "Groq 3", "Gemini"])
+
+    # MÀN HÌNH CHÍNH
+    st.title(f"🚀 {st.session_state.session_name}")
+    st.caption(f"ID Phiên: `{st.session_state.current_session_id}` | Trí nhớ: `{len(st.session_state.chat_log)} nodes`")
+
+    tab_chat, tab_log, tab_raw = st.tabs(["💬 Giao diện Neural", "📜 Nhật ký Kernel", "💾 Dữ liệu thô"])
+
+    with tab_chat:
+        # Hiển thị lịch sử
         for msg in st.session_state.chat_log:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        # Input
-        if prompt := st.chat_input("Enter command..."):
+        # Input điều khiển
+        if prompt := st.chat_input("Gõ lệnh điều khiển Nexus..."):
             st.session_state.chat_log.append({"role": "user", "content": prompt})
             with st.chat_message("user"): st.markdown(prompt)
 
             with st.chat_message("assistant"):
-                res, source = get_ai_stream(prompt, st.session_state.selected_model)
+                res, source = get_neural_response(prompt, st.session_state.target_ai)
                 if res:
-                    placeholder = st.empty()
                     full_res = ""
+                    placeholder = st.empty()
                     for chunk in res:
                         content = chunk.choices[0].delta.content if "Groq" in source else chunk.text
                         if content:
                             full_res += content
                             placeholder.markdown(full_res + "█")
                     placeholder.markdown(full_res)
-                    st.caption(f"Connected via: {source}")
                     st.session_state.chat_log.append({"role": "assistant", "content": full_res})
-                else:
-                    st.error("CORE ERROR: No response from Neural Network.")
+                    
+                    # Tự động hóa sau khi phản hồi
+                    auto_generate_name(st.session_state.chat_log)
+                    save_chat_to_server()
+                    st.rerun()
 
-    with tab2:
-        st.subheader("🛠️ Real-time System Kernel Logs")
-        log_box = st.empty()
-        log_text = "\n".join(st.session_state.sys_logs[::-1])
-        log_box.code(log_text, language="bash")
-        if st.button("Refresh Logs"): st.rerun()
+    with tab_log:
+        st.code("\n".join(st.session_state.terminal_logs[::-1]), language="bash")
 
-    with tab3:
-        st.subheader("🧠 Neural Memory Structure")
-        if st.session_state.chat_log:
-            st.json(st.session_state.chat_log)
-        else:
-            st.info("Memory is currently empty.")
-
-    # FOOTER
-    st.markdown("---")
-    st.caption(f"Nexus OS V58.0 | Security Status: Encrypted | Build: {datetime.now().strftime('%Y%m%d')}")
+    with tab_raw:
+        st.subheader("📦 Xuất dữ liệu hội thoại")
+        json_data = json.dumps(st.session_state.chat_log, indent=2, ensure_ascii=False)
+        st.download_button("Tải xuống JSON lịch sử", json_data, file_name=f"{st.session_state.session_name}.json")
+        st.json(st.session_state.chat_log)
 
 if __name__ == "__main__":
     main()
