@@ -313,3 +313,27 @@ def screen_chat():
         process_chat(prompt)
 
 def process_chat(txt):
+    st.session_state.chat_log.append({"role": "user", "content": txt})
+    with st.chat_message("user"): st.markdown(txt)
+    
+    with st.chat_message("assistant"):
+        box = st.empty(); full_res = ""
+        stream = call_ai(txt)
+        if stream:
+            for chunk in stream:
+                content = chunk.choices[0].delta.content
+                if content:
+                    full_res += content
+                    # Hiệu ứng gõ máy
+                    box.markdown(full_res + "▌")
+            box.markdown(full_res)
+            st.session_state.chat_log.append({"role": "assistant", "content": full_res})
+            # Tạo gợi ý mới ngay lập tức
+            generate_smart_hints(full_res)
+            st.rerun()
+
+# --- MAIN CONTROLLER ---
+if st.session_state.stage == "law": screen_law()
+elif st.session_state.stage == "ask_name": screen_name()
+elif st.session_state.stage == "home": screen_home()
+else: screen_chat()
