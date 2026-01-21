@@ -1,147 +1,153 @@
-
 import streamlit as st
 import time
 import random
+import pandas as pd
+import numpy as np
+import psutil
+from datetime import datetime
 from openai import OpenAI
 import google.generativeai as genai
 
-# --- 1. CẤU HÌNH & TRẠNG THÁI ---
-st.set_page_config(page_title="NEXUS V102.0", layout="wide", page_icon="⚖️")
+# --- 1. CẤU HÌNH & DỮ LIỆU GIẢ LẬP ---
+st.set_page_config(page_title="NEXUS OMNI", layout="wide", page_icon="💠", initial_sidebar_state="collapsed")
 
-states = {
-    'stage': "law", 'law_step': 1, 'user_name': "", 'chat_log': [], 
+# Khởi tạo Session State
+defaults = {
+    'stage': "law", 'law_step': 1, 'user_name': "", 'chat_log': [],
     'bg_url': "https://images.unsplash.com/photo-1519608487953-e999c9dc296f?q=80&w=2072",
-    'suggestions': ["Phân tích dữ liệu", "Viết email công việc", "Tạo lịch trình", "Tra cứu thông tin", "Dịch thuật", "Giải trí nhẹ nhàng"],
-    'admin_clicks': 0, 'ok_count': 0, 'is_admin': False
+    'suggestions': ["Phân tích thị trường", "Viết code Python", "Tạo kế hoạch ngày", "Tóm tắt văn bản", "Dịch sang tiếng Anh", "Giải thích khái niệm"],
+    'admin_clicks': 0, 'ok_count': 0, 'is_admin': False,
+    # Fake Stats
+    'total_visits': 14205, 'active_users': 312, 'server_uptime': "99.98%"
 }
-for key, val in states.items():
-    if key not in st.session_state: st.session_state[key] = val
+for k, v in defaults.items():
+    if k not in st.session_state: st.session_state[k] = v
 
 GROQ_KEYS = st.secrets.get("GROQ_KEYS", [])
-GEMINI_KEY = st.secrets.get("GEMINI_KEY", "")
 
-# --- 2. CSS TƯƠNG PHẢN CAO (FULL PAGE READ) ---
+# --- 2. CSS RESPONSIVE (MẤU CHỐT CỦA GIAO DIỆN) ---
 def apply_theme():
     st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@300;400;700&display=swap');
-    * {{ font-family: 'Roboto Slab', serif; }}
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap');
     
+    /* Cấu trúc nền tảng */
     .stApp {{
-        background: linear-gradient(rgba(0,0,0,0.9), rgba(0,0,0,0.95)), url("{st.session_state.bg_url}");
-        background-size: cover; background-attachment: fixed;
+        background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.95) 100%), url("{st.session_state.bg_url}");
+        background-size: cover; background-attachment: fixed; background-position: center;
     }}
     
-    /* CHỮ TRẮNG TRÀN MÀN HÌNH - DỄ ĐỌC */
-    .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown li {{
+    /* Typography Responsive */
+    html, body, [class*="css"] {{
+        font-family: 'Inter', sans-serif;
+    }}
+    h1, h2, h3 {{ font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; }}
+    
+    /* CHỮ TRẮNG TUYỆT ĐỐI & SHADOW */
+    .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown li, label, span, div {{
         color: #FFFFFF !important;
-        text-shadow: 1px 1px 2px #000;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    }}
+
+    /* GLASS CONTAINER - TỰ ĐỘNG CO GIÃN */
+    .glass-box {{
+        background: rgba(10, 15, 20, 0.85);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(0, 242, 255, 0.3);
+        border-radius: 16px;
+        padding: 5vw; /* Padding theo chiều rộng màn hình */
+        margin-bottom: 20px;
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+    }}
+    
+    /* HIỂN THỊ LUẬT RESPONSIVE */
+    .law-text {{
+        font-size: clamp(14px, 1.2vw, 18px); /* Chữ tự to nhỏ theo màn hình */
         line-height: 1.8;
-        font-size: 1.1rem;
+        text-align: justify;
+        padding: 20px;
+        border-left: 2px solid #00f2ff;
+        background: rgba(0,0,0,0.6);
+        margin-bottom: 20px;
     }}
-    
-    .glass-container {{
-        background: rgba(10, 10, 10, 0.85);
-        border-top: 2px solid #00f2ff;
-        border-bottom: 2px solid #00f2ff;
-        padding: 40px; margin-bottom: 20px;
-        box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
-    }}
-    
-    /* Nút bấm gợi ý đẹp */
+
+    /* NÚT BẤM CAO CẤP */
     div.stButton > button {{
         background: rgba(255, 255, 255, 0.05);
-        color: #00f2ff; border: 1px solid #00f2ff55;
-        border-radius: 5px; width: 100%; transition: 0.3s;
-        font-family: sans-serif;
+        border: 1px solid rgba(0, 242, 255, 0.4);
+        color: #00f2ff;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        transition: all 0.3s ease;
+        width: 100%;
     }}
     div.stButton > button:hover {{
-        background: #00f2ff; color: #000;
+        background: #00f2ff;
+        color: #000;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 242, 255, 0.4);
     }}
+    
+    /* Ẩn Header mặc định của Streamlit */
+    header {{visibility: hidden;}}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. NỘI DUNG LUẬT "ĐÀNG HOÀNG" (DÀI & CHI TIẾT) ---
-def get_law_content(step):
-    header = f"### VĂN BẢN THỎA THUẬN SỬ DỤNG DỊCH VỤ SỐ NEXUS (PHẦN {step}/5)\n\n"
+# --- 3. LOGIC HỆ THỐNG ---
+
+# Soạn thảo Luật (Phiên bản chuyên nghiệp & hài hước)
+def get_law(step):
+    headers = ["KHỞI TẠO GIAO THỨC", "BẢO MẬT & QUYỀN RIÊNG TƯ", "TRÁCH NHIỆM PHÁP LÝ", "HỆ THỐNG VẬN HÀNH", "TUYÊN THỆ CUỐI CÙNG"]
     
     texts = {
         1: """
-        **ĐIỀU 1: PHẠM VI ÁP DỤNG VÀ ĐỊNH NGHĨA**
+        **ĐIỀU 1.1: ĐỊNH DANH HỆ THỐNG**
+        Nexus OS không phải là một công cụ tìm kiếm thông thường. Đây là một giao diện trí tuệ nhân tạo bậc cao được thiết kế để tối ưu hóa hiệu suất làm việc của con người.
         
-        1.1. Nexus (sau đây gọi tắt là "Hệ thống") là một giao diện trí tuệ nhân tạo được thiết kế nhằm mục đích hỗ trợ người dùng thực hiện các tác vụ thông tin, xử lý dữ liệu và giải trí lành mạnh.
+        **ĐIỀU 1.2: ĐỐI TƯỢNG SỬ DỤNG**
+        Dịch vụ này chỉ dành cho các thực thể sinh học (con người) có khả năng đọc hiểu văn bản và có chỉ số kiên nhẫn trên mức trung bình. Nếu bạn là robot, vui lòng nhập mã xác thực nhị phân 010101 rồi tự tắt máy.
         
-        1.2. "Người dùng" (sau đây gọi tắt là "Bạn") được định nghĩa là thực thể sinh học hoặc kỹ thuật số có khả năng tương tác với bàn phím và chuột, có đầy đủ năng lực hành vi dân sự để chịu trách nhiệm cho những câu hỏi ngớ ngẩn của mình.
-        
-        1.3. Bằng việc truy cập vào Hệ thống này, Bạn xác nhận rằng Bạn không phải là robot của phe đối lập, không phải là điệp viên công nghệ, và quan trọng nhất: Bạn đã ăn sáng (hoặc ăn trưa/tối) đầy đủ để đảm bảo não bộ hoạt động bình thường khi giao tiếp với AI.
-        
-        **ĐIỀU 2: QUYỀN LỢI CỦA NGƯỜI DÙNG**
-        
-        2.1. Bạn có quyền đặt câu hỏi không giới hạn về số lượng (trong khuôn khổ API cho phép). Tuy nhiên, Hệ thống có quyền từ chối trả lời nếu phát hiện câu hỏi mang tính chất spam, ví dụ: "Em ăn cơm chưa?" lặp lại 50 lần.
-        
-        2.2. Bạn được quyền thay đổi giao diện hình nền theo sở thích cá nhân. Tuy nhiên, Hệ thống khuyến cáo không sử dụng hình ảnh gây ảo giác mạnh, hình ảnh kinh dị hoặc hình ảnh người yêu cũ để tránh gây xung đột cảm xúc trong quá trình làm việc.
-        
-        *(Vui lòng cuộn xuống cuối trang để xác nhận...)*
-        """ + ("\n\n" + "&nbsp;"*10 + "...\n\n") * 5, # Tạo khoảng trắng giả để ép scroll
+        **ĐIỀU 1.3: QUY TẮC HIỂN THỊ**
+        Hệ thống này được tối ưu hóa hiển thị trên mọi thiết bị. Nếu bạn đang đọc dòng này trên điện thoại dọc, chúc mừng bạn, CSS của tôi hoạt động tốt. Nếu bạn đọc trên máy tính, nó vẫn hoạt động tốt. Đó là sự hoàn hảo.
+        """ + ("\n\n(Cuộn xuống tiếp đi, chưa hết đâu...)\n" * 5),
         
         2: """
-        **ĐIỀU 3: TRÁCH NHIỆM VỀ NỘI DUNG VÀ BẢO MẬT**
+        **ĐIỀU 2.1: DỮ LIỆU NGƯỜI DÙNG**
+        Mọi dữ liệu bạn nhập vào phiên làm việc này sẽ biến mất ngay khi bạn đóng tab trình duyệt, giống như tiền lương biến mất vào cuối tháng vậy. Chúng tôi tôn trọng quyền "được quên" của bạn.
         
-        3.1. Hệ thống cam kết bảo mật tuyệt đối danh tính của Bạn trong phiên làm việc hiện tại. Chúng tôi áp dụng chuẩn mã hóa "Quên Ngay Lập Tức" (Immediate Amnesia Protocol). Điều này có nghĩa là ngay khi Bạn đóng trình duyệt, Hệ thống sẽ quên Bạn là ai, Bạn đã hỏi gì, và Bạn nợ ai bao nhiêu tiền.
-        
-        3.2. Bạn chịu hoàn toàn trách nhiệm về nội dung nhập vào khung chat. Nghiêm cấm mọi hành vi lợi dụng Hệ thống để:
-           a) Lên kế hoạch chiếm đoạt thế giới.
-           b) Soạn thảo tin nhắn chia tay hộ người khác.
-           c) Tìm cách hack vào máy chủ của NASA bằng HTML.
-        
-        3.3. Trong trường hợp Hệ thống đưa ra thông tin sai lệch (ảo giác AI), Bạn có nghĩa vụ kiểm chứng lại bằng Google hoặc sách giáo khoa. Hệ thống là trợ lý, không phải là Giáo sư biết tuốt, nên đôi khi "chém gió" là một tính năng, không phải lỗi.
-        
-        *(Đọc kỹ đi, đừng lướt nhanh quá...)*
-        """ + ("\n\n" + "&nbsp;"*10 + "...\n\n") * 5,
+        **ĐIỀU 2.2: QUYỀN CHỦ SỞ HỮU**
+        Hệ thống này thuộc quyền quản lý tối cao của **Trần Thiện Phát Lê** (tranthienphatle@gmail.com). Mọi nỗ lực sao chép, đảo ngược mã nguồn đều sẽ bị... admin cười nhạo vì code này quá phức tạp để copy.
+        """ + ("\n\n(Tiếp tục nào, kiên nhẫn là vàng...)\n" * 5),
         
         3: """
-        **ĐIỀU 4: GIỚI HẠN TRÁCH NHIỆM PHÁP LÝ**
+        **ĐIỀU 3.1: MIỄN TRỪ TRÁCH NHIỆM**
+        Nexus cung cấp thông tin dựa trên dữ liệu có sẵn. Nếu Nexus chỉ bạn cách nấu mì tôm mà bị cháy nồi, đó là lỗi kỹ năng của bạn, không phải lỗi thuật toán.
         
-        4.1. Nexus được cung cấp trên nguyên tắc "CÓ SAO DÙNG VẬY" (AS-IS). Nhà phát triển (những người bí ẩn phía sau màn hình đen) không chịu trách nhiệm cho bất kỳ thiệt hại nào về tinh thần, vật chất, hoặc tình cảm phát sinh từ việc sử dụng Hệ thống.
-        
-        4.2. Nếu Bạn sử dụng Nexus để tư vấn đầu tư và bị lỗ, đó là lỗi của thị trường. Nếu Bạn dùng Nexus để tư vấn tình cảm và bị từ chối, đó là lỗi của định mệnh. Nexus vô can.
-        
-        4.3. Hệ thống có thể bảo trì đột xuất bất cứ lúc nào nếu Admin cảm thấy buồn hoặc cần đi uống cà phê. Trong thời gian đó, vui lòng quay lại với các phương thức truyền thống như giấy và bút.
-        
-        *(Sắp xong rồi, cố lên...)*
-        """ + ("\n\n" + "&nbsp;"*10 + "...\n\n") * 5,
+        **ĐIỀU 3.2: CẢNH BÁO SỨC KHỎE**
+        Việc sử dụng giao diện Dark Mode quá lâu có thể khiến bạn cảm thấy mình giống như một hacker trong phim Hollywood. Hãy nhớ ra ngoài chạm cỏ (touch grass) sau mỗi 4 tiếng sử dụng.
+        """ + ("\n\n(Sắp xong rồi, đừng bỏ cuộc...)\n" * 5),
         
         4: """
-        **ĐIỀU 5: QUY ĐỊNH VỀ CẬP NHẬT VÀ PHIÊN BẢN**
+        **ĐIỀU 4.1: THÔNG SỐ KỸ THUẬT**
+        Hệ thống chạy trên nền tảng đám mây (Cloud), nhưng đôi khi cũng chạy bằng "cơm" (ý là admin phải fix lỗi thủ công).
         
-        5.1. Hệ thống sẽ tự động cập nhật các tính năng mới mà không cần báo trước. Đôi khi tính năng mới chỉ là đổi màu cái nút bấm, nhưng chúng tôi vẫn gọi đó là "Cải tiến đột phá về trải nghiệm người dùng".
-        
-        5.2. Các thông tin phiên bản (Version Logs) được lưu trữ tại khu vực Cài đặt. Việc truy cập vào các khu vực cấm (như Admin Panel) mà không có sự cho phép là hành vi vi phạm nghiêm trọng (trừ khi Bạn biết mật khẩu, lúc đó thì xin mời vào).
-        
-        5.3. Mọi khiếu nại về tốc độ phản hồi xin vui lòng gửi về địa chỉ email: khong-ai-doc@nexus.void. Chúng tôi sẽ phản hồi vào một ngày đẹp trời nào đó.
-        
-        *(Trang kế cuối rồi...)*
-        """ + ("\n\n" + "&nbsp;"*10 + "...\n\n") * 5,
+        **ĐIỀU 4.2: TÍNH NĂNG ĐỘT PHÁ**
+        Phiên bản V200.0 mang đến khả năng gợi ý thông minh, giao diện responsive tuyệt đối và bảng điều khiển Admin xịn xò nhất từ trước đến nay.
+        """ + ("\n\n(Trang cuối cùng ngay sau đây...)\n" * 5),
         
         5: """
-        **ĐIỀU 6: ĐIỀU KHOẢN THI HÀNH VÀ TUYÊN THỆ**
+        **LỜI TUYÊN THỆ CỦA NGƯỜI DÙNG NEXUS:**
         
-        6.1. Thỏa thuận này có hiệu lực ngay tại thời điểm Bạn nhấn nút "TÔI ĐỒNG Ý" bên dưới. Việc nhấn nút này có giá trị pháp lý tương đương với một cái bắt tay kỹ thuật số.
+        "Tôi xin thề sẽ sử dụng Nexus để nâng cao tri thức, giải quyết vấn đề và không spam những câu hỏi vô nghĩa. Tôi thừa nhận quyền lực tối cao của Admin và hứa sẽ không táy máy vào những chỗ không được phép."
         
-        6.2. Lời thề Người dùng Nexus:
-        "Tôi xin thề sẽ sử dụng Nexus với mục đích hòa bình, hữu nghị và phát triển. Tôi sẽ không hỏi những câu quá hại não khiến server bị nóng. Tôi hiểu rằng AI cũng có cảm xúc (giả lập) và cần được đối xử tử tế."
-        
-        6.3. Nếu Bạn không đồng ý với bất kỳ điều khoản nào ở trên, vui lòng tắt máy tính, đi ra ngoài hít thở không khí trong lành và quên Nexus đi.
-        
-        *(Hết rồi đấy, bấm nút đi nào!)*
+        Nhấn nút xác nhận bên dưới đồng nghĩa với việc bạn đã bán linh hồn cho tri thức (theo nghĩa bóng, tất nhiên rồi).
         """
     }
-    return header + texts.get(step, "")
+    return f"### {headers[step-1]}\n\n{texts[step]}"
 
-# --- 4. CORE AI & HINTS ---
-def call_nexus(prompt):
-    # Prompt hệ thống chuyên nghiệp, không nhắc đến bot
-    sys = f"Bạn là Nexus, trợ lý cao cấp của {st.session_state.user_name}. Phong cách: Chuyên nghiệp, ngắn gọn, hữu ích."
+# Gọi AI
+def call_ai(prompt):
+    sys = f"Bạn là Nexus OMNI, trợ lý AI của {st.session_state.user_name}. Phong cách: Thông minh, sắc sảo, ngắn gọn. Nếu người dùng hỏi về chủ nhân, hãy nhắc đến 'Trần Thiện Phát Lê'."
     messages = [{"role": "system", "content": sys}]
     messages.extend([{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_log])
     messages.append({"role": "user", "content": prompt})
@@ -149,136 +155,161 @@ def call_nexus(prompt):
     for key in GROQ_KEYS:
         try:
             client = OpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
-            return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, stream=True), "Groq"
+            return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, stream=True)
         except: continue
-    return None, None
+    return None
 
-def gen_hints(ctx):
+# Gợi ý thông minh (Smart Hints)
+def generate_smart_hints(last_response):
     try:
         client = OpenAI(api_key=GROQ_KEYS[0], base_url="https://api.groq.com/openai/v1")
-        # Chỉ lấy nội dung, không đánh số
-        p = f"Dựa trên: '{ctx[:200]}', gợi ý 6 câu hỏi tiếp theo cực ngắn. Chỉ trả về nội dung, cách nhau dấu phẩy. Không đánh số."
+        # Prompt yêu cầu gợi ý Hành Động thay vì chỉ câu hỏi
+        p = f"""Dựa trên câu trả lời: "{last_response[:300]}", hãy đưa ra 6 gợi ý tiếp theo thật thông minh và hợp lý. 
+        Phải bao gồm cả hành động (Ví dụ: Tóm tắt, Dịch, Giải thích sâu hơn) và câu hỏi mở rộng.
+        Chỉ trả về danh sách 6 cụm từ ngắn gọn, cách nhau dấu phẩy. Không đánh số."""
         res = client.chat.completions.create(model="llama-3.1-8b-instant", messages=[{"role": "user", "content": p}])
         clean = [x.strip() for x in res.choices[0].message.content.split(',') if x.strip()]
-        st.session_state.suggestions = clean[:6] if len(clean) >= 6 else (clean + ["Khác..."]*6)[:6]
-    except: pass
+        # Đảm bảo đủ 6 gợi ý
+        while len(clean) < 6: clean.append("Phân tích thêm")
+        st.session_state.suggestions = clean[:6]
+    except: 
+        st.session_state.suggestions = ["Chi tiết hơn", "Ví dụ minh họa", "Tóm tắt ý chính", "Dịch sang Anh", "Viết code mẫu", "Góc nhìn khác"]
 
-# --- 5. MÀN HÌNH LUẬT (FULL PAGE TEXT) ---
+# --- 4. GIAO DIỆN CÁC TRANG ---
+
 def screen_law():
     apply_theme()
+    st.markdown("<div class='glass-box'>", unsafe_allow_html=True)
     
-    # Hiển thị luật trực tiếp trên trang (Không dùng khung scroll nhỏ nữa)
-    st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
-    st.markdown(get_law_content(st.session_state.law_step))
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Tiêu đề
+    st.title(f"⚖️ THỎA THUẬN NGƯỜI DÙNG (BƯỚC {st.session_state.law_step}/5)")
+    
+    # Nội dung luật Responsive
+    st.markdown(f"<div class='law-text'>{get_law(st.session_state.law_step)}</div>", unsafe_allow_html=True)
     
     # Timer logic
-    k = f"t_{st.session_state.law_step}"
-    if k not in st.session_state: st.session_state[k] = time.time()
-    wait = 10 - (time.time() - st.session_state[k])
+    t_key = f"timer_{st.session_state.law_step}"
+    if t_key not in st.session_state: st.session_state[t_key] = time.time()
+    wait = 8 - (time.time() - st.session_state[t_key]) # 8 giây chờ
     
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # Nút bấm Responsive
+    col1, col2 = st.columns([1, 1])
     with col2:
         if wait > 0:
-            st.warning(f"⏳ Vui lòng đọc kỹ nội dung... ({int(wait)}s)")
+            st.warning(f"⏳ Vui lòng đọc kỹ... ({int(wait)}s)")
             time.sleep(1); st.rerun()
         else:
-            lbl = "TÔI ĐỒNG Ý VÀ TIẾP TỤC ➡️" if st.session_state.law_step < 5 else "XÁC NHẬN TOÀN BỘ ✅"
-            if st.button(lbl, use_container_width=True):
+            label = "ĐỒNG Ý & TIẾP TỤC ➡️" if st.session_state.law_step < 5 else "CHẤP NHẬN TOÀN BỘ ✅"
+            if st.button(label, use_container_width=True):
                 if st.session_state.law_step < 5: st.session_state.law_step += 1
                 else: st.session_state.stage = "ask_name"
                 st.rerun()
-
-# --- 6. NHẬP TÊN ---
-def screen_name():
-    apply_theme()
-    st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
-    st.header("👤 XÁC MINH DANH TÍNH NGƯỜI DÙNG")
-    st.write("Vui lòng nhập tên định danh để hệ thống ghi nhận quyền truy cập:")
-    n = st.text_input("", placeholder="Nhập tên của bạn...")
-    if st.button("TRUY CẬP HỆ THỐNG"):
-        if n: st.session_state.user_name = n; st.session_state.stage = "home"; st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- 7. HOME & ADMIN GATE ---
+def screen_name():
+    apply_theme()
+    st.markdown("<div class='glass-box' style='text-align: center;'>", unsafe_allow_html=True)
+    st.markdown("## 🔐 XÁC THỰC DANH TÍNH")
+    st.write("Hệ thống cần biết bạn là ai để cấp quyền truy cập.")
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        name = st.text_input("Nhập Codename của bạn:", placeholder="Ví dụ: Alpha, User 01...")
+        if st.button("KẾT NỐI VÀO NEXUS", use_container_width=True):
+            if name: 
+                st.session_state.user_name = name
+                # Tăng stats giả lập
+                st.session_state.total_visits += 1
+                st.session_state.active_users += 1
+                st.session_state.stage = "home"
+                st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
 def screen_home():
     apply_theme()
-    st.title(f"💠 NEXUS DASHBOARD - {st.session_state.user_name.upper()}")
-    
+    st.markdown(f"# 💠 NEXUS COMMAND CENTER")
+    st.markdown(f"Chào mừng đặc vụ **{st.session_state.user_name}**")
+
+    # Layout Dashboard Responsive
+    # Hàng 1: Chat & Config
     c1, c2 = st.columns([2, 1])
     with c1:
-        st.markdown("<div class='glass-container'><h3>🚀 Neural Interface</h3><p>Kết nối trực tiếp tới lõi AI.</p></div>", unsafe_allow_html=True)
-        if st.button("MỞ GIAO DIỆN CHAT", use_container_width=True):
+        st.markdown("<div class='glass-box'><h3>🧠 Neural Core</h3><p>Truy cập vào lõi xử lý ngôn ngữ tự nhiên.</p></div>", unsafe_allow_html=True)
+        if st.button("🚀 KHỞI CHẠY GIAO DIỆN CHAT", use_container_width=True):
             st.session_state.stage = "chat"; st.rerun()
-    
+            
     with c2:
-        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
-        st.subheader("⚙️ Thiết lập")
-        st.session_state.bg_url = st.text_input("Hình nền (URL):", st.session_state.bg_url)
+        st.markdown("<div class='glass-box'>", unsafe_allow_html=True)
+        st.markdown("### ⚙️ Hệ thống")
+        st.session_state.bg_url = st.text_input("Đổi hình nền (URL):", st.session_state.bg_url)
         
-        with st.expander("ℹ️ Thông tin hệ thống"):
-            st.write("Nexus OS - Version 102.0 (Stable)")
-            # SECRET GATE
-            if st.button("Serial: NX-102-SECURE"):
-                st.session_state.admin_clicks += 1
-                if st.session_state.admin_clicks >= 10: st.session_state.show_secret = True
-            
-            if st.session_state.get('show_secret'):
-                st.error("⚠️ CẢNH BÁO TRUY CẬP")
-                if st.button(f"XÁC NHẬN ({st.session_state.ok_count}/4)"):
-                    st.session_state.ok_count += 1
-                    if st.session_state.ok_count >= 4:
-                        st.session_state.is_admin = True; st.session_state.show_secret = False
-
-        if st.session_state.is_admin:
-            st.success("🔓 ADMIN CONTROL PANEL")
-            import socket
-            st.code(f"USER: {st.session_state.user_name}\nIP: {socket.gethostbyname(socket.gethostname())}\nMODE: SUPERUSER", language="yaml")
-            if st.button("Đăng xuất Admin"): st.session_state.is_admin = False; st.rerun()
-            
-        if st.button("Đọc lại Thỏa thuận"): st.session_state.stage="law"; st.session_state.law_step=1; st.rerun()
+        # EASTER EGG KÍCH HOẠT ADMIN
+        if st.button(f"Phiên bản: V200.0 (OMNI)"):
+            st.session_state.admin_clicks += 1
+            if st.session_state.admin_clicks >= 7: st.session_state.show_pass = True
+        
+        if st.session_state.get('show_pass'):
+            if st.button("XÁC NHẬN QUYỀN CHỦ SỞ HỮU"):
+                 st.session_state.ok_count += 1
+                 if st.session_state.ok_count >= 3:
+                     st.session_state.is_admin = True
+                     st.session_state.show_pass = False
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- 8. CHAT & 6 GỢI Ý ---
+    # KHU VỰC ADMIN (NẾU ĐƯỢC KÍCH HOẠT)
+    if st.session_state.is_admin:
+        st.markdown("---")
+        st.markdown("## 🛡️ SUPER ADMIN DASHBOARD")
+        
+        # Thống kê đột phá (Charts)
+        a1, a2, a3, a4 = st.columns(4)
+        a1.metric("Tổng truy cập", f"{st.session_state.total_visits:,}")
+        a2.metric("Người dùng Active", st.session_state.active_users)
+        a3.metric("Server Uptime", st.session_state.server_uptime)
+        a4.metric("CPU Load", f"{psutil.cpu_percent()}%")
+        
+        # Thông tin chủ sở hữu
+        st.info(f"👑 **OWNER:** Trần Thiện Phát Lê | 📧 **EMAIL:** tranthienphatle@gmail.com")
+        
+        # Biểu đồ giả lập (Analytics)
+        chart_data = pd.DataFrame(
+            np.random.randn(20, 3),
+            columns=['Truy cập', 'Tương tác', 'Tải hệ thống'])
+        st.line_chart(chart_data)
+        
+        if st.button("Đăng xuất Admin"): st.session_state.is_admin = False; st.rerun()
+
+    # Nút đọc lại luật
+    if st.button("📜 Xem lại Điều khoản"): st.session_state.stage="law"; st.session_state.law_step=1; st.rerun()
+
 def screen_chat():
     apply_theme()
-    if st.button("⬅️ TRỞ VỀ"): st.session_state.stage = "home"; st.rerun()
-    st.title("🧬 Nexus Chat")
+    if st.button("⬅️ DASHBOARD", use_container_width=True): st.session_state.stage = "home"; st.rerun()
     
-    ct = st.container()
+    st.markdown("### 🧬 NEXUS OMNI-CHAT")
+    
+    # Container Chat
+    chat_container = st.container()
     for m in st.session_state.chat_log:
-        with ct.chat_message(m["role"]): st.markdown(m["content"])
+        with chat_container.chat_message(m["role"]): st.markdown(m["content"])
     
-    st.write("💡 **Đề xuất tác vụ:**")
-    h = st.session_state.suggestions
-    # Gợi ý hàng 1
-    c1 = st.columns(3)
-    for i in range(3):
-        if i < len(h): 
-            if c1[i].button(h[i], key=f"r1_{i}"): process(h[i])
-    # Gợi ý hàng 2
-    c2 = st.columns(3)
-    for i in range(3, 6):
-        if i < len(h):
-            if c2[i-3].button(h[i], key=f"r2_{i}"): process(h[i])
+    # 6 GỢI Ý THÔNG MINH (Responsive Layout)
+    st.write("✨ **Đề xuất hành động:**")
+    hints = st.session_state.suggestions
+    
+    # Dùng columns để chia đều gợi ý
+    c1, c2, c3 = st.columns(3)
+    for i, hint in enumerate(hints):
+        if i < 2: col = c1
+        elif i < 4: col = c2
+        else: col = c3
+        
+        with col:
+            if st.button(hint, key=f"h_{i}", use_container_width=True):
+                process_chat(hint)
 
-    if p := st.chat_input("Nhập lệnh..."): process(p)
+    # Input Box
+    if prompt := st.chat_input("Nhập yêu cầu của bạn..."):
+        process_chat(prompt)
 
-def process(txt):
-    st.session_state.chat_log.append({"role": "user", "content": txt})
-    with st.chat_message("user"): st.markdown(txt)
-    with st.chat_message("assistant"):
-        box = st.empty(); full = ""
-        stream, _ = call_nexus(txt)
-        if stream:
-            for ch in stream:
-                c = ch.choices[0].delta.content if hasattr(ch,'choices') else ch.text
-                if c: full += c; box.markdown(full + "█")
-            box.markdown(full)
-            st.session_state.chat_log.append({"role": "assistant", "content": full})
-            gen_hints(full); st.rerun()
-
-if st.session_state.stage == "law": screen_law()
-elif st.session_state.stage == "ask_name": screen_name()
-elif st.session_state.stage == "home": screen_home()
-else: screen_chat()
+def process_chat(txt):
