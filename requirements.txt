@@ -2,3 +2,5 @@ streamlit
 openai
 google-generativeai
 psutil
+pandas
+numpy
