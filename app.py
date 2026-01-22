@@ -2,193 +2,180 @@
 import streamlit as st
 from openai import OpenAI
 
-# --- 1. CONFIG & IDENTITY ---
+# --- 1. CẤU HÌNH HỆ THỐNG ---
 st.set_page_config(
-    page_title="NEXUS V1200", 
+    page_title="NEXUS V1300", 
     layout="wide", 
     page_icon="💠",
     initial_sidebar_state="collapsed"
 )
 
-OWNER_NAME = "Le Tran Thien Phat"
-# LƯU Ý: Vui lòng dán API Key thật của bạn vào đây (Ví dụ: "gsk_...")
-API_KEY_INPUT = st.secrets.get("GROQ_KEY", "YOUR_API_KEY_HERE") 
+OWNER_NAME = "Lê Trần Thiên Phát"
+# CHÚ Ý: Dán mã API Groq của bạn vào đây
+API_KEY_REAL = st.secrets.get("GROQ_KEY", "DÁN_API_KEY_CỦA_BẠN_VÀO_ĐÂY") 
 
-# Khởi tạo trạng thái (Bắt đầu từ màn hình LAW)
+# Quản lý trạng thái màn hình
 if 'stage' not in st.session_state: st.session_state.stage = "LAW"
-if 'chat_history' not in st.session_state: st.session_state.chat_history = []
+if 'chat_log' not in st.session_state: st.session_state.chat_log = []
 
-def change_stage(new_stage):
-    st.session_state.stage = new_stage
+def set_stage(stage_name):
+    st.session_state.stage = stage_name
 
-# --- 2. CSS MASTER ENGINE (RESPONSIVE & HIGH CONTRAST) ---
-def apply_universal_theme():
+# --- 2. GIAO DIỆN TITAN (TỐI ƯU ĐA THIẾT BỊ) ---
+def apply_style():
     st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;700;900&display=swap');
     
-    :root {{
-        --neon-blue: #00f2ff;
-        --bg-dark: #000000;
-        --card-bg: #0a0a0a;
-    }}
-
-    * {{ font-family: 'Lexend', sans-serif; color: #ffffff; }}
+    * {{ font-family: 'Be Vietnam Pro', sans-serif; color: #FFFFFF; }}
     
-    .stApp {{ background-color: var(--bg-dark); }}
+    .stApp {{ background-color: #000000; }}
 
-    /* LOGO APP TO & ĐẸP */
-    .logo-container {{
+    /* LOGO SIÊU LỚN */
+    .hero-logo {{
         text-align: center;
-        padding: 40px 0;
+        padding: 60px 0 20px 0;
     }}
-    .main-logo {{
-        font-size: 80px;
-        font-weight: 800;
-        background: linear-gradient(45deg, #00f2ff, #0072ff);
+    .logo-text {{
+        font-size: clamp(60px, 10vw, 120px);
+        font-weight: 900;
+        background: linear-gradient(to right, #00f2ff, #0072ff, #00f2ff);
+        background-size: 200% auto;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        filter: drop-shadow(0 0 15px rgba(0, 242, 255, 0.5));
-        margin-bottom: 10px;
-        cursor: pointer;
+        animation: shine 3s linear infinite;
+        filter: drop-shadow(0 0 20px rgba(0, 242, 255, 0.4));
+    }}
+    @keyframes shine {{
+        to {{ background-position: 200% center; }}
     }}
 
-    /* CARD MENU TỰ THÍCH NGHI (RESPONSIVE) */
+    /* CARD MENU LỚN */
     div.stButton > button {{
         width: 100% !important;
-        background: var(--card-bg) !important;
-        border: 1px solid #333 !important;
-        border-radius: 24px !important;
-        padding: 50px 20px !important;
-        transition: 0.3s all ease;
-        text-transform: uppercase;
-        letter-spacing: 2px;
+        background: #0a0a0a !important;
+        border: 1px solid #222 !important;
+        border-radius: 30px !important;
+        padding: 60px 20px !important;
+        font-size: 1.5rem !important;
         font-weight: 700 !important;
+        transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        display: flex;
+        flex-direction: column;
     }}
     
     div.stButton > button:hover {{
-        border-color: var(--neon-blue) !important;
-        box-shadow: 0 0 40px rgba(0, 242, 255, 0.2);
-        transform: translateY(-5px);
+        border-color: #00f2ff !important;
+        background: rgba(0, 242, 255, 0.05) !important;
+        box-shadow: 0 15px 40px rgba(0, 242, 255, 0.2);
+        transform: scale(1.02);
     }}
 
-    /* KHUNG ĐIỀU KHOẢN (Tối ưu cho mọi thiết bị) */
-    .legal-scroll {{
+    /* KHUNG ĐIỀU KHOẢN */
+    .tos-container {{
         background: #050505;
-        border: 1px solid #222;
-        padding: 30px;
-        border-radius: 20px;
-        height: 60vh;
+        border: 1px solid #1a1a1a;
+        padding: 40px;
+        border-radius: 25px;
+        height: 550px;
         overflow-y: auto;
-        margin-bottom: 20px;
-        border-left: 4px solid var(--neon-blue);
+        margin-bottom: 25px;
+        box-shadow: inset 0 0 20px rgba(0,0,0,1);
     }}
-    .legal-scroll h1 {{ color: var(--neon-blue); }}
-    .legal-scroll p {{ color: #aaa; line-height: 1.8; font-size: 1.1rem; }}
+    .tos-container h1, .tos-container h2 {{ color: #00f2ff; }}
+    .tos-container p {{ color: #e0e0e0; line-height: 1.9; font-size: 1.15rem; }}
 
-    /* Fix lỗi hiển thị chat */
+    /* CHAT BOX */
     div[data-testid="stChatMessage"] {{
-        background: rgba(255,255,255,0.03);
-        border-radius: 15px;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid #111;
+        border-radius: 20px;
+        margin-bottom: 15px;
     }}
     
-    /* Responsive cho điện thoại */
+    /* RESPONSIVE FIX */
     @media (max-width: 768px) {{
-        .main-logo {{ font-size: 50px; }}
-        div.stButton > button {{ padding: 30px 10px !important; font-size: 1rem !important; }}
+        div.stButton > button {{ padding: 40px 10px !important; font-size: 1.1rem !important; }}
     }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. AI HANDLER (FIX ASCII ERROR) ---
-def call_nexus_ai(user_prompt):
-    if "YOUR_API_KEY" in API_KEY_INPUT:
-        return "He thong chua co API Key. Vui long kiem tra lai."
-        
+# --- 3. LÕI XỬ LÝ AI ---
+def get_response(user_input):
+    if "DÁN_API_KEY" in API_KEY_REAL:
+        return "⚠️ Hệ thống chưa có API Key hợp lệ. Vui lòng kiểm tra lại mã nguồn."
+    
     try:
-        client = OpenAI(api_key=API_KEY_INPUT, base_url="https://api.groq.com/openai/v1")
-        # System prompt dung tieng Anh de tranh loi encoding trong header neu co
-        sys_instr = f"You are Nexus OS by {OWNER_NAME}. Focus on user needs. Answer in Vietnamese."
+        client = OpenAI(api_key=API_KEY_REAL, base_url="https://api.groq.com/openai/v1")
+        system_msg = f"Bạn là Nexus OS, trợ lý thông minh do {OWNER_NAME} phát triển. Trả lời hữu ích, súc tích và tập trung vào người dùng."
         
-        msgs = [{"role": "system", "content": sys_instr}]
-        for m in st.session_state.chat_history:
+        msgs = [{"role": "system", "content": system_msg}]
+        for m in st.session_state.chat_log:
             msgs.append({"role": m["role"], "content": m["content"]})
-        msgs.append({"role": "user", "content": user_prompt})
+        msgs.append({"role": "user", "content": user_input})
 
-        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=msgs, stream=True)
-        return response
+        return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=msgs, stream=True)
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"❌ Lỗi kết nối: {str(e)}"
 
-# --- 4. MÀN HÌNH CHỨC NĂNG ---
+# --- 4. CÁC MÀN HÌNH GIAO DIỆN ---
 
-def screen_law():
-    apply_universal_theme()
-    st.markdown("""
-        <div class='logo-container'>
-            <div class='main-logo'>NEXUS OS</div>
-            <p>UNIVERSAL MASTER EDITION</p>
-        </div>
-    """, unsafe_allow_html=True)
+def show_law_screen():
+    apply_style()
+    st.markdown("<div class='hero-logo'><div class='logo-text'>NEXUS OS</div></div>", unsafe_allow_html=True)
     
     st.markdown(f"""
-    <div class="legal-scroll">
-        <h1>📜 DIEU KHOAN SU DUNG</h1>
-        <p>Chao mung ban den voi he dieu hanh tri tue duoc phat trien boi <b>{OWNER_NAME}</b>.</p>
-        <h2>1. Trai nghiem nguoi dung</h2>
-        <p>Chung toi toi uu hoa giao dien cho ca Laptop, Tablet va Smartphone. Ban co the truy cap Nexus o bat cu dau.</p>
-        <h2>2. Quyen rieng tu</h2>
-        <p>Moi du lieu tro chuyen se bi xoa bo sau khi phien lam viec ket thuc. Chung toi ton trong su rieng tu tuyet doi cua ban.</p>
-        <h2>3. Ban quyen</h2>
-        <p>San pham thuoc so huu cua <b>{OWNER_NAME}</b>. Vui long khong sao chep duoi moi hinh thuc.</p>
-        <h2>4. Hieu nang</h2>
-        <p>He thong su dung cong nghe Neural Network tien tien nhat de phan hoi cau hoi cua ban.</p>
-        <p><i>(Cuon xuong de xac nhan va vao menu chinh)</i></p>
+    <div class="tos-container">
+        <h1>📜 ĐIỀU KHOẢN DỊCH VỤ</h1>
+        <p>Chào mừng bạn đã truy cập vào hệ thống Nexus V1300. Đây là sản phẩm trí tuệ được thiết kế và vận hành bởi <b>{OWNER_NAME}</b>.</p>
+        <h2>1. Trải nghiệm người dùng hàng đầu</h2>
+        <p>Giao diện được tối ưu hóa cho tất cả các thiết bị: Laptop, Máy tính bảng và Điện thoại di động. Bạn sẽ luôn có trải nghiệm mượt mà nhất.</p>
+        <h2>2. Bảo mật dữ liệu</h2>
+        <p>Mọi nội dung trò chuyện sẽ được xóa sạch sau khi bạn đóng trình duyệt. Chúng tôi không lưu giữ bí mật của người dùng.</p>
+        <h2>3. Quyền hạn Admin</h2>
+        <p>Admin <b>{OWNER_NAME}</b> có toàn quyền nâng cấp và thay đổi hệ thống để mang lại hiệu năng tốt nhất cho cộng đồng.</p>
+        <h2>4. Trách nhiệm AI</h2>
+        <p>AI trả lời dựa trên dữ liệu lớn, hãy sử dụng thông tin một cách thông thái. Nexus sẽ luôn đồng hành cùng bạn.</p>
+        <p align="center"><i>(Vui lòng cuộn xuống để đọc hết và xác nhận)</i></p>
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("TOI DONG Y VOI CAC DIEU KHOAN ✅", use_container_width=True):
-        change_stage("MENU"); st.rerun()
+    if st.button("TÔI ĐÃ ĐỌC VÀ ĐỒNG Ý ✅", use_container_width=True):
+        set_stage("MENU"); st.rerun()
 
-def screen_menu():
-    apply_universal_theme()
-    st.markdown("""
-        <div class='logo-container'>
-            <div class='main-logo'>NEXUS HUB</div>
-            <p>Chon mot giao thuc de bat dau</p>
-        </div>
-    """, unsafe_allow_html=True)
+def show_menu_screen():
+    apply_style()
+    st.markdown("<div class='hero-logo'><div class='logo-text'>MENU</div></div>", unsafe_allow_html=True)
     
-    # Grid thich nghi
     col1, col2 = st.columns(2)
     with col1:
-        st.button("💬\n\nKICH HOAT CHAT AI", on_click=change_stage, args=("CHAT",))
+        st.button("💬\n\nKÍCH HOẠT CHAT AI", on_click=set_stage, args=("CHAT",))
     with col2:
-        st.button("📊\n\nHE THONG & INFO", on_click=change_stage, args=("INFO",))
+        st.button("🛡️\n\nĐIỀU KHOẢN", on_click=set_stage, args=("LAW",))
     
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("📜 DOC LAI DIEU KHOAN", use_container_width=True):
-        change_stage("LAW"); st.rerun()
+    if st.button("ℹ️ THÔNG TIN HỆ THỐNG", use_container_width=True):
+        set_stage("INFO"); st.rerun()
 
-def screen_chat():
-    apply_universal_theme()
+def show_chat_screen():
+    apply_style()
     c1, c2 = st.columns([8, 2])
-    c1.title("🧬 NEURAL CORE")
+    c1.title("🧬 LÕI XỬ LÝ NEURAL")
     if c2.button("🏠 MENU", use_container_width=True):
-        change_stage("MENU"); st.rerun()
-        
-    # Chat history
-    for msg in st.session_state.chat_history:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+        set_stage("MENU"); st.rerun()
 
-    if prompt := st.chat_input("Nhap thong diep..."):
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
+    # Hiển thị lịch sử chat
+    for m in st.session_state.chat_log:
+        with st.chat_message(m["role"]):
+            st.markdown(m["content"])
+
+    if prompt := st.chat_input("Hỏi Nexus bất cứ điều gì..."):
+        st.session_state.chat_log.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
         
         with st.chat_message("assistant"):
-            placeholder = st.empty(); full_res = ""
-            stream = call_nexus_ai(prompt)
+            holder = st.empty(); full_res = ""
+            stream = get_response(prompt)
             if isinstance(stream, str):
                 st.error(stream)
             else:
@@ -196,18 +183,23 @@ def screen_chat():
                     content = chunk.choices[0].delta.content if hasattr(chunk, 'choices') else chunk.text
                     if content:
                         full_res += content
-                        placeholder.markdown(full_res + "▌")
-                placeholder.markdown(full_res)
-                st.session_state.chat_history.append({"role": "assistant", "content": full_res})
+                        holder.markdown(full_res + "▌")
+                holder.markdown(full_res)
+                st.session_state.chat_log.append({"role": "assistant", "content": full_res})
 
 # --- 5. ĐIỀU HƯỚNG CHÍNH ---
-if st.session_state.stage == "LAW": screen_law()
-elif st.session_state.stage == "MENU": screen_menu()
-elif st.session_state.stage == "CHAT": screen_chat()
+if st.session_state.stage == "LAW": show_law_screen()
+elif st.session_state.stage == "MENU": show_menu_screen()
+elif st.session_state.stage == "CHAT": show_chat_screen()
 elif st.session_state.stage == "INFO":
-    apply_universal_theme()
-    st.title("⚙️ THONG TIN")
-    st.write(f"Developer: **{OWNER_NAME}**")
-    st.write("Version: V1200 Universal Master")
-    if st.button("🏠 QUAY LAI MENU"):
-        change_stage("MENU"); st.rerun()
+    apply_style()
+    st.title("⚙️ THÔNG TIN HỆ THỐNG")
+    st.markdown(f"""
+    <div style='background:#0a0a0a; padding:40px; border-radius:30px; border:1px solid #222;'>
+        <h3>Nhà phát triển: {OWNER_NAME}</h3>
+        <p>Phiên bản: Definitive Edition V1300</p>
+        <p>Công nghệ: Streamlit + Groq Neural Cloud</p>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("🏠 QUAY LẠI MENU"):
+        set_stage("MENU"); st.rerun()
