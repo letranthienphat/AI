@@ -1,177 +1,167 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
 from openai import OpenAI
-import time
+import json
 
-# --- 1. CONFIG & SECRETS ---
-st.set_page_config(page_title="NEXUS V1800", layout="wide", initial_sidebar_state="collapsed")
+# --- 1. HỆ THỐNG CỐT LÕI ---
+st.set_page_config(page_title="NEXUS V1900", layout="wide", initial_sidebar_state="collapsed")
 
 OWNER = "Lê Trần Thiên Phát"
-# Hệ thống tự động lấy danh sách Keys từ Secret
+
+# Quản lý Secret Keys an toàn
 try:
     API_LIST = st.secrets.get("GROQ_KEYS", [])
     ACTIVE_KEY = API_LIST[0] if API_LIST else st.secrets.get("GROQ_KEY", "")
 except:
     ACTIVE_KEY = ""
 
-# Khởi tạo trạng thái
+# Khởi tạo Session
 if 'stage' not in st.session_state: st.session_state.stage = "LAW"
 if 'chat_log' not in st.session_state: st.session_state.chat_log = []
-if 'hints' not in st.session_state: 
-    st.session_state.hints = ["Tương lai của AI", "Sáng tạo nghệ thuật", "Tối ưu mã nguồn"]
+if 'bg_url' not in st.session_state: st.session_state.bg_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964"
+if 'deep_hints' not in st.session_state: 
+    st.session_state.deep_hints = ["Phân tích kiến trúc hệ thống", "Viết code Python tối ưu", "Lập kế hoạch kinh doanh 2026"]
 
-def set_page(p): st.session_state.stage = p
+def nav(p): st.session_state.stage = p
 
-# --- 2. CSS "LIQUID DARK" UI (CỰC ĐẸP & TƯƠNG PHẢN) ---
+# --- 2. CSS CYBER-GLASS UI (SIÊU ĐẸP & TƯƠNG PHẢN) ---
 def apply_ui():
     st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Plus+Jakarta+Sans:wght@300;500;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Inter:wght@300;400;700&display=swap');
     
     .stApp {{
-        background: radial-gradient(circle at 50% 50%, #0d0d0d 0%, #000000 100%);
-        color: #ffffff;
+        background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url("{st.session_state.bg_url}");
+        background-size: cover; background-position: center; background-attachment: fixed;
     }}
 
-    /* LOGO NEON BREATHING */
-    .logo-container {{
-        text-align: center; padding: 80px 0;
-        animation: pulse 4s ease-in-out infinite;
-    }}
+    /* SIÊU LOGO QUANTUM */
+    .logo-container {{ text-align: center; padding: 60px 0; }}
     .logo-text {{
-        font-family: 'Syncopate', sans-serif;
-        font-size: clamp(40px, 8vw, 90px);
-        font-weight: 700;
-        letter-spacing: 15px;
-        color: #fff;
-        text-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 40px rgba(255,255,255,0.4);
-        text-transform: uppercase;
+        font-family: 'Orbitron', sans-serif;
+        font-size: clamp(40px, 10vw, 100px);
+        font-weight: 900;
+        background: linear-gradient(90deg, #fff, #00f2ff, #fff);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shine 5s linear infinite;
     }}
-    @keyframes pulse {{
-        0%, 100% {{ transform: scale(1); opacity: 0.8; }}
-        50% {{ transform: scale(1.05); opacity: 1; }}
-    }}
+    @keyframes shine {{ to {{ background-position: 200% center; }} }}
 
-    /* CARD MENU "ONE-TAP" */
+    /* NÚT BẤM HÀO QUANG (MENU) */
     div.stButton > button {{
         width: 100% !important;
-        height: 280px !important;
-        background: rgba(255, 255, 255, 0.01) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 40px !important;
-        font-family: 'Plus Jakarta Sans', sans-serif !important;
-        font-size: 1.8rem !important;
-        font-weight: 800 !important;
-        transition: 0.5s all cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
+        height: 220px !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(0, 242, 255, 0.3) !important;
+        border-radius: 30px !important;
+        font-family: 'Orbitron', sans-serif !important;
+        font-size: 1.5rem !important;
+        transition: 0.4s all ease;
     }}
     div.stButton > button:hover {{
-        background: rgba(255, 255, 255, 0.05) !important;
-        border-color: #fff !important;
-        box-shadow: 0 0 50px rgba(255, 255, 255, 0.1);
-        transform: translateY(-15px);
+        border-color: #00f2ff !important;
+        box-shadow: 0 0 40px rgba(0, 242, 255, 0.4);
+        transform: translateY(-10px) scale(1.02);
     }}
 
-    /* ĐIỀU KHOẢN HIỆN ĐẠI (TƯƠNG PHẢN CỰC ĐẠI) */
-    .law-box {{
-        background: rgba(255,255,255,0.02);
-        backdrop-filter: blur(20px);
-        border: 1px solid #222;
-        padding: 60px;
-        border-radius: 40px;
-        height: 550px;
-        overflow-y: auto;
+    /* PHẢN HỒI AI (TƯƠNG PHẢN CAO) */
+    div[data-testid="stChatMessageAssistant"] {{
+        background: rgba(40, 44, 52, 0.95) !important;
+        border-left: 5px solid #00f2ff !important;
+        border-radius: 15px !important;
+        padding: 30px !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }}
-    .law-box h1 {{ font-family: 'Syncopate'; font-size: 2rem; color: #fff; margin-bottom: 30px; }}
-    .law-box p {{ font-size: 1.2rem; color: #aaa; line-height: 2; }}
+    .stMarkdown p {{ color: #ffffff !important; font-size: 1.2rem; }}
 
-    /* CHAT BUBBLES */
-    div[data-testid="stChatMessage"] {{
-        background: #080808 !important;
-        border: 1px solid #111 !important;
-        border-radius: 25px !important;
-        padding: 25px !important;
-        margin-bottom: 20px;
+    /* GỢI Ý ĐỘNG (PILLS) */
+    .hint-box div.stButton > button {{
+        height: auto !important; padding: 10px 20px !important;
+        font-size: 0.9rem !important; border-radius: 50px !important;
+        background: #00f2ff !important; color: #000 !important;
+        font-weight: 700 !important;
     }}
-    .stMarkdown p {{ color: #ffffff !important; font-size: 1.15rem; line-height: 1.7; }}
 
-    /* HINT PILLS (REAL-TIME STYLE) */
-    .hint-container {{ display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }}
-    .hint-pill div.stButton > button {{
-        height: auto !important; padding: 12px 25px !important;
-        font-size: 0.9rem !important; border-radius: 100px !important;
-        background: #fff !important; color: #000 !important;
+    /* ĐIỀU KHOẢN */
+    .tos-box {{
+        background: rgba(0,0,0,0.9); padding: 50px; border-radius: 40px;
+        border: 1px solid #333; height: 500px; overflow-y: auto;
     }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. AI CORE & REAL-TIME HINTS ---
-def call_ai(prompt):
-    if not ACTIVE_KEY: return "❌ Hệ thống chưa có Key."
+# --- 3. LÕI TRÍ TUỆ (DEEP REASONING) ---
+def call_quantum_ai(prompt):
+    if not ACTIVE_KEY: return "⚠️ API Key missing in Secrets!"
     try:
         client = OpenAI(api_key=ACTIVE_KEY, base_url="https://api.groq.com/openai/v1")
-        msgs = [{"role": "system", "content": f"Bạn là Nexus OS. Tác giả: {OWNER}. Trả lời tiếng Việt cực kỳ thông minh."}]
+        msgs = [{"role": "system", "content": f"Bạn là Nexus OS v1900. Tác giả: {OWNER}. Trả lời chuyên sâu, chuyên gia."}]
         for m in st.session_state.chat_log: msgs.append(m)
         msgs.append({"role": "user", "content": prompt})
-        
-        # Cập nhật gợi ý thực tế dựa trên nội dung (Real-time Logic)
-        if "code" in prompt.lower(): st.session_state.hints = ["Tối ưu thuật toán", "Giải thích dòng code", "Sửa lỗi Bug"]
-        elif "chuyện" in prompt.lower(): st.session_state.hints = ["Kể tiếp đoạn cuối", "Thêm kịch tính", "Đổi nhân vật"]
-        else: st.session_state.hints = ["Phân tích sâu hơn", "Ví dụ cụ thể", "Tóm tắt ý chính"]
+
+        # Logic gợi ý sâu: Phân tích intent người dùng
+        if "code" in prompt.lower(): st.session_state.deep_hints = ["Tối ưu hóa bộ nhớ", "Thêm comment giải thích", "Viết Unit Test"]
+        elif "marketing" in prompt.lower(): st.session_state.deep_hints = ["Lập chiến dịch Viral", "Phân tích đối thủ", "Tính ROI"]
+        else: st.session_state.deep_hints = ["Mở rộng ý tưởng này", "Tìm điểm yếu của giải pháp", "Tóm tắt hành động"]
 
         return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=msgs, stream=True)
     except Exception as e: return f"Error: {str(e)}"
 
-# --- 4. CÁC MÀN HÌNH ---
+# --- 4. MÀN HÌNH ---
 
 def show_law():
     apply_ui()
-    st.markdown("<div class='logo-container'><div class='logo-text'>NEXUS</div></div>", unsafe_allow_html=True)
+    st.markdown("<div class='logo-container'><div class='logo-text'>NEXUS OS</div></div>", unsafe_allow_html=True)
     st.markdown(f"""
-    <div class="law-box">
-        <h1>HIẾP ƯỚC V1800</h1>
-        <p>Chào mừng <b>{OWNER}</b>. Đây là giao diện Neural Symphony.</p>
-        <p>• <b>Thị giác:</b> Trải nghiệm độ tương phản cực hạn giữa nền đen tuyền và chữ trắng tuyết.</p>
-        <p>• <b>Tương tác:</b> Toàn bộ hệ thống Menu giờ đây là các thẻ Card cảm ứng. Nhấn là mở.</p>
-        <p>• <b>Trí tuệ:</b> Gợi ý sẽ tự động biến đổi theo ngữ cảnh ngay khi bạn gửi tin nhắn.</p>
+    <div class="tos-box">
+        <h1 style='color:#00f2ff; font-family:Orbitron;'>HIẾP ƯỚC QUANTUM</h1>
+        <p>Phiên bản V1900 tối ưu hóa cho <b>{OWNER}</b>.</p>
+        <p>• <b>Visuals:</b> Giao diện nút bấm Hào quang (Glow) và hình nền động.</p>
+        <p>• <b>Intelligence:</b> Gợi ý hành động sâu dựa trên ngữ cảnh thời gian thực.</p>
+        <p>• <b>Security:</b> Bảo vệ API Key tuyệt đối trong lớp Secrets.</p>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("XÁC NHẬN ĐIỀU KHOẢN ✅", use_container_width=True):
-        set_page("MENU"); st.rerun()
+    if st.button("XÁC NHẬN VÀ TRUY CẬP 🚀", use_container_width=True):
+        nav("MENU"); st.rerun()
 
 def show_menu():
     apply_ui()
-    st.markdown("<div class='logo-container'><div class='logo-text'>CENTRAL</div></div>", unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1: st.button("🧠\nCHAT CORE", on_click=set_page, args=("CHAT",))
-    with c2: st.button("⚙️\nSETTINGS", on_click=set_page, args=("INFO",))
+    st.markdown("<div class='logo-container'><div class='logo-text'>QUANTUM HUB</div></div>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1: st.button("🧠\nCHAT CORE", on_click=nav, args=("CHAT",))
+    with c2: st.button("🖼️\nSCENERY", on_click=nav, args=("INFO",))
+    with c3: st.button("📜\nLEGAL", on_click=nav, args=("LAW",))
 
 def show_chat():
     apply_ui()
     col_a, col_b = st.columns([9, 1])
-    col_a.markdown("<h2 style='font-family:Syncopate;'>NEURAL INTERFACE</h2>", unsafe_allow_html=True)
-    if col_b.button("🏠"): set_page("MENU"); st.rerun()
+    col_a.markdown("<h2 style='font-family:Orbitron; color:#00f2ff;'>NEURAL INTERFACE</h2>", unsafe_allow_html=True)
+    if col_b.button("🏠"): nav("MENU"); st.rerun()
 
     for m in st.session_state.chat_log:
         with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    # HIỂN THỊ GỢI Ý THỜI GIAN THỰC
+    # GỢI Ý SÂU (PILLS)
     st.write("---")
-    cols = st.columns(len(st.session_state.hints))
-    for i, h in enumerate(st.session_state.hints):
+    st.markdown('<div class="hint-box">', unsafe_allow_html=True)
+    cols = st.columns(len(st.session_state.deep_hints))
+    for i, h in enumerate(st.session_state.deep_hints):
         if cols[i].button(h, key=f"h_{i}"):
             st.session_state.chat_log.append({"role": "user", "content": h})
             st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    if p := st.chat_input("Giao tiếp với Nexus..."):
-        st.session_state.chat_history = st.session_state.chat_log.append({"role": "user", "content": p})
+    if p := st.chat_input("Giao tiếp với Nexus Quantum..."):
+        st.session_state.chat_log.append({"role": "user", "content": p})
         st.rerun()
 
     if st.session_state.chat_log and st.session_state.chat_log[-1]["role"] == "user":
         with st.chat_message("assistant"):
             box = st.empty(); full = ""
-            res = call_ai(st.session_state.chat_log[-1]["content"])
+            res = call_quantum_ai(st.session_state.chat_log[-1]["content"])
             if isinstance(res, str): st.error(res)
             else:
                 for chunk in res:
@@ -181,12 +171,20 @@ def show_chat():
                 st.session_state.chat_log.append({"role": "assistant", "content": full})
                 st.rerun()
 
-# --- 5. ROUTER ---
+def show_info():
+    apply_ui()
+    st.markdown("<h2 style='font-family:Orbitron;'>CÀI ĐẶT GIAO DIỆN</h2>", unsafe_allow_html=True)
+    url = st.text_input("Dán link hình nền HTTPS (Unsplash/Pinterest):", value=st.session_state.bg_url)
+    if st.button("CẬP NHẬT HÌNH NỀN"):
+        st.session_state.bg_url = url
+        st.rerun()
+    
+    st.markdown("---")
+    st.write(f"Developer: **{OWNER}**")
+    st.button("QUAY LẠI MENU", on_click=nav, args=("MENU",))
+
+# --- 5. ĐIỀU HƯỚNG ---
 if st.session_state.stage == "LAW": show_law()
 elif st.session_state.stage == "MENU": show_menu()
 elif st.session_state.stage == "CHAT": show_chat()
-elif st.session_state.stage == "INFO":
-    apply_ui()
-    st.title("HỆ THỐNG")
-    st.write(f"Sở hữu bởi: {OWNER}")
-    if st.button("Quay lại"): set_page("MENU"); st.rerun()
+elif st.session_state.stage == "INFO": show_info()
