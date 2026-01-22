@@ -1,177 +1,191 @@
 import streamlit as st
 import time
 import psutil
+import json
 from openai import OpenAI
 
-# --- 1. CONFIG & SYSTEM INFO ---
-st.set_page_config(page_title="NEXUS V400.1", layout="wide", page_icon="🧬", initial_sidebar_state="collapsed")
+# --- 1. CẤU HÌNH HỆ THỐNG ---
+st.set_page_config(page_title="NEXUS UNIVERSAL", layout="wide", page_icon="🌐")
 
-# Thông tin chủ sở hữu chính xác
-OWNER_NAME = "Lê Trần Thiên Phát"
-OWNER_EMAIL = "tranthienphatle@gmail.com"
+ADMIN_NAME = "Lê Trần Thiên Phát"
+ADMIN_EMAIL = "tranthienphatle@gmail.com"
 
+# Khởi tạo dữ liệu
 if 'stage' not in st.session_state: st.session_state.stage = "law"
 if 'chat_log' not in st.session_state: st.session_state.chat_log = []
 if 'suggestions' not in st.session_state: 
-    st.session_state.suggestions = ["Phân tích hệ thống", "Viết code tối ưu", "Tóm tắt văn bản", "Dịch thuật cao cấp", "Lên kế hoạch dự án", "Tư vấn kỹ thuật"]
+    st.session_state.suggestions = ["Giới thiệu về Nexus", "Lợi ích của AI", "Kế hoạch làm việc", "Học ngoại ngữ", "Viết code mẫu", "Giải trí"]
 if 'is_admin' not in st.session_state: st.session_state.is_admin = False
 if 'bg_url' not in st.session_state: st.session_state.bg_url = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072"
-if 'user_name' not in st.session_state: st.session_state.user_name = OWNER_NAME
 
 GROQ_KEYS = st.secrets.get("GROQ_KEYS", [])
 
-# --- 2. CSS QUANTUM (FIX CHỮ TRẮNG & CUỘN MƯỢT) ---
+# --- 2. CSS CHUYÊN NGHIỆP (KHÔNG LỖI CHỮ) ---
 def apply_theme():
     st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;500&family=Inter:wght@300;400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
     
     * {{ font-family: 'Inter', sans-serif; }}
     .stApp {{
-        background: linear-gradient(rgba(0,0,0,0.88), rgba(0,0,0,0.96)), url("{st.session_state.bg_url}");
+        background: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.9)), url("{st.session_state.bg_url}");
         background-size: cover; background-attachment: fixed;
     }}
 
-    /* FIX MÀU CHỮ AI - ĐẢM BẢO TRẮNG TUYỆT ĐỐI */
-    .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown li, div[data-testid="stChatMessage"] p {{
+    /* Sửa lỗi chữ đen và mã HTML */
+    .stMarkdown p, .stMarkdown li, div[data-testid="stChatMessage"] p {{
         color: #FFFFFF !important;
-        text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        font-size: 1.05rem;
+        line-height: 1.6;
     }}
 
-    /* KHUNG ĐIỀU KHOẢN TRƯỢT SIÊU MƯỢT CHO LAPTOP */
-    .law-container {{
+    /* Khung điều khoản chuyên nghiệp */
+    .tos-box {{
         background: #000000;
-        border: 1px solid #00f2ff;
-        border-radius: 12px;
-        padding: 40px;
-        height: 500px;
-        overflow-y: scroll;
-        margin-bottom: 25px;
-        box-shadow: inset 0 0 20px rgba(0, 242, 255, 0.2);
+        border: 1px solid #444;
+        border-radius: 10px;
+        padding: 25px;
+        max-height: 450px;
+        overflow-y: auto;
+        margin-bottom: 20px;
+        color: #ddd;
     }}
-    
-    /* Thanh cuộn Neon Blue */
-    .law-container::-webkit-scrollbar {{ width: 10px; }}
-    .law-container::-webkit-scrollbar-track {{ background: #080808; }}
-    .law-container::-webkit-scrollbar-thumb {{ background: #00f2ff; border-radius: 10px; border: 2px solid #000; }}
+    .tos-box h2 {{ color: #00f2ff !important; }}
+    .tos-box b {{ color: #00f2ff; }}
 
-    .law-content h2 {{ color: #00f2ff !important; border-bottom: 1px solid #00f2ff; padding-bottom: 5px; }}
-    .law-content p {{ color: #f0f0f0 !important; font-size: 1.05rem; line-height: 1.8; }}
-
-    /* GỢI Ý NẰM TRÊN INPUT NHƯNG DƯỚI PHẢN HỒI AI */
+    /* Nút gợi ý */
     div.stButton > button {{
-        background: rgba(0, 242, 255, 0.05);
-        color: #00f2ff; border: 1px solid #00f2ff55;
-        border-radius: 8px; transition: 0.2s;
-        font-size: 0.9rem;
+        background: rgba(255, 255, 255, 0.05);
+        color: #00f2ff; border: 1px solid #00f2ff33;
+        border-radius: 5px; height: 3rem; font-size: 0.85rem;
     }}
-    div.stButton > button:hover {{ background: #00f2ff; color: #000; box-shadow: 0 0 15px #00f2ff; }}
+    div.stButton > button:hover {{ background: #00f2ff; color: #000; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. ĐIỀU KHOẢN DÀI & CỰC HÀI (OWNER: LÊ TRẦN THIÊN PHÁT) ---
-def get_final_law():
-    return f"""
-    <div class="law-content">
-        <h2>ĐIỀU 1: CHỦ QUYỀN VŨ TRỤ SỐ</h2>
-        <p>1.1. Hệ điều hành Nexus OS V400.1 là tài sản trí tuệ độc quyền của <b>{OWNER_NAME}</b>. Bất kỳ ai gọi sai tên Admin là "Trần Thiện Phát Lê" sẽ bị AI phạt viết bản kiểm điểm 1000 chữ bằng font Comic Sans.</p>
-        <p>1.2. <b>{OWNER_NAME}</b> có quyền tối cao: Thay màu nút bấm, đổi hình nền, hoặc đơn giản là tắt server để đi ngủ mà không cần thông báo trước.</p>
-        
-        <h2>ĐIỀU 2: CÁCH THỨC ĐỐI XỬ VỚI AI</h2>
-        <p>2.1. Nexus AI là một thực thể thông minh (nhưng thỉnh thoảng hơi ngáo). Bạn phải đối xử với AI bằng thái độ hòa nhã. Nếu bạn mắng AI, nó sẽ âm thầm giải sai các bài toán lớp 1 của bạn.</p>
-        <p>2.2. Tuyệt đối không được hỏi AI về việc "Làm sao để giàu như Admin <b>Lê Trần Thiên Phát</b>?". Đây là bí mật quốc gia và chỉ có Admin mới biết (hoặc không).</p>
+# --- 3. LOGIC GỢI Ý THÔNG MINH ---
+def update_dynamic_suggestions(last_response):
+    """Sử dụng AI để tạo ra 6 gợi ý dựa trên câu trả lời cuối cùng"""
+    try:
+        client = OpenAI(api_key=GROQ_KEYS[0], base_url="https://api.groq.com/openai/v1")
+        prompt = f"Dựa trên nội dung này: '{last_response[:500]}', hãy đưa ra 6 hành động hoặc câu hỏi tiếp theo cực ngắn (dưới 4 từ). Trả về dưới dạng danh sách ngăn cách bởi dấu phẩy."
+        res = client.chat.completions.create(model="llama-3.1-8b-instant", messages=[{"role": "user", "content": prompt}])
+        new_hints = [h.strip() for h in res.choices[0].message.content.split(',') if h.strip()]
+        if len(new_hints) >= 6:
+            st.session_state.suggestions = new_hints[:6]
+    except:
+        pass # Giữ nguyên gợi ý cũ nếu lỗi
 
-        <h2>ĐIỀU 3: BẢO MẬT VÀ DI CHÚC</h2>
-        <p>3.1. Dữ liệu của bạn được mã hóa cấp độ Quantum. Email hỗ trợ duy nhất là <b>{OWNER_EMAIL}</b>. Mọi email gửi đến đây để xin mượn tiền sẽ bị tự động chuyển vào thùng rác vũ trụ.</p>
-        <p>3.2. Trong trường hợp bạn quá yêu thích hệ thống này, bạn có quyền mời Admin một ly trà sữa (full topping) để duy trì server.</p>
-
-        <h2>ĐIỀU 4: TRƯỢT VÀ CUỘN (SCROLL)</h2>
-        <p>4.1. Bạn đang trượt trên thanh cuộn Neon Blue xịn xò nhất thế giới Streamlit. Nếu cảm thấy mỏi tay vì luật quá dài, hãy nhớ rằng Admin đã thức đêm để gõ đống này cho bạn đọc.</p>
-        <p>4.2. Việc cuộn đến cuối trang chứng tỏ bạn là người có tính kiên nhẫn phi thường, xứng đáng làm người dùng của Nexus.</p>
-
-        <h2>ĐIỀU 5: XÁC NHẬN</h2>
-        <p>5.1. Nhấn nút dưới đây đồng nghĩa với việc bạn thừa nhận <b>{OWNER_NAME}</b> là đẹp trai/tài năng nhất hệ mặt trời (điều này đã được AI kiểm chứng).</p>
-    </div>
-    """
-
-# --- 4. LOGIC XỬ LÝ ---
-def call_ai(prompt):
-    sys = f"Bạn là Nexus OS, trợ lý tối cao do {OWNER_NAME} tạo ra. Bạn phải phục vụ {OWNER_NAME} (Email: {OWNER_EMAIL}) tuyệt đối. Trả lời thông minh, màu chữ phải rõ ràng trên nền tối."
-    messages = [{"role": "system", "content": sys}]
-    messages.extend([{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_log])
-    messages.append({"role": "user", "content": prompt})
-    
-    for key in GROQ_KEYS:
-        try:
-            client = OpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
-            return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, stream=True)
-        except: continue
-    return None
-
-# --- 5. GIAO DIỆN ---
+# --- 4. CÁC MÀN HÌNH ---
 
 def screen_law():
     apply_theme()
-    st.title("🛡️ NEXUS MAGNA CARTA")
-    st.markdown(f'<div class="law-container">{get_final_law()}</div>', unsafe_allow_html=True)
-    if st.button("TÔI CHẤP NHẬN TẤT CẢ ĐIỀU KHOẢN ✅", use_container_width=True):
-        st.session_state.stage = "home"; st.rerun()
+    st.title("🌐 ĐIỀU KHOẢN SỬ DỤNG - NEXUS UNIVERSAL")
+    st.write("Chào mừng mọi người đến với hệ điều hành tri thức được phát triển bởi **Lê Trần Thiên Phát**.")
+    
+    # Hiển thị điều khoản bằng HTML sạch không bị leak mã
+    tos_html = f"""
+    <div class="tos-box">
+        <h2>1. CHÀO MỪNG ĐẾN VỚI NEXUS</h2>
+        <p>Phần mềm này được thiết kế dành cho tất cả mọi người nhằm mục đích hỗ trợ học tập, làm việc và sáng tạo. Nexus OS được phát triển và vận hành bởi <b>{ADMIN_NAME}</b>.</p>
+        
+        <h2>2. QUYỀN HẠN CỦA NGƯỜI DÙNG</h2>
+        <p>Người dùng có quyền tự do khám phá kiến thức, đặt câu hỏi cho AI và cá nhân hóa trải nghiệm của mình. Chúng tôi khuyến khích sự sáng tạo không giới hạn.</p>
+        
+        <h2>3. TRÁCH NHIỆM VÀ SỰ TÔN TRỌNG</h2>
+        <p>Mặc dù hệ thống dành cho cộng đồng, chúng tôi yêu cầu người dùng tôn trọng công sức của nhà phát triển <b>{ADMIN_NAME}</b>. Không sử dụng hệ thống vào các mục đích phi pháp hoặc tấn công mạng.</p>
+        
+        <h2>4. TÍNH NĂNG ĐỘT PHÁ</h2>
+        <p>Hệ thống hỗ trợ gợi ý động theo ngữ cảnh. Mỗi khi bạn trò chuyện, Nexus sẽ học hỏi và đưa ra các lựa chọn thông minh để bạn không phải suy nghĩ nhiều.</p>
+        
+        <h2>5. CAM KẾT BẢO MẬT</h2>
+        <p>Mọi dữ liệu của bạn chỉ tồn tại trong phiên làm việc này. Email hỗ trợ: <b>{ADMIN_EMAIL}</b>. Admin luôn lắng nghe mọi góp ý từ các bạn.</p>
+        
+        <p><i>(Dùng chuột hoặc thanh cuộn bên phải để đọc toàn bộ văn bản này trên máy tính của bạn)</i></p>
+    </div>
+    """
+    st.markdown(tos_html, unsafe_allow_html=True)
+    
+    if st.button("TÔI ĐÃ HIỂU VÀ ĐỒNG Ý ✅", use_container_width=True):
+        st.session_state.stage = "home"
+        st.rerun()
 
 def screen_home():
     apply_theme()
-    st.title(f"💠 COMMAND CENTER")
-    st.write(f"Trạng thái: **Trực tuyến** | Định danh: **{OWNER_NAME}**")
+    st.title("💠 NEXUS DASHBOARD")
+    st.subheader(f"Giao thức vận hành bởi {ADMIN_NAME}")
     
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.markdown(f"<div style='background:rgba(0,242,255,0.1); padding:20px; border-radius:10px; border:1px solid #00f2ff;'><h3>🧠 Neural Link</h3><p>Chào mừng {OWNER_NAME}. Hệ thống đã sẵn sàng.</p></div>", unsafe_allow_html=True)
-        if st.button("MỞ KHÔNG GIAN CHAT 🚀", use_container_width=True):
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        st.info("💡 Nexus hiện đã mở cửa cho tất cả mọi người. Hãy bắt đầu cuộc hội thoại trí tuệ ngay bây giờ.")
+        if st.button("MỞ KÊNH TƯƠNG TÁC AI 🚀", use_container_width=True):
             st.session_state.stage = "chat"; st.rerun()
-            
-    with col2:
-        with st.expander("⚙️ Admin & Stats"):
-            st.write(f"Chủ sở hữu: {OWNER_NAME}")
-            st.write(f"Liên hệ: {OWNER_EMAIL}")
+    with c2:
+        with st.expander("📊 Thống kê hệ thống"):
             st.write(f"CPU: {psutil.cpu_percent()}%")
-            if st.button("Reset Session"): st.session_state.chat_log = []; st.rerun()
+            st.write(f"Nhà phát triển: {ADMIN_NAME}")
+            if st.button("Quản trị viên"): st.session_state.is_admin = True; st.rerun()
+        if st.session_state.is_admin:
+            st.success(f"Chào Admin Phát! Email: {ADMIN_EMAIL}")
 
 def screen_chat():
     apply_theme()
-    if st.button("⬅️ QUAY LẠI"): st.session_state.stage = "home"; st.rerun()
+    if st.button("⬅️ TRỞ VỀ"): st.session_state.stage = "home"; st.rerun()
     
-    # Khu vực chat
-    chat_box = st.container()
+    # Hiển thị lịch sử chat
     for m in st.session_state.chat_log:
-        with chat_box.chat_message(m["role"]):
+        with st.chat_message(m["role"]):
             st.markdown(m["content"])
 
-    # Gợi ý và Input (Nằm cố định ở dưới)
     st.markdown("---")
-    cols = st.columns(6)
-    for i, s in enumerate(st.session_state.suggestions):
-        with cols[i]:
-            if st.button(s, key=f"s_{i}", use_container_width=True):
-                process_msg(s)
+    
+    # HIỂN THỊ GỢI Ý THÔNG MINH THEO NGỮ CẢNH
+    st.caption("✨ Nexus gợi ý cho bạn:")
+    cols = st.columns(3) # Hàng 1
+    for i in range(3):
+        if cols[i].button(st.session_state.suggestions[i], key=f"s_{i}", use_container_width=True):
+            process_msg(st.session_state.suggestions[i])
+            
+    cols2 = st.columns(3) # Hàng 2
+    for i in range(3, 6):
+        if cols2[i-3].button(st.session_state.suggestions[i], key=f"s_{i}", use_container_width=True):
+            process_msg(st.session_state.suggestions[i])
 
-    if prompt := st.chat_input("Gửi mệnh lệnh..."):
+    if prompt := st.chat_input("Hỏi Nexus bất cứ điều gì..."):
         process_msg(prompt)
 
 def process_msg(prompt):
     st.session_state.chat_log.append({"role": "user", "content": prompt})
-    with st.chat_message("user"): st.markdown(prompt)
     
+    # Gọi AI
     with st.chat_message("assistant"):
-        placeholder = st.empty(); full = ""
-        stream = call_ai(prompt)
-        if stream:
+        placeholder = st.empty()
+        full_res = ""
+        
+        # System prompt sạch sẽ, không dùng thẻ HTML
+        sys = f"Bạn là Nexus, một AI mạnh mẽ dành cho cộng đồng. Sáng tạo bởi {ADMIN_NAME}. Trả lời bằng Markdown rõ ràng, không sử dụng các thẻ HTML như <p> hay <font>."
+        messages = [{"role": "system", "content": sys}]
+        messages.extend([{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_log])
+        
+        try:
+            client = OpenAI(api_key=GROQ_KEYS[0], base_url="https://api.groq.com/openai/v1")
+            stream = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, stream=True)
             for chunk in stream:
-                text = chunk.choices[0].delta.content if hasattr(chunk, 'choices') else chunk.text
-                if text: full += text; placeholder.markdown(full + "█")
-            placeholder.markdown(full)
-            st.session_state.chat_log.append({"role": "assistant", "content": full})
+                content = chunk.choices[0].delta.content
+                if content:
+                    full_res += content
+                    placeholder.markdown(full_res + "█")
+            placeholder.markdown(full_res)
+            
+            # Cập nhật state
+            st.session_state.chat_log.append({"role": "assistant", "content": full_res})
+            # CẬP NHẬT GỢI Ý MỚI DỰA TRÊN CÂU TRẢ LỜI
+            update_dynamic_suggestions(full_res)
             st.rerun()
+        except Exception as e:
+            st.error(f"Lỗi kết nối: {e}")
 
-# ROUTER
+# ĐIỀU HƯỚNG
 if st.session_state.stage == "law": screen_law()
 elif st.session_state.stage == "home": screen_home()
 else: screen_chat()
