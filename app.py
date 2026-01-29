@@ -1,253 +1,190 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
-import pandas as pd
-from datetime import datetime, timedelta
-import plotly.express as px
-import time
+from openai import OpenAI
+import json
 
-# --- 1. CẤU HÌNH HỆ THỐNG VIP ---
-st.set_page_config(page_title="Quantum VIP V23", layout="wide", page_icon="👑")
+# --- 1. HỆ THỐNG CỐT LÕI ---
+st.set_page_config(page_title="NEXUS V1900", layout="wide", initial_sidebar_state="collapsed")
 
-# --- 2. GIAO DIỆN BLACK & GOLD LUXURY ---
-st.markdown("""
-<style>
-    /* Ẩn header/footer mặc định */
-    header, footer {visibility: hidden;}
+OWNER = "Lê Trần Thiên Phát"
+
+# Quản lý Secret Keys an toàn
+try:
+    API_LIST = st.secrets.get("GROQ_KEYS", [])
+    ACTIVE_KEY = API_LIST[0] if API_LIST else st.secrets.get("GROQ_KEY", "")
+except:
+    ACTIVE_KEY = ""
+
+# Khởi tạo Session
+if 'stage' not in st.session_state: st.session_state.stage = "LAW"
+if 'chat_log' not in st.session_state: st.session_state.chat_log = []
+if 'bg_url' not in st.session_state: st.session_state.bg_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964"
+if 'deep_hints' not in st.session_state: 
+    st.session_state.deep_hints = ["Phân tích kiến trúc hệ thống", "Viết code Python tối ưu", "Lập kế hoạch kinh doanh 2026"]
+
+def nav(p): st.session_state.stage = p
+
+# --- 2. CSS CYBER-GLASS UI (SIÊU ĐẸP & TƯƠNG PHẢN) ---
+def apply_ui():
+    st.markdown(f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Inter:wght@300;400;700&display=swap');
     
-    /* Nền đen sang trọng */
-    .stApp {
-        background-color: #000000;
-        background-image: linear-gradient(147deg, #000000 0%, #1a1a1a 74%);
-        color: #d4af37; /* Màu vàng Gold */
-        font-family: 'Helvetica Neue', sans-serif;
-    }
+    .stApp {{
+        background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url("{st.session_state.bg_url}");
+        background-size: cover; background-position: center; background-attachment: fixed;
+    }}
 
-    /* Thẻ Card VIP */
-    .vip-card {
-        background: rgba(20, 20, 20, 0.8);
-        border: 1px solid #d4af37;
-        border-radius: 15px;
-        padding: 25px;
-        box-shadow: 0 0 15px rgba(212, 175, 55, 0.2);
-        text-align: center;
-        margin-bottom: 20px;
-    }
+    /* SIÊU LOGO QUANTUM */
+    .logo-container {{ text-align: center; padding: 60px 0; }}
+    .logo-text {{
+        font-family: 'Orbitron', sans-serif;
+        font-size: clamp(40px, 10vw, 100px);
+        font-weight: 900;
+        background: linear-gradient(90deg, #fff, #00f2ff, #fff);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shine 5s linear infinite;
+    }}
+    @keyframes shine {{ to {{ background-position: 200% center; }} }}
 
-    /* Nút bấm mạ vàng */
-    .stButton>button {
-        background: linear-gradient(45deg, #d4af37, #c5a028);
-        color: #000 !important;
-        border: none !important;
-        font-weight: bold !important;
-        border-radius: 8px !important;
-        padding: 10px 25px !important;
-        text-transform: uppercase;
-        transition: all 0.3s;
-    }
-    .stButton>button:hover {
-        box-shadow: 0 0 20px #d4af37;
-        transform: scale(1.02);
-    }
+    /* NÚT BẤM HÀO QUANG (MENU) */
+    div.stButton > button {{
+        width: 100% !important;
+        height: 220px !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(0, 242, 255, 0.3) !important;
+        border-radius: 30px !important;
+        font-family: 'Orbitron', sans-serif !important;
+        font-size: 1.5rem !important;
+        transition: 0.4s all ease;
+    }}
+    div.stButton > button:hover {{
+        border-color: #00f2ff !important;
+        box-shadow: 0 0 40px rgba(0, 242, 255, 0.4);
+        transform: translateY(-10px) scale(1.02);
+    }}
 
-    /* Input fields tối màu */
-    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>div {
-        background-color: #1a1a1a !important;
-        color: #d4af37 !important;
-        border: 1px solid #333 !important;
-    }
-    
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #050505 !important;
-        border-right: 1px solid #d4af37;
-    }
-</style>
-""", unsafe_allow_html=True)
+    /* PHẢN HỒI AI (TƯƠNG PHẢN CAO) */
+    div[data-testid="stChatMessageAssistant"] {{
+        background: rgba(40, 44, 52, 0.95) !important;
+        border-left: 5px solid #00f2ff !important;
+        border-radius: 15px !important;
+        padding: 30px !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }}
+    .stMarkdown p {{ color: #ffffff !important; font-size: 1.2rem; }}
 
-# --- 3. KẾT NỐI DỮ LIỆU (CORE ENGINE) ---
-url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-conn = st.connection("gsheets", type=GSheetsConnection)
+    /* GỢI Ý ĐỘNG (PILLS) */
+    .hint-box div.stButton > button {{
+        height: auto !important; padding: 10px 20px !important;
+        font-size: 0.9rem !important; border-radius: 50px !important;
+        background: #00f2ff !important; color: #000 !important;
+        font-weight: 700 !important;
+    }}
 
-def get_data():
-    """Hàm tải dữ liệu an toàn, chống lỗi"""
+    /* ĐIỀU KHOẢN */
+    .tos-box {{
+        background: rgba(0,0,0,0.9); padding: 50px; border-radius: 40px;
+        border: 1px solid #333; height: 500px; overflow-y: auto;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 3. LÕI TRÍ TUỆ (DEEP REASONING) ---
+def call_quantum_ai(prompt):
+    if not ACTIVE_KEY: return "⚠️ API Key missing in Secrets!"
     try:
-        # ttl=0 để không bị lưu cache cũ
-        df = conn.read(spreadsheet=url, ttl=0)
-        df = df.dropna(how='all') # Bỏ dòng trống
-        # Ép kiểu dữ liệu để tính toán không bị lỗi
-        df['amount'] = pd.to_numeric(df['amount'], errors='coerce').fillna(0)
-        df['date'] = pd.to_datetime(df['date'], errors='coerce').dt.date
-        return df
-    except Exception:
-        # Nếu lỗi (ví dụ file mới chưa có dữ liệu), trả về bảng rỗng
-        return pd.DataFrame(columns=['date', 'type', 'category', 'amount', 'note'])
+        client = OpenAI(api_key=ACTIVE_KEY, base_url="https://api.groq.com/openai/v1")
+        msgs = [{"role": "system", "content": f"Bạn là Nexus OS v1900. Tác giả: {OWNER}. Trả lời chuyên sâu, chuyên gia."}]
+        for m in st.session_state.chat_log: msgs.append(m)
+        msgs.append({"role": "user", "content": prompt})
 
-# --- 4. THANH ĐIỀU HƯỚNG ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/6941/6941697.png", width=80)
-    st.title("QUANTUM ELITE")
-    st.markdown("---")
-    
-    menu = st.radio(
-        "MENU ĐIỀU KHIỂN",
-        ["💎 DASHBOARD (Tổng quan)", "💸 GIAO DỊCH (Thêm/Trừ)", "📈 VIP ANALYTICS", "💾 DỮ LIỆU & CÀI ĐẶT"]
-    )
-    
-    st.markdown("---")
-    st.caption("© 2025 Quantum Finance OS")
+        # Logic gợi ý sâu: Phân tích intent người dùng
+        if "code" in prompt.lower(): st.session_state.deep_hints = ["Tối ưu hóa bộ nhớ", "Thêm comment giải thích", "Viết Unit Test"]
+        elif "marketing" in prompt.lower(): st.session_state.deep_hints = ["Lập chiến dịch Viral", "Phân tích đối thủ", "Tính ROI"]
+        else: st.session_state.deep_hints = ["Mở rộng ý tưởng này", "Tìm điểm yếu của giải pháp", "Tóm tắt hành động"]
 
-# --- 5. CHỨC NĂNG CHÍNH ---
+        return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=msgs, stream=True)
+    except Exception as e: return f"Error: {str(e)}"
 
-if menu == "💎 DASHBOARD (Tổng quan)":
-    st.header("TỔNG QUAN TÀI SẢN")
-    
-    df = get_data()
-    
-    if not df.empty:
-        # Tính toán logic: Thu - Chi
-        total_thu = df[df['type'] == 'Thu']['amount'].sum()
-        total_chi = df[df['type'] == 'Chi']['amount'].sum()
-        balance = total_thu - total_chi
-        
-        # Hiển thị thẻ VIP
-        st.markdown(f"""
-        <div class="vip-card">
-            <h3 style="margin:0; color: #888;">TỔNG TÀI SẢN THỰC TẾ</h3>
-            <h1 style="font-size: 3.5rem; margin: 10px 0; text-shadow: 0 0 10px #d4af37;">{balance:,.0f} VNĐ</h1>
-            <p>Trạng thái: 🟢 Hoạt động tốt</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("💰 TỔNG THU NHẬP", f"{total_thu:,.0f}")
-        c2.metric("💸 TỔNG CHI TIÊU", f"{total_chi:,.0f}")
-        
-        # Tính năng VIP: Dự báo chi tiêu
-        avg_chi = total_chi / max(1, len(df[df['type']=='Chi']))
-        c3.metric("📉 CHI TRUNG BÌNH/GIAO DỊCH", f"{avg_chi:,.0f}")
+# --- 4. MÀN HÌNH ---
 
-        st.markdown("---")
-        st.subheader("Hoạt động gần đây")
-        st.dataframe(df.sort_values(by="date", ascending=False).head(5), use_container_width=True)
-    else:
-        st.info("Chào mừng chủ nhân! Hệ thống chưa có dữ liệu. Hãy vào menu GIAO DỊCH để bắt đầu.")
+def show_law():
+    apply_ui()
+    st.markdown("<div class='logo-container'><div class='logo-text'>NEXUS OS</div></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="tos-box">
+        <h1 style='color:#00f2ff; font-family:Orbitron;'>HIẾP ƯỚC QUANTUM</h1>
+        <p>Phiên bản V1900 tối ưu hóa cho <b>{OWNER}</b>.</p>
+        <p>• <b>Visuals:</b> Giao diện nút bấm Hào quang (Glow) và hình nền động.</p>
+        <p>• <b>Intelligence:</b> Gợi ý hành động sâu dựa trên ngữ cảnh thời gian thực.</p>
+        <p>• <b>Security:</b> Bảo vệ API Key tuyệt đối trong lớp Secrets.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("XÁC NHẬN VÀ TRUY CẬP 🚀", use_container_width=True):
+        nav("MENU"); st.rerun()
 
-elif menu == "💸 GIAO DỊCH (Thêm/Trừ)":
-    st.header("THỰC HIỆN GIAO DỊCH")
-    st.write("Nhập thông tin bên dưới để hệ thống tự động cộng hoặc trừ vào tài khoản.")
-    
-    with st.container():
-        st.markdown('<div class="vip-card" style="text-align:left;">', unsafe_allow_html=True)
-        with st.form("vip_transaction_form", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                date_input = st.date_input("Ngày giao dịch", datetime.now())
-                # Logic quan trọng: Chọn Thu hay Chi
-                trans_type = st.radio("Loại hành động", ["Chi (Trừ tiền)", "Thu (Cộng tiền)"], horizontal=True)
-            
-            with col2:
-                amount_input = st.number_input("Số tiền (VNĐ)", min_value=0, step=10000)
-                category = st.selectbox("Danh mục", ["Ăn uống", "Di chuyển", "Mua sắm", "Lương", "Thưởng", "Đầu tư", "Khác"])
-            
-            note_input = st.text_input("Ghi chú (Tùy chọn)")
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            submitted = st.form_submit_button("XÁC NHẬN GIAO DỊCH ➡️")
-            
-            if submitted:
-                if amount_input > 0:
-                    with st.spinner("Đang xử lý giao dịch mã hóa..."):
-                        # Chuẩn hóa loại giao dịch
-                        final_type = "Chi" if "Chi" in trans_type else "Thu"
-                        
-                        # 1. Lấy dữ liệu cũ
-                        current_df = get_data()
-                        
-                        # 2. Tạo dòng mới
-                        new_row = pd.DataFrame([{
-                            "date": date_input.strftime('%Y-%m-%d'),
-                            "type": final_type,
-                            "category": category,
-                            "amount": float(amount_input),
-                            "note": note_input
-                        }])
-                        
-                        # 3. Gộp và Lưu (Dùng conn.create để ghi đè an toàn tuyệt đối)
-                        updated_df = pd.concat([current_df, new_row], ignore_index=True)
-                        conn.create(spreadsheet=url, data=updated_df)
-                        
-                        st.balloons()
-                        st.success(f"✅ Đã {'trừ' if final_type == 'Chi' else 'cộng'} {amount_input:,.0f} VNĐ vào hệ thống!")
-                        time.sleep(1)
-                else:
-                    st.error("⚠️ Số tiền phải lớn hơn 0!")
-        st.markdown('</div>', unsafe_allow_html=True)
+def show_menu():
+    apply_ui()
+    st.markdown("<div class='logo-container'><div class='logo-text'>QUANTUM HUB</div></div>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1: st.button("🧠\nCHAT CORE", on_click=nav, args=("CHAT",))
+    with c2: st.button("🖼️\nSCENERY", on_click=nav, args=("INFO",))
+    with c3: st.button("📜\nLEGAL", on_click=nav, args=("LAW",))
 
-elif menu == "📈 VIP ANALYTICS":
-    st.header("PHÂN TÍCH CHUYÊN SÂU")
-    df = get_data()
-    
-    if not df.empty:
-        # Lọc dữ liệu Chi
-        df_chi = df[df['type'] == 'Chi']
-        
-        tab1, tab2 = st.tabs(["Biểu đồ Tròn", "Xu hướng theo Ngày"])
-        
-        with tab1:
-            if not df_chi.empty:
-                fig = px.pie(df_chi, values='amount', names='category', title='Cơ cấu chi tiêu',
-                             color_discrete_sequence=px.colors.sequential.RdBu, hole=0.4)
-                fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#d4af37'))
-                st.plotly_chart(fig, use_container_width=True)
+def show_chat():
+    apply_ui()
+    col_a, col_b = st.columns([9, 1])
+    col_a.markdown("<h2 style='font-family:Orbitron; color:#00f2ff;'>NEURAL INTERFACE</h2>", unsafe_allow_html=True)
+    if col_b.button("🏠"): nav("MENU"); st.rerun()
+
+    for m in st.session_state.chat_log:
+        with st.chat_message(m["role"]): st.markdown(m["content"])
+
+    # GỢI Ý SÂU (PILLS)
+    st.write("---")
+    st.markdown('<div class="hint-box">', unsafe_allow_html=True)
+    cols = st.columns(len(st.session_state.deep_hints))
+    for i, h in enumerate(st.session_state.deep_hints):
+        if cols[i].button(h, key=f"h_{i}"):
+            st.session_state.chat_log.append({"role": "user", "content": h})
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    if p := st.chat_input("Giao tiếp với Nexus Quantum..."):
+        st.session_state.chat_log.append({"role": "user", "content": p})
+        st.rerun()
+
+    if st.session_state.chat_log and st.session_state.chat_log[-1]["role"] == "user":
+        with st.chat_message("assistant"):
+            box = st.empty(); full = ""
+            res = call_quantum_ai(st.session_state.chat_log[-1]["content"])
+            if isinstance(res, str): st.error(res)
             else:
-                st.info("Chưa có dữ liệu chi tiêu.")
-                
-        with tab2:
-            # Biểu đồ cột theo ngày
-            daily_sum = df.groupby(['date', 'type'])['amount'].sum().reset_index()
-            fig2 = px.bar(daily_sum, x='date', y='amount', color='type', barmode='group',
-                          color_discrete_map={'Thu': '#00cc66', 'Chi': '#ff3333'})
-            fig2.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#d4af37'))
-            st.plotly_chart(fig2, use_container_width=True)
-            
-        # Tính năng VIP: Cảnh báo hạn mức
-        st.subheader("⚠️ Cảnh báo Hạn mức")
-        limit = st.number_input("Đặt hạn mức chi tiêu tháng này (VNĐ)", value=5000000, step=500000)
-        current_spent = df_chi['amount'].sum()
-        percent = min(current_spent / limit, 1.0)
-        
-        st.progress(percent)
-        if current_spent > limit:
-            st.error(f"BẠN ĐÃ VƯỢT HẠN MỨC! (Đã chi: {current_spent:,.0f} / Hạn mức: {limit:,.0f})")
-        else:
-            st.success(f"An toàn. Còn lại: {limit - current_spent:,.0f} VNĐ")
-            
-    else:
-        st.write("Chưa có dữ liệu để phân tích.")
-
-elif menu == "💾 DỮ LIỆU & CÀI ĐẶT":
-    st.header("DATA VAULT")
-    df = get_data()
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info("Xuất dữ liệu ra Excel để lưu trữ cá nhân.")
-        # Chuyển đổi CSV
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 TẢI XUỐNG DỮ LIỆU (.CSV)",
-            data=csv,
-            file_name=f"Quantum_Backup_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime='text/csv',
-        )
-    
-    with col2:
-        st.error("Khu vực nguy hiểm")
-        if st.checkbox("Tôi muốn xóa sạch dữ liệu để làm lại từ đầu"):
-            if st.button("🗑️ XÓA TOÀN BỘ HỆ THỐNG"):
-                empty_df = pd.DataFrame(columns=['date', 'type', 'category', 'amount', 'note'])
-                conn.create(spreadsheet=url, data=empty_df)
-                st.success("Hệ thống đã được reset!")
-                time.sleep(1)
+                for chunk in res:
+                    c = chunk.choices[0].delta.content if hasattr(chunk, 'choices') else chunk.text
+                    if c: full += c; box.markdown(full + "█")
+                box.markdown(full)
+                st.session_state.chat_log.append({"role": "assistant", "content": full})
                 st.rerun()
+
+def show_info():
+    apply_ui()
+    st.markdown("<h2 style='font-family:Orbitron;'>CÀI ĐẶT GIAO DIỆN</h2>", unsafe_allow_html=True)
+    url = st.text_input("Dán link hình nền HTTPS (Unsplash/Pinterest):", value=st.session_state.bg_url)
+    if st.button("CẬP NHẬT HÌNH NỀN"):
+        st.session_state.bg_url = url
+        st.rerun()
+    
+    st.markdown("---")
+    st.write(f"Developer: **{OWNER}**")
+    st.button("QUAY LẠI MENU", on_click=nav, args=("MENU",))
+
+# --- 5. ĐIỀU HƯỚNG ---
+if st.session_state.stage == "LAW": show_law()
+elif st.session_state.stage == "MENU": show_menu()
+elif st.session_state.stage == "CHAT": show_chat()
+elif st.session_state.stage == "INFO": show_info()
