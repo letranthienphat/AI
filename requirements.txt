@@ -1,6 +1,2 @@
-streamlit
+requests
 openai
-google-generativeai
-psutil
-pandas
-numpy
