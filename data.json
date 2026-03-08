@@ -7,7 +7,7 @@
         "mode": "light",
         "primary_color": "#00f2ff",
         "bg_url": "https://images.pexels.com/photos/276452/pexels-photo-276452.jpeg",
-        "bg_tone": "dark"
+        "bg_tone": "light"
     },
     "chat_library": {}
 }
