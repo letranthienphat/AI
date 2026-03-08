@@ -6,8 +6,9 @@
     "theme": {
         "mode": "light",
         "primary_color": "#00f2ff",
-        "bg_url": "https://images.pexels.com/photos/276452/pexels-photo-276452.jpeg"
+        "bg_url": "https://images.pexels.com/photos/276452/pexels-photo-276452.jpeg",
+        "bg_tone": "dark"
     },
     "chat_library": {},
-    "last_sync": "2026-03-08 10:03:56"
+    "last_sync": "2026-03-08 10:05:35"
 }
