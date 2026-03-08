@@ -6,9 +6,15 @@ import base64
 import json
 import requests
 
-# --- 1. THÔNG TIN HỆ THỐNG ---
+# --- 1. THÔNG TIN HỆ THỐNG CHI TIẾT ---
 CREATOR_NAME = "Lê Trần Thiên Phát"
-VERSION = "V3200 - FINAL REPAIR"
+VERSION = "V3300 - SUPREME CONTROL"
+UPDATE_LOG = [
+    "V3300: Thêm màn hình Điều khoản, Chế độ Khách, Fix triệt để màu chữ.",
+    "V3200: Đồng bộ GitHub vĩnh viễn, sửa lỗi KeyError.",
+    "V3100: Tùy chỉnh tông màu ảnh nền Adaptive UI.",
+    "V3000: Tích hợp Groq API đa khóa."
+]
 
 try:
     GITHUB_TOKEN = st.secrets["GH_TOKEN"]
@@ -16,7 +22,7 @@ try:
     GROQ_API_KEYS = st.secrets["GROQ_KEYS"]
     FILE_DATA = "data.json"
 except:
-    st.error("Thiếu Secrets cấu hình GH_TOKEN, GH_REPO hoặc GROQ_KEYS!")
+    st.error("Thiếu cấu hình Secrets!")
     st.stop()
 
 st.set_page_config(page_title=f"NEXUS OS | {CREATOR_NAME}", layout="wide")
@@ -66,14 +72,13 @@ if 'initialized' not in st.session_state:
     st.session_state.stage = "AUTH"
     st.session_state.auth_status = None
     st.session_state.current_chat = None
+    st.session_state.agreed_terms = False
 
-# --- 4. SMART UI ENGINE (FIX CHỮ AI & TƯƠNG PHẢN) ---
+# --- 4. SIÊU CẤU TRÚC UI (TRIỆT TIÊU CHỮ ĐEN) ---
 
 def apply_ui(force_light=False):
     t = st.session_state.theme
     bg_tone = t.get('bg_tone', 'light')
-    
-    # Màu chữ chủ đạo
     txt = "#ffffff" if bg_tone == "dark" else "#000000"
     if force_light: txt = "#000000"
 
@@ -83,42 +88,37 @@ def apply_ui(force_light=False):
 
     st.markdown(f"""
     <style>
-    /* Nền và Màu chữ tổng quát */
-    .stApp {{ {bg_css} background-color: {app_bg}; color: {txt} !important; }}
+    /* Tổng thể */
+    .stApp {{ {bg_css} background-color: {app_bg}; }}
     
-    /* Ép tất cả chữ màn hình chính và sidebar */
-    .stApp h1, .stApp h2, .stApp h3, .stApp p, .stApp span, .stApp label, .stMarkdown p, .stSidebar p {{
+    /* FIX MÀU CHỮ CỰC ĐOAN: Áp dụng cho mọi thành phần có thể chứa text */
+    .stApp, .stApp p, .stApp div, .stApp span, .stApp label, .stApp h1, .stApp h2, .stApp h3, 
+    .stMarkdown, .stMarkdownContainer p, .stTextArea label, .stTextInput label {{
         color: {txt} !important;
     }}
 
-    /* Nút bấm Glassmorphism */
+    /* Khung nhập liệu (Chat Input) */
+    .stChatFloatingInputContainer textarea {{
+        color: {txt} !important;
+        background-color: {card_bg} !important;
+    }}
+
+    /* Nút bấm */
     div.stButton > button {{
         width: 100%; border-radius: 12px; font-weight: 700;
         border: 2px solid {t['primary_color']} !important;
-        background: {card_bg} !important;
-        color: {txt} !important;
+        background: {card_bg} !important; color: {txt} !important;
         backdrop-filter: blur(10px);
     }}
 
-    /* KHUNG CHAT AI (ASSISTANT) - Ép màu theo ý anh */
-    div[data-testid="stChatMessageAssistant"] {{
+    /* Khung Chat Assistant & User */
+    div[data-testid="stChatMessageAssistant"], div[data-testid="stChatMessageUser"] {{
         background-color: {card_bg} !important;
         border-radius: 15px;
         border-left: 6px solid {t['primary_color']} !important;
         backdrop-filter: blur(10px);
     }}
-    /* Đây là phần quan trọng: Sửa chữ bên trong khung AI */
-    div[data-testid="stChatMessageAssistant"] .stMarkdown p {{
-        color: {txt} !important;
-        font-weight: 500;
-    }}
-
-    /* KHUNG CHAT NGƯỜI DÙNG (USER) */
-    div[data-testid="stChatMessageUser"] {{
-        background-color: {card_bg} !important;
-        border-radius: 15px;
-        border: 1px solid {t['primary_color']};
-    }}
+    div[data-testid="stChatMessageAssistant"] .stMarkdown p, 
     div[data-testid="stChatMessageUser"] .stMarkdown p {{
         color: {txt} !important;
     }}
@@ -129,66 +129,71 @@ def apply_ui(force_light=False):
     """, unsafe_allow_html=True)
 
 # --- 5. LÕI AI ---
-
 def call_ai(messages):
     client = OpenAI(api_key=GROQ_API_KEYS[0], base_url="https://api.groq.com/openai/v1")
-    sys = f"Bạn là Nexus OS, AI do {CREATOR_NAME} tạo ra. Trả lời thông minh bằng Tiếng Việt."
+    sys = f"Bạn là Nexus OS của {CREATOR_NAME}."
     return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"system","content":sys}]+messages, stream=True)
 
-# --- 6. MÀN HÌNH ---
+# --- 6. CÁC MÀN HÌNH ---
 
 def screen_auth():
     apply_ui(force_light=True)
     st.title("🛡️ NEXUS OS GATEWAY")
-    t1, t2 = st.tabs(["Đăng nhập", "Đăng ký"])
+    t1, t2, t3 = st.tabs(["🔑 Đăng nhập", "📝 Đăng ký", "👤 Khách"])
     with t1:
-        u = st.text_input("Tài khoản", key="login_u")
-        p = st.text_input("Mật khẩu", type="password", key="login_p")
-        if st.button("TRUY CẬP HỆ THỐNG"):
+        u = st.text_input("Tài khoản", key="u_login")
+        p = st.text_input("Mật khẩu", type="password", key="p_login")
+        if st.button("TRUY CẬP"):
             if u in st.session_state.users and st.session_state.users[u] == p:
-                st.session_state.auth_status = u; st.session_state.stage = "MENU"; st.rerun()
-            else: st.error("Sai thông tin!")
+                st.session_state.auth_status = u; st.session_state.stage = "TERMS"; st.rerun()
+            else: st.error("Sai tài khoản!")
     with t2:
-        nu = st.text_input("Tên mới", key="reg_u")
-        np = st.text_input("Mật khẩu mới", type="password", key="reg_p")
-        if st.button("TẠO TÀI KHOẢN VĨNH VIỄN"):
-            if nu:
-                st.session_state.users[nu] = np; save_to_github(); st.success("Đã đồng bộ Cloud!")
+        nu = st.text_input("Tên đăng ký", key="u_reg")
+        np = st.text_input("Mật khẩu", type="password", key="p_reg")
+        if st.button("TẠO TÀI KHOẢN"):
+            if nu: st.session_state.users[nu] = np; save_to_github(); st.success("Đã lưu Cloud!")
+    with t3:
+        st.write("Bạn sẽ vào với quyền Khách. Dữ liệu chat sẽ không được lưu vĩnh viễn.")
+        if st.button("TRẢI NGHIỆM KHÁCH"):
+            st.session_state.auth_status = "Guest"; st.session_state.stage = "TERMS"; st.rerun()
+
+def screen_terms():
+    apply_ui()
+    st.title("📜 ĐIỀU KHOẢN SỬ DỤNG")
+    st.write(f"Chào mừng bạn đến với Nexus OS được phát triển bởi **{CREATOR_NAME}**.")
+    st.markdown("""
+    1. **Bảo mật**: Thông tin của bạn được đồng bộ qua hệ thống GitHub bảo mật.
+    2. **Trách nhiệm**: Không sử dụng AI cho mục đích xấu hoặc vi phạm pháp luật.
+    3. **Dữ liệu**: Nếu là Khách, dữ liệu sẽ bị xóa khi phiên làm việc kết thúc.
+    """)
+    if st.checkbox("Tôi đã đọc và đồng ý với các điều khoản trên"):
+        if st.button("BẮT ĐẦU"): st.session_state.stage = "MENU"; st.rerun()
 
 def screen_chat():
     apply_ui()
     with st.sidebar:
-        st.header("📂 Kho Lưu Trữ")
-        if st.button("➕ CHAT MỚI"): st.session_state.current_chat = None; st.rerun()
+        st.header("📂 Library")
+        if st.button("➕ NEW CHAT"): st.session_state.current_chat = None; st.rerun()
         for title in list(st.session_state.chat_library.keys()):
             c1, c2 = st.columns([0.8, 0.2])
             with c1:
-                if st.button(f"📄 {title[:12]}", key=f"btn_{title}"): st.session_state.current_chat = title; st.rerun()
+                if st.button(f"📄 {title[:12]}", key=title): st.session_state.current_chat = title; st.rerun()
             with c2:
-                if st.button("❌", key=f"del_{title}"): 
-                    del st.session_state.chat_library[title]
-                    save_to_github(); st.rerun()
-        st.write("---")
-        if st.button("🏠 MENU"): st.session_state.stage = "MENU"; st.rerun()
+                if st.button("❌", key=f"d_{title}"): del st.session_state.chat_library[title]; save_to_github(); st.rerun()
+        st.button("🏠 MENU", on_click=lambda: setattr(st.session_state, 'stage', 'MENU'))
 
-    # FIX KEYERROR: Kiểm tra sự tồn tại của chat hiện tại
     if st.session_state.current_chat and st.session_state.current_chat in st.session_state.chat_library:
-        st.subheader(f"📍 {st.session_state.current_chat}")
         history = st.session_state.chat_library[st.session_state.current_chat]
-    else:
-        st.info("Hãy gửi tin nhắn để bắt đầu phiên mới.")
-        history = []
+    else: history = []
 
     for m in history:
         with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    if pr := st.chat_input("Nhập lệnh cho Nexus..."):
-        # Nếu là chat mới, tạo khóa trong dictionary trước
+    if pr := st.chat_input("Nhập lệnh..."):
         if not st.session_state.current_chat:
             st.session_state.current_chat = pr[:20]
             st.session_state.chat_library[st.session_state.current_chat] = []
             history = st.session_state.chat_library[st.session_state.current_chat]
-        
         history.append({"role": "user", "content": pr})
         with st.chat_message("user"): st.markdown(pr)
         with st.chat_message("assistant"):
@@ -198,33 +203,38 @@ def screen_chat():
                 if c: full += c; box.markdown(full + "▌")
             box.markdown(full)
             history.append({"role": "assistant", "content": full})
-            # Cập nhật lại library
             st.session_state.chat_library[st.session_state.current_chat] = history
-            save_to_github(); st.rerun()
+            if st.session_state.auth_status != "Guest": save_to_github()
+            st.rerun()
 
-def screen_settings():
+def screen_info():
     apply_ui()
-    st.title("🎨 THIẾT KẾ UI")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.session_state.theme['mode'] = st.radio("Chế độ hệ thống:", ["light", "dark"])
-        st.session_state.theme['primary_color'] = st.color_picker("Màu nhấn:", st.session_state.theme['primary_color'])
-    with c2:
-        st.session_state.theme['bg_url'] = st.text_input("Link ảnh nền:", st.session_state.theme['bg_url'])
-        st.session_state.theme['bg_tone'] = st.radio("Tông màu ảnh nền:", ["light", "dark"])
-    if st.button("🚀 LƯU VÀ ĐỒNG BỘ"): save_to_github(); st.session_state.stage = "MENU"; st.rerun()
+    st.title("⚙️ CHI TIẾT PHIÊN BẢN")
+    st.write(f"**Tên phần mềm:** Nexus OS")
+    st.write(f"**Phiên bản hiện tại:** {VERSION}")
+    st.write(f"**Chủ sở hữu:** {CREATOR_NAME}")
+    st.write("---")
+    st.subheader("Lịch sử cập nhật:")
+    for log in UPDATE_LOG: st.write(f"- {log}")
     if st.button("🔙 QUAY LẠI"): st.session_state.stage = "MENU"; st.rerun()
 
 # --- ĐIỀU HƯỚNG ---
 if st.session_state.stage == "AUTH": screen_auth()
+elif st.session_state.stage == "TERMS": screen_terms()
 elif st.session_state.stage == "MENU":
-    apply_ui()
-    st.title(f"🚀 CHÀO {st.session_state.auth_status.upper()}")
+    apply_ui(); st.title(f"🚀 CHÀO {st.session_state.auth_status.upper()}")
     c1, c2 = st.columns(2)
     with c1: 
         if st.button("🧠 KẾT NỐI AI"): st.session_state.stage = "CHAT"; st.rerun()
     with c2: 
         if st.button("🎨 THIẾT KẾ UI"): st.session_state.stage = "SETTINGS"; st.rerun()
+    if st.button("⚙️ THÔNG TIN PHIÊN BẢN"): st.session_state.stage = "INFO"; st.rerun()
     if st.button("🚪 ĐĂNG XUẤT"): st.session_state.auth_status = None; st.session_state.stage = "AUTH"; st.rerun()
 elif st.session_state.stage == "CHAT": screen_chat()
-elif st.session_state.stage == "SETTINGS": screen_settings()
+elif st.session_state.stage == "INFO": screen_info()
+elif st.session_state.stage == "SETTINGS": 
+    apply_ui()
+    st.title("🎨 CÀI ĐẶT")
+    st.session_state.theme['bg_url'] = st.text_input("Link ảnh nền:", st.session_state.theme['bg_url'])
+    st.session_state.theme['bg_tone'] = st.radio("Tông màu nền:", ["light", "dark"])
+    if st.button("LƯU"): save_to_github(); st.session_state.stage = "MENU"; st.rerun()
