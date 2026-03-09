@@ -15,8 +15,8 @@
         "wp_interval": 10,
         "last_wp_update": 1773055056,
         "naming_threshold": 5,
-        "use_unsplash": false,
-        "unsplash_topic": "nature"
+        "use_unsplash": true,
+        "unsplash_topic": "city"
     },
     "chat_library": {
         "Chào": [
