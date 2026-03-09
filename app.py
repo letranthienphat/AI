@@ -7,14 +7,16 @@ import json
 import requests
 import random
 from datetime import datetime
-import streamlit_javascript as st_js  # để lấy user-agent từ client
-from user_agents import parse  # phân tích user-agent
+import streamlit_javascript as st_js
+from user_agents import parse
+import pandas as pd
 
 # -------------------- CẤU HÌNH HỆ THỐNG --------------------
 CREATOR_NAME = "Lê Trần Thiên Phát"
 VERSION = "V5000 - ADMIN EDITION"
 FILE_DATA = "data.json"
 SECRET_KEY = "NEXUS_ULTIMATE_KEY_2024"
+EXCLUDED_USERS = ["admin", "Administrator"]  # tài khoản không hiện trong gợi ý kết bạn
 
 # Đọc secrets
 try:
@@ -63,8 +65,8 @@ def save_github():
         "groups": st.session_state.groups,
         "p2p_chats": st.session_state.p2p_chats,
         "agreed_users": st.session_state.agreed_users,
-        "login_history": st.session_state.login_history,   # lưu lịch sử đăng nhập
-        "total_messages": st.session_state.total_messages  # tổng tin nhắn
+        "login_history": st.session_state.login_history,
+        "total_messages": st.session_state.total_messages
     }
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_DATA}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
@@ -82,7 +84,7 @@ def save_github():
 if 'initialized' not in st.session_state:
     db = load_github()
 
-    st.session_state.users = db.get("users", {"admin": "123", "Thiên Phát": "123"})  # thêm user mẫu
+    st.session_state.users = db.get("users", {"admin": "123", "Thiên Phát": "123"})
 
     default_theme = {
         "primary_color": "#00f2ff",
@@ -104,8 +106,8 @@ if 'initialized' not in st.session_state:
     st.session_state.groups = db.get("groups", {})
     st.session_state.p2p_chats = db.get("p2p_chats", {})
     st.session_state.agreed_users = db.get("agreed_users", [])
-    st.session_state.login_history = db.get("login_history", [])   # danh sách các lần đăng nhập
-    st.session_state.total_messages = db.get("total_messages", 0)  # tổng số tin nhắn toàn hệ thống
+    st.session_state.login_history = db.get("login_history", [])
+    st.session_state.total_messages = db.get("total_messages", 0)
 
     st.session_state.stage = "AUTH"
     st.session_state.auth_status = None
@@ -114,10 +116,10 @@ if 'initialized' not in st.session_state:
     st.session_state.current_group = None
     st.session_state.confirm_delete = None
     st.session_state.security_score = 0
-    st.session_state.device_info = {}   # thông tin thiết bị của user hiện tại
+    st.session_state.device_info = {}
     st.session_state.initialized = True
 
-# -------------------- TỰ ĐỘNG ĐỔI HÌNH NỀN (dùng Picsum) --------------------
+# -------------------- TỰ ĐỘNG ĐỔI HÌNH NỀN --------------------
 def update_wallpaper():
     t = st.session_state.theme
     if not t["auto_wallpaper"]:
@@ -126,67 +128,78 @@ def update_wallpaper():
     elapsed = now - t["last_wp_update"]
     if elapsed < t["wp_interval"] * 60:
         return
-    # Lấy ảnh ngẫu nhiên từ Picsum
     new_url = f"https://picsum.photos/1920/1080?random={random.randint(1,100000)}"
     st.session_state.theme["bg_url"] = new_url
     st.session_state.theme["last_wp_update"] = now
     save_github()
 
-# -------------------- LẤY THÔNG TIN THIẾT BỊ TỪ CLIENT --------------------
+# -------------------- LẤY THÔNG TIN THIẾT BỊ --------------------
 def get_client_info():
-    """Lấy user-agent bằng JavaScript và trả về chuỗi, kèm IP nếu có."""
     try:
-        ua = st_js.get_user_agent()  # hàm này từ streamlit-javascript
+        ua = st_js.get_user_agent()
     except:
         ua = "Unknown"
-    # Có thể lấy IP qua dịch vụ bên ngoài, nhưng tạm thời bỏ qua
     return ua
 
 # -------------------- ĐÁNH GIÁ BẢO MẬT --------------------
 def evaluate_security(ua_string):
-    """
-    Đánh giá độ bảo mật dựa trên user-agent.
-    Trả về điểm (0-10) và chi tiết.
-    """
     score = 10
     details = []
+    device_info = {
+        "browser": "Unknown",
+        "os": "Unknown",
+        "device": "Unknown",
+        "is_bot": False
+    }
     try:
         ua = parse(ua_string)
-        # Kiểm tra trình duyệt
+        device_info["browser"] = ua.browser.family
+        device_info["os"] = ua.os.family
+        if ua.is_mobile:
+            device_info["device"] = "Mobile"
+        elif ua.is_tablet:
+            device_info["device"] = "Tablet"
+        elif ua.is_pc:
+            device_info["device"] = "PC"
+        else:
+            device_info["device"] = "Other"
+        device_info["is_bot"] = ua.is_bot
+
         if ua.is_bot:
             score -= 8
             details.append("Bot detected")
-        if not ua.is_pc and not ua.is_mobile:
+        if not ua.is_pc and not ua.is_mobile and not ua.is_tablet:
             score -= 3
-            details.append("Unknown device")
+            details.append("Unknown device type")
         if ua.browser.family in ['Unknown', 'HeadlessChrome']:
             score -= 5
             details.append("Suspicious browser")
-        # Kiểm tra hệ điều hành
         if ua.os.family in ['Unknown']:
             score -= 4
             details.append("Unknown OS")
-        # Có thể thêm các kiểm tra khác: proxy, vpn... nhưng khó
+        if ua.browser.family in ['Internet Explorer']:
+            score -= 3
+            details.append("Outdated browser")
     except:
         score = 5
         details.append("Cannot parse UA")
 
-    # Giới hạn điểm trong 0-10
     score = max(0, min(10, score))
-    return score, details
+    return score, details, device_info
 
-# -------------------- GHI NHẬN ĐĂNG NHẬP --------------------
-def record_login(username, ua_string, score, details):
-    """Lưu thông tin đăng nhập vào lịch sử."""
+def record_login(username, ua_string, score, details, device_info):
     record = {
         "time": datetime.now().isoformat(),
         "username": username,
         "user_agent": ua_string,
         "security_score": score,
-        "details": details
+        "details": ", ".join(details),
+        "browser": device_info["browser"],
+        "os": device_info["os"],
+        "device": device_info["device"],
+        "is_bot": device_info["is_bot"]
     }
     st.session_state.login_history.append(record)
-    # Giới hạn lịch sử (chỉ giữ 1000 bản ghi gần nhất)
     if len(st.session_state.login_history) > 1000:
         st.session_state.login_history = st.session_state.login_history[-1000:]
     save_github()
@@ -222,7 +235,7 @@ def auto_rename(user, old_title):
     except Exception as e:
         st.warning(f"Lỗi đặt tên: {e}")
 
-# -------------------- GIAO DIỆN NÂNG CAO (SỬA LỖI ĐEN) --------------------
+# -------------------- GIAO DIỆN --------------------
 def apply_ui():
     t = st.session_state.theme
     p_color = t['primary_color']
@@ -247,7 +260,6 @@ def apply_ui():
         font-family: 'Inter', sans-serif;
     }}
 
-    /* Khung glass chung */
     .glass-panel, [data-testid="stSidebar"], .stTabs {{
         background: rgba(255, 255, 255, 0.2) !important;
         backdrop-filter: blur(12px) !important;
@@ -256,14 +268,12 @@ def apply_ui():
         padding: 15px !important;
     }}
 
-    /* Văn bản chính */
     label, .stApp p, .stApp span, h1, h2, h3, h4, h5, h6, .stMarkdown p {{
         color: #ffffff !important;
         font-weight: 600 !important;
         text-shadow: 2px 2px 5px {p_color}AA, 0px 0px 15px {p_color} !important;
     }}
 
-    /* Tin nhắn chat - sửa lỗi đen thui */
     [data-testid="stChatMessage"] {{
         background: rgba(255, 255, 255, 0.25) !important;
         backdrop-filter: blur(10px) !important;
@@ -274,14 +284,12 @@ def apply_ui():
         box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }}
 
-    /* Nội dung tin nhắn (chữ) */
     [data-testid="stChatMessage"] p {{
-        color: #111 !important;  /* tối hơn để dễ đọc trên nền sáng */
+        color: #111 !important;
         text-shadow: none !important;
         font-weight: 500 !important;
     }}
 
-    /* Nút bấm */
     .stButton > button {{
         border: 2px solid {p_color} !important;
         background: rgba(255,255,255,0.15) !important;
@@ -313,6 +321,7 @@ def screen_chat():
         st.markdown(f"<p style='text-align:center;'>✨ NEXUS {VERSION}</p>", unsafe_allow_html=True)
         if st.button("➕ TẠO CHAT MỚI", use_container_width=True):
             st.session_state.current_chat = None
+            st.session_state.confirm_delete = None
             st.rerun()
         st.write("---")
         for title in list(lib.keys()):
@@ -320,6 +329,7 @@ def screen_chat():
             with col1:
                 if st.button(f"💬 {title[:20]}", key=f"chat_{title}", use_container_width=True):
                     st.session_state.current_chat = title
+                    st.session_state.confirm_delete = None
                     st.rerun()
             with col2:
                 if st.session_state.confirm_delete == title:
@@ -369,7 +379,6 @@ def screen_chat():
                 full_res = "Xin lỗi, đã có lỗi."
 
         chat_history.append({"role": "assistant", "content": encrypt_msg(full_res)})
-        # Cập nhật tổng tin nhắn hệ thống (mỗi cặp tin nhắn user+assistant tính là 2)
         st.session_state.total_messages += 2
         save_github()
 
@@ -378,7 +387,7 @@ def screen_chat():
 
         st.rerun()
 
-# -------------------- CHAT 1-1 (P2P) CÓ GỬI FILE --------------------
+# -------------------- GỬI FILE --------------------
 def upload_to_fileio(file_bytes, filename):
     try:
         files = {"file": (filename, file_bytes)}
@@ -391,6 +400,7 @@ def upload_to_fileio(file_bytes, filename):
         st.error(f"Lỗi upload file: {e}")
     return None
 
+# -------------------- CHAT 1-1 --------------------
 def screen_p2p_chat():
     apply_ui()
     update_wallpaper()
@@ -447,7 +457,7 @@ def screen_p2p_chat():
         st.session_state.stage = "SOCIAL"
         st.rerun()
 
-# -------------------- CHAT NHÓM CÓ GỬI FILE --------------------
+# -------------------- CHAT NHÓM --------------------
 def screen_group_chat():
     apply_ui()
     update_wallpaper()
@@ -525,13 +535,12 @@ def screen_social():
                 with col2:
                     if st.button("💬 Chat", key=f"chat_{friend}"):
                         st.session_state.current_p2p = friend
-                        st.session_state.stage = "P2P_CHAT"
                         st.rerun()
 
         st.markdown("---")
         st.subheader("Gửi lời mời kết bạn")
         all_users = list(st.session_state.users.keys())
-        potential = [u for u in all_users if u != user and u not in friends_list]
+        potential = [u for u in all_users if u != user and u not in friends_list and u not in EXCLUDED_USERS]
         if potential:
             selected = st.selectbox("Chọn người dùng", potential)
             if st.button("Gửi lời mời"):
@@ -580,7 +589,6 @@ def screen_social():
                 with col2:
                     if st.button("💬 Vào nhóm", key=f"grp_{gid}"):
                         st.session_state.current_group = gid
-                        st.session_state.stage = "GROUP_CHAT"
                         st.rerun()
 
         st.markdown("---")
@@ -607,7 +615,6 @@ def screen_admin():
     update_wallpaper()
     st.markdown('<h1 class="main-title">🛡️ ADMIN PANEL</h1>', unsafe_allow_html=True)
 
-    # Thống kê tổng quan
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Tổng người dùng", len(st.session_state.users))
@@ -618,17 +625,20 @@ def screen_admin():
 
     st.subheader("Lịch sử đăng nhập & Đánh giá bảo mật")
     if st.session_state.login_history:
-        # Hiển thị dạng bảng
         data = []
-        for log in reversed(st.session_state.login_history[-50:]):  # 50 gần nhất
+        for log in reversed(st.session_state.login_history[-50:]):
             data.append({
                 "Thời gian": log["time"],
                 "Username": log["username"],
-                "Điểm bảo mật": f"{log['security_score']}/10",
-                "Chi tiết": ", ".join(log["details"]),
-                "User-Agent": log["user_agent"][:50] + "..."
+                "Điểm": f"{log['security_score']}/10",
+                "Trình duyệt": log["browser"],
+                "HĐH": log["os"],
+                "Thiết bị": log["device"],
+                "Bot": "Có" if log["is_bot"] else "Không",
+                "Chi tiết": log["details"]
             })
-        st.dataframe(data, use_container_width=True)
+        df = pd.DataFrame(data)
+        st.dataframe(df, use_container_width=True)
     else:
         st.info("Chưa có dữ liệu đăng nhập.")
 
@@ -725,13 +735,11 @@ def screen_auth():
             password = st.text_input("Mật khẩu", type="password")
             if st.button("VÀO HỆ THỐNG", use_container_width=True):
                 if username in st.session_state.users and st.session_state.users[username] == password:
-                    # Lấy thông tin thiết bị và đánh giá bảo mật
                     ua_string = get_client_info()
-                    score, details = evaluate_security(ua_string)
+                    score, details, device_info = evaluate_security(ua_string)
                     st.session_state.security_score = score
-                    st.session_state.device_info = {"ua": ua_string, "score": score, "details": details}
-                    # Ghi lại đăng nhập
-                    record_login(username, ua_string, score, details)
+                    st.session_state.device_info = {"ua": ua_string, "score": score, "details": details, "device": device_info}
+                    record_login(username, ua_string, score, details, device_info)
 
                     st.session_state.auth_status = username
                     if username not in st.session_state.agreed_users:
@@ -750,7 +758,6 @@ def screen_menu():
     st.markdown(f'<h1 class="main-title">🚀 NEXUS CENTER</h1>', unsafe_allow_html=True)
     st.markdown(f'<p style="text-align:center;">Xin chào, <b>{st.session_state.auth_status}</b> | {VERSION}</p>', unsafe_allow_html=True)
 
-    # Nếu là admin (tên chứa "Thiên Phát") thì hiển thị thêm nút Admin
     is_admin = "Thiên Phát" in st.session_state.auth_status
 
     cols = st.columns(6 if is_admin else 5)
