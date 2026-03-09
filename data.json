@@ -13,7 +13,8 @@
         "lockout_time": 30,
         "auto_wallpaper": true,
         "wp_interval": 5,
-        "last_wp_update": 1773053497.3376648
+        "last_wp_update": 1773053497.3376648,
+        "naming_threshold": 5
     },
     "chat_library": {
         "Ch\u00e0o": [
