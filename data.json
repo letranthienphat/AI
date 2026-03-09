@@ -187,6 +187,17 @@
             "os": "Other",
             "device": "Other",
             "is_bot": false
+        },
+        {
+            "time": "2026-03-09T11:43:20.431352",
+            "username": "Thiên Phát",
+            "user_agent": "Unknown",
+            "security_score": 7,
+            "details": "Unknown device type",
+            "browser": "Other",
+            "os": "Other",
+            "device": "Other",
+            "is_bot": false
         }
     ],
     "total_messages": 4
