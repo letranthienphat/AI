@@ -16,7 +16,7 @@ CREATOR_NAME = "Lê Trần Thiên Phát"
 VERSION = "V5000 - ADMIN EDITION"
 FILE_DATA = "data.json"
 SECRET_KEY = "NEXUS_ULTIMATE_KEY_2024"
-EXCLUDED_USERS = ["admin", "Administrator"]  # tài khoản không hiện trong gợi ý kết bạn
+EXCLUDED_USERS = ["admin", "Administrator"]  # không hiển thị trong gợi ý kết bạn
 
 # Đọc secrets
 try:
@@ -310,10 +310,22 @@ def apply_ui():
     </style>
     """, unsafe_allow_html=True)
 
+# -------------------- THANH ĐIỀU HƯỚNG TRÊN (HOME + USER) --------------------
+def top_nav():
+    """Hiển thị nút HOME và tên user ở góc trên."""
+    cols = st.columns([1, 10, 1])
+    with cols[0]:
+        if st.button("🏠 HOME"):
+            st.session_state.stage = "MENU"
+            st.rerun()
+    with cols[2]:
+        st.write(f"👤 **{st.session_state.auth_status}**")
+
 # -------------------- MÀN HÌNH CHAT AI --------------------
 def screen_chat():
     apply_ui()
     update_wallpaper()
+    top_nav()
     user = st.session_state.auth_status
     lib = st.session_state.chat_library.setdefault(user, {})
 
@@ -345,7 +357,7 @@ def screen_chat():
                         st.session_state.confirm_delete = title
                         st.rerun()
         st.write("---")
-        if st.button("🏠 VỀ MENU", use_container_width=True):
+        if st.button("🏠 VỀ MENU (SIDEBAR)", use_container_width=True):
             st.session_state.stage = "MENU"
             st.rerun()
 
@@ -404,6 +416,7 @@ def upload_to_fileio(file_bytes, filename):
 def screen_p2p_chat():
     apply_ui()
     update_wallpaper()
+    top_nav()
     user = st.session_state.auth_status
     friend = st.session_state.current_p2p
     if not friend:
@@ -461,6 +474,7 @@ def screen_p2p_chat():
 def screen_group_chat():
     apply_ui()
     update_wallpaper()
+    top_nav()
     user = st.session_state.auth_status
     gid = st.session_state.current_group
     group = st.session_state.groups.get(gid)
@@ -517,6 +531,7 @@ def screen_group_chat():
 def screen_social():
     apply_ui()
     update_wallpaper()
+    top_nav()
     user = st.session_state.auth_status
     st.markdown('<h1 class="main-title">🌐 NEXUS SOCIAL</h1>', unsafe_allow_html=True)
 
@@ -605,7 +620,7 @@ def screen_social():
             st.success("Đã tạo nhóm!")
             st.rerun()
 
-    if st.button("🏠 VỀ MENU"):
+    if st.button("🏠 VỀ MENU (BOTTOM)"):
         st.session_state.stage = "MENU"
         st.rerun()
 
@@ -613,6 +628,7 @@ def screen_social():
 def screen_admin():
     apply_ui()
     update_wallpaper()
+    top_nav()
     st.markdown('<h1 class="main-title">🛡️ ADMIN PANEL</h1>', unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
@@ -627,16 +643,18 @@ def screen_admin():
     if st.session_state.login_history:
         data = []
         for log in reversed(st.session_state.login_history[-50:]):
-            data.append({
-                "Thời gian": log["time"],
-                "Username": log["username"],
-                "Điểm": f"{log['security_score']}/10",
-                "Trình duyệt": log["browser"],
-                "HĐH": log["os"],
-                "Thiết bị": log["device"],
-                "Bot": "Có" if log["is_bot"] else "Không",
-                "Chi tiết": log["details"]
-            })
+            # Xử lý an toàn với .get() cho dữ liệu cũ
+            record = {
+                "Thời gian": log.get("time", "N/A"),
+                "Username": log.get("username", "N/A"),
+                "Điểm": f"{log.get('security_score', 0)}/10",
+                "Trình duyệt": log.get("browser", "Unknown"),
+                "HĐH": log.get("os", "Unknown"),
+                "Thiết bị": log.get("device", "Unknown"),
+                "Bot": "Có" if log.get("is_bot", False) else "Không",
+                "Chi tiết": log.get("details", "")
+            }
+            data.append(record)
         df = pd.DataFrame(data)
         st.dataframe(df, use_container_width=True)
     else:
@@ -650,6 +668,7 @@ def screen_admin():
 def screen_settings():
     apply_ui()
     update_wallpaper()
+    top_nav()
     user = st.session_state.auth_status
     st.markdown('<h1 class="main-title">⚙️ CÀI ĐẶT</h1>', unsafe_allow_html=True)
 
@@ -695,13 +714,14 @@ def screen_settings():
         st.session_state.stage = "TERMS"
         st.rerun()
 
-    if st.button("🏠 VỀ MENU"):
+    if st.button("🏠 VỀ MENU (BOTTOM)"):
         st.session_state.stage = "MENU"
         st.rerun()
 
 # -------------------- MÀN HÌNH ĐIỀU KHOẢN --------------------
 def screen_terms():
     apply_ui()
+    top_nav()
     st.markdown('<h1 class="main-title">📜 ĐIỀU KHOẢN</h1>', unsafe_allow_html=True)
     st.markdown("""
     <div class="glass-panel">
@@ -719,7 +739,7 @@ def screen_terms():
             st.session_state.stage = "MENU"
             st.rerun()
     else:
-        if st.button("VỀ MENU"):
+        if st.button("🏠 VỀ MENU"):
             st.session_state.stage = "MENU"
             st.rerun()
 
