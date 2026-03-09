@@ -150,5 +150,17 @@
     "p2p_chats": {},
     "agreed_users": [
         "Thiên Phát"
-    ]
+    ],
+    "login_history": [
+        {
+            "time": "2026-03-09T11:28:49.635786",
+            "username": "Thiên Phát",
+            "user_agent": "Unknown",
+            "security_score": 7,
+            "details": [
+                "Unknown device"
+            ]
+        }
+    ],
+    "total_messages": 0
 }
