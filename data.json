@@ -3,6 +3,18 @@
         "admin": "123",
         "Thiên Phát": "NEXUS OS GATEWAY"
     },
+    "user_versions": {
+        "Thiên Phát": "V5100"
+    },
+    "global_chat": [],
+    "friends": {
+        "Thiên Phát": []
+    },
+    "friend_requests": {
+        "Thiên Phát": []
+    },
+    "p2p_chats": {},
+    "groups": {},
     "theme": {
         "mode": "light",
         "primary_color": "#00f2ff",
@@ -156,14 +168,6 @@
             ]
         }
     },
-    "friends": {
-        "Thiên Phát": []
-    },
-    "friend_requests": {
-        "Thiên Phát": []
-    },
-    "groups": {},
-    "p2p_chats": {},
     "agreed_users": [
         "Thiên Phát"
     ],
@@ -200,9 +204,5 @@
             "is_bot": false
         }
     ],
-    "total_messages": 4,
-    "user_versions": {
-        "Thiên Phát": "V5100"
-    },
-    "global_chat": []
+    "total_messages": 4
 }
