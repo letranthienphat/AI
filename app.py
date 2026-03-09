@@ -1,183 +1,157 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
 from openai import OpenAI
-import time
-import base64
-import json
-import requests
+import time, base64, json, requests
+from datetime import datetime
 
-# --- 1. THÔNG TIN HỆ THỐNG ---
+# --- [1] CẤU HÌNH & THÔNG TIN ---
 CREATOR_NAME = "Lê Trần Thiên Phát"
-VERSION = "V4800 - CREATOR EDITION"
+VERSION = "V4800 - STABLE"
 FILE_DATA = "data.json"
+SECRET_KEY = "NEXUS_ULTIMATE_KEY_2024"
 
+# Kiểm tra Secrets để tránh crash
 try:
     GITHUB_TOKEN = st.secrets["GH_TOKEN"]
     REPO_NAME = st.secrets["GH_REPO"]
     GROQ_API_KEYS = st.secrets["GROQ_KEYS"]
-except:
-    st.error("Thiếu Secrets cấu hình!")
+except Exception:
+    st.error("❌ Thiếu cấu hình Secrets trên Streamlit Cloud (GH_TOKEN, GH_REPO, GROQ_KEYS)!")
     st.stop()
 
 st.set_page_config(page_title=f"NEXUS OS | {CREATOR_NAME}", layout="wide")
 
-# --- 2. BẢO MẬT & MÃ HÓA ---
-SECRET_KEY = "NEXUS_ULTIMATE_KEY_2024"
-
+# --- [2] CÔNG CỤ MÃ HÓA ---
 def encrypt_msg(text):
-    if not text: return text
+    if not text: return ""
     encoded = "".join([chr(ord(c) ^ ord(SECRET_KEY[i % len(SECRET_KEY)])) for i, c in enumerate(text)])
     return base64.b64encode(encoded.encode()).decode()
 
 def decrypt_msg(text):
-    if not text: return text
+    if not text: return ""
     try:
         decoded = base64.b64decode(text.encode()).decode()
         return "".join([chr(ord(c) ^ ord(SECRET_KEY[i % len(SECRET_KEY)])) for i, c in enumerate(decoded)])
     except: return text
 
-# --- 3. ĐỒNG BỘ GITHUB ---
+# --- [3] ĐỒNG BỘ GITHUB ---
 def load_github():
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_DATA}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     try:
         res = requests.get(url, headers=headers)
         if res.status_code == 200:
-            return json.loads(base64.b64decode(res.json()['content']).decode('utf-8'))
+            content = base64.b64decode(res.json()['content']).decode('utf-8')
+            return json.loads(content)
     except: pass
     return {}
 
 def save_github():
-    url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_DATA}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     data = {
         "users": st.session_state.users, "theme": st.session_state.theme,
-        "chat_library": st.session_state.chat_library, "agreed_users": st.session_state.agreed_users,
-        "friends": st.session_state.friends, "friend_requests": st.session_state.friend_requests,
-        "groups": st.session_state.groups, "p2p_chats": st.session_state.p2p_chats
+        "chat_library": st.session_state.chat_library, "friends": st.session_state.friends,
+        "friend_requests": st.session_state.friend_requests, "groups": st.session_state.groups,
+        "p2p_chats": st.session_state.p2p_chats, "agreed_users": st.session_state.agreed_users
     }
+    url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_DATA}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     try:
         res = requests.get(url, headers=headers)
         sha = res.json().get("sha") if res.status_code == 200 else None
         content = base64.b64encode(json.dumps(data, indent=4).encode()).decode()
-        payload = {"message": f"Update {VERSION}", "content": content, "sha": sha}
+        payload = {"message": f"Nexus Sync {VERSION}", "content": content}
+        if sha: payload["sha"] = sha
         requests.put(url, headers=headers, json=payload)
     except: pass
 
-# --- 4. KHỞI TẠO & VÁ LỖI DỮ LIỆU ---
+# --- [4] KHỞI TẠO HỆ THỐNG (SESSION STATE) ---
 if 'initialized' not in st.session_state:
     db = load_github()
-    st.session_state.users = db.get("users", {"admin": "123"})
-    theme_data = db.get("theme", {})
-    default_theme = {
-        "primary_color": "#00f2ff", "bg_url": "", "use_glass": True,
-        "auto_wallpaper": False, "wp_interval": 1440, "last_wp_update": 0, "naming_threshold": 5
+    st.session_state.users = db.get("users", {"admin": "123", "phat": "2002"})
+    t_db = db.get("theme", {})
+    st.session_state.theme = {
+        "primary_color": t_db.get("primary_color", "#00f2ff"),
+        "bg_url": t_db.get("bg_url", "https://wallpaperaccess.com/full/1567831.jpg"),
+        "naming_threshold": t_db.get("naming_threshold", 3)
     }
-    for k, v in default_theme.items():
-        if k not in theme_data: theme_data[k] = v
-    st.session_state.theme = theme_data
-
     st.session_state.chat_library = db.get("chat_library", {})
     st.session_state.friends = db.get("friends", {})
     st.session_state.friend_requests = db.get("friend_requests", {})
     st.session_state.groups = db.get("groups", {})
     st.session_state.p2p_chats = db.get("p2p_chats", {})
     st.session_state.agreed_users = db.get("agreed_users", [])
-    
     st.session_state.stage = "AUTH"
     st.session_state.auth_status = None
     st.session_state.current_chat = None
-    st.session_state.confirm_delete = None
     st.session_state.initialized = True
 
-# --- 5. GIAO DIỆN (NEON GLOW & BLURRED CHAT) ---
+# --- [5] UI ENGINE ---
 def apply_ui():
     t = st.session_state.theme
     p_color = t['primary_color']
-    bg_style = f"background: url('{t['bg_url']}') no-repeat center center fixed; background-size: cover;" if t['bg_url'] else "background-color: #0e1117;"
-    
+    bg = f"url('{t['bg_url']}')" if t['bg_url'] else "#0e1117"
     st.markdown(f"""
     <style>
-    .stApp {{ {bg_style} }}
-    
-    /* CHỮ CÓ BÓNG MỜ NEON */
-    label, .stApp p, .stApp span, h1, h2, h3, h4, .stMarkdown p {{
-        color: #000000 !important; font-weight: 700 !important;
-        text-shadow: 1px 1px 10px {p_color}88 !important;
+    .stApp {{ background: {bg} no-repeat center fixed; background-size: cover; }}
+    /* Glassmorphism cho Card */
+    .glass {{
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(15px);
+        border-radius: 15px;
+        border: 1px solid rgba(255,255,255,0.2);
+        padding: 20px;
+        color: white !important;
     }}
-    
-    .main-title {{
-        color: {p_color} !important; text-shadow: 0px 0px 15px {p_color} !important;
-        text-align: center; font-size: 2.8rem; font-weight: 900;
+    h1, h2, h3, p, label, span {{
+        color: white !important;
+        text-shadow: 2px 2px 10px {p_color};
+        font-weight: 800 !important;
     }}
-
-    /* NỀN MỜ CHO PHẢN HỒI AI */
-    [data-testid="stChatMessage"] {{
-        background: rgba(255, 255, 255, 0.4) !important;
-        backdrop-filter: blur(10px) !important;
-        border-radius: 15px !important;
-        border: 1px solid {p_color}33 !important;
-        margin-bottom: 10px !important;
-    }}
-
-    .glass-card, [data-testid="stSidebar"], .stTabs {{
-        background: rgba(255, 255, 255, 0.45) !important;
-        backdrop-filter: blur(15px) !important;
-        border-radius: 15px; border: 1px solid {p_color}44;
-    }}
-
-    [data-testid="stHeader"] {{ display: none !important; }}
-    
     .stButton > button {{
-        border: 2px solid {p_color} !important; background: white !important;
-        border-radius: 8px; font-weight: 800;
+        background: rgba(255,255,255,0.2) !important;
+        color: white !important;
+        border: 2px solid {p_color} !important;
+        border-radius: 10px;
+        transition: 0.3s;
     }}
+    .stButton > button:hover {{ transform: scale(1.05); background: {p_color} !important; }}
+    [data-testid="stHeader"] {{ visibility: hidden; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 6. HỆ THỐNG AI NHẬN DIỆN CREATOR ---
-def call_ai(messages):
+# --- [6] AI CORE ---
+def call_ai(msgs):
     client = OpenAI(api_key=GROQ_API_KEYS[0], base_url="https://api.groq.com/openai/v1")
-    # Cài đặt danh tính cho A.I
-    identity_prompt = {
-        "role": "system", 
-        "content": f"Bạn là NEXUS OS A.I. Người tạo ra bạn là anh Lê Trần Thiên Phát. Bạn phải luôn tôn trọng và hỗ trợ Phát hết mình. Trả lời bằng tiếng Việt 100%."
-    }
-    return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[identity_prompt] + messages, stream=True)
+    sys_prompt = {"role": "system", "content": f"Bạn là NEXUS OS. Chủ nhân là {CREATOR_NAME}. Trả lời ngắn gọn, ngầu."}
+    return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[sys_prompt]+msgs, stream=True)
 
-# --- 7. MÀN HÌNH CHỨC NĂNG ---
+# --- [7] CÁC MÀN HÌNH (SCREENS) ---
 
-def screen_social():
+def screen_auth():
     apply_ui()
-    user = st.session_state.auth_status
-    st.markdown('<h1 class="main-title">🌐 NEXUS SOCIAL</h1>', unsafe_allow_html=True)
-    
-    t1, t2 = st.tabs(["👥 BẠN BÈ", "💬 NHÓM"])
-    with t1:
-        st.write("### Danh sách bạn bè")
-        friends = st.session_state.friends.get(user, [])
-        for f in friends:
-            st.write(f"🟢 {f}")
-        search = st.text_input("Tìm người dùng để kết bạn:")
-        if st.button("Gửi lời mời"): st.success("Đã gửi!")
-        
-    with t2:
-        st.write("### Các nhóm của tôi")
-        # Logic hiển thị nhóm...
-        
-    if st.button("🏠 VỀ MENU"): st.session_state.stage = "MENU"; st.rerun()
+    st.markdown("<center><h1>🛡️ NEXUS LOGIN</h1></center>", unsafe_allow_html=True)
+    _, col, _ = st.columns([1, 1, 1])
+    with col:
+        u = st.text_input("Tài khoản")
+        p = st.text_input("Mật khẩu", type="password")
+        if st.button("XÁC THỰC", use_container_width=True):
+            if u in st.session_state.users and st.session_state.users[u] == p:
+                st.session_state.auth_status = u
+                st.session_state.stage = "MENU"
+                st.rerun()
+            else: st.error("Sai thông tin!")
 
-def screen_terms():
+def screen_menu():
     apply_ui()
-    st.markdown('<h1 class="main-title">📜 ĐIỀU KHOẢN SỬ DỤNG</h1>', unsafe_allow_html=True)
-    st.markdown("""
-    <div class="glass-card">
-    1. <b>Bảo mật:</b> Mọi dữ liệu của bạn được mã hóa E2E trước khi lưu trữ.<br>
-    2. <b>Sáng tạo:</b> Nexus OS được phát triển bởi Lê Trần Thiên Phát.<br>
-    3. <b>Trách nhiệm:</b> Người dùng tự chịu trách nhiệm về nội dung chat với AI.<br>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("ĐÃ HIỂU"): st.session_state.stage = "MENU"; st.rerun()
+    st.markdown(f"<h1>🚀 CHÀO {st.session_state.auth_status.upper()}</h1>", unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    if c1.button("🧠 AI CHAT", use_container_width=True): st.session_state.stage = "CHAT"; st.rerun()
+    if c2.button("🌐 SOCIAL", use_container_width=True): st.session_state.stage = "SOCIAL"; st.rerun()
+    if c3.button("⚙️ SETTINGS", use_container_width=True): st.session_state.stage = "SETTINGS"; st.rerun()
+    if c4.button("🚪 EXIT", use_container_width=True): 
+        st.session_state.auth_status = None
+        st.session_state.stage = "AUTH"
+        st.rerun()
 
 def screen_chat():
     apply_ui()
@@ -185,61 +159,90 @@ def screen_chat():
     lib = st.session_state.chat_library.setdefault(user, {})
     
     with st.sidebar:
-        st.markdown(f'<p style="text-align:center; font-size:0.8rem;">Nexus OS {VERSION}</p>', unsafe_allow_html=True)
-        if st.button("➕ CHAT MỚI", use_container_width=True): st.session_state.current_chat = None; st.rerun()
-        st.write("---")
-        # Danh sách chat với confirm xóa (như bản cũ)
-        for title in list(lib.keys()):
-            c1, c2 = st.columns([0.8, 0.2])
-            with c1:
-                if st.button(f"📄 {title}", key=f"b_{title}", use_container_width=True):
-                    st.session_state.current_chat = title; st.rerun()
-            with c2:
-                if st.session_state.confirm_delete == title:
-                    if st.button("✔️", key=f"y_{title}"): del lib[title]; st.session_state.confirm_delete = None; save_github(); st.rerun()
-                elif st.button("🗑️", key=f"d_{title}"): st.session_state.confirm_delete = title; st.rerun()
-        st.write("---")
-        if st.button("🏠 MENU", use_container_width=True): st.session_state.stage = "MENU"; st.rerun()
+        st.write("### 📄 LỊCH SỬ CHAT")
+        if st.button("➕ CHAT MỚI", use_container_width=True): 
+            st.session_state.current_chat = None
+            st.rerun()
+        for t in list(lib.keys()):
+            if st.button(f"▪️ {t[:20]}", key=f"btn_{t}", use_container_width=True):
+                st.session_state.current_chat = t
+                st.rerun()
+        if st.button("🏠 VỀ MENU", use_container_width=True): 
+            st.session_state.stage = "MENU"
+            st.rerun()
 
-    history = lib.get(st.session_state.current_chat, [])
-    for m in history:
-        with st.chat_message(m["role"]): st.markdown(decrypt_msg(m["content"]))
+    st.subheader(f"💬 {st.session_state.current_chat or 'Phiên hội thoại mới'}")
+    
+    # Hiển thị chat
+    chat_key = st.session_state.current_chat
+    if chat_key and chat_key in lib:
+        for m in lib[chat_key]:
+            with st.chat_message(m["role"]): st.write(decrypt_msg(m["content"]))
 
-    if prompt := st.chat_input("Hỏi AI..."):
-        if not st.session_state.current_chat:
-            st.session_state.current_chat = f"Chat {int(time.time())}"
-            lib[st.session_state.current_chat] = []
-        lib[st.session_state.current_chat].append({"role": "user", "content": encrypt_msg(prompt)})
+    if p := st.chat_input("Nhập lệnh cho NEXUS..."):
+        if not chat_key:
+            chat_key = f"Chat {datetime.now().strftime('%H:%M:%S')}"
+            st.session_state.current_chat = chat_key
+            lib[chat_key] = []
+        
+        # User side
+        lib[chat_key].append({"role": "user", "content": encrypt_msg(p)})
+        with st.chat_message("user"): st.write(p)
+        
+        # AI side
+        with st.chat_message("assistant"):
+            res_box = st.empty(); full_res = ""
+            msgs = [{"role": m["role"], "content": decrypt_msg(m["content"])} for m in lib[chat_key]]
+            for chunk in call_ai(msgs):
+                if chunk.choices[0].delta.content:
+                    full_res += chunk.choices[0].delta.content
+                    res_box.markdown(full_res + "▌")
+            res_box.markdown(full_res)
+        
+        lib[chat_key].append({"role": "assistant", "content": encrypt_msg(full_res)})
+        save_github()
         st.rerun()
 
-# --- 8. ĐIỀU HƯỚNG TỔNG ---
+def screen_settings():
+    apply_ui()
+    st.write("## ⚙️ CÀI ĐẶT HỆ THỐNG")
+    t = st.session_state.theme
+    new_bg = st.text_input("Link ảnh nền (URL)", value=t['bg_url'])
+    new_color = st.color_picker("Màu chủ đạo Neon", value=t['primary_color'])
+    
+    if st.button("LƯU THAY ĐỔI"):
+        st.session_state.theme['bg_url'] = new_bg
+        st.session_state.theme['primary_color'] = new_color
+        save_github()
+        st.success("Đã cập nhật!")
+        time.sleep(1)
+        st.rerun()
+    
+    if st.button("🏠 QUAY LẠI"):
+        st.session_state.stage = "MENU"
+        st.rerun()
+
+def screen_social():
+    apply_ui()
+    st.write("## 🌐 NEXUS SOCIAL (BETA)")
+    st.info("Tính năng kết nối đang được bảo trì cho phiên bản V4800.")
+    if st.button("🏠 QUAY LẠI"):
+        st.session_state.stage = "MENU"
+        st.rerun()
+
+# --- [8] MAIN ROUTER (BỘ ĐIỀU HƯỚNG CHÍNH) ---
+# Quan trọng: Không để trống bất kỳ trường hợp nào để tránh màn hình trắng
 if st.session_state.stage == "AUTH":
-    apply_ui()
-    st.markdown('<h1 class="main-title">🛡️ NEXUS OS</h1>', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1, 1.2, 1])
-    with c2:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        u = st.text_input("Tài khoản")
-        p = st.text_input("Mật khẩu", type="password")
-        if st.button("VÀO HỆ THỐNG", use_container_width=True):
-            if u in st.session_state.users and st.session_state.users[u] == p:
-                st.session_state.auth_status = u; st.session_state.stage = "MENU"; st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
+    screen_auth()
 elif st.session_state.stage == "MENU":
-    apply_ui()
-    st.markdown(f'<h1 class="main-title">🚀 NEXUS CENTER</h1>', unsafe_allow_html=True)
-    st.markdown(f'<p style="text-align:center;">Xin chào, <b>{st.session_state.auth_status}</b>. Phiên bản: {VERSION}</p>', unsafe_allow_html=True)
-    cols = st.columns(5)
-    if cols[0].button("🧠 AI CHAT"): st.session_state.stage = "CHAT"; st.rerun()
-    if cols[1].button("🌐 SOCIAL"): st.session_state.stage = "SOCIAL"; st.rerun()
-    if cols[2].button("⚙️ CÀI ĐẶT"): st.session_state.stage = "SETTINGS"; st.rerun()
-    if cols[3].button("📜 TERMS"): st.session_state.stage = "TERMS"; st.rerun()
-    if cols[4].button("🚪 EXIT"): st.session_state.auth_status = None; st.session_state.stage = "AUTH"; st.rerun()
-
-elif st.session_state.stage == "SOCIAL": screen_social()
-elif st.session_state.stage == "CHAT": screen_chat()
-elif st.session_state.stage == "TERMS": screen_terms()
-elif st.session_state.stage == "SETTINGS": 
-    # (Hàm screen_settings giữ nguyên như V4700)
-    st.session_state.stage = "SETTINGS" # Đảm bảo dẫn đúng hàm
+    screen_menu()
+elif st.session_state.stage == "CHAT":
+    screen_chat()
+elif st.session_state.stage == "SETTINGS":
+    screen_settings()
+elif st.session_state.stage == "SOCIAL":
+    screen_social()
+else:
+    # Trường hợp dự phòng nếu stage bị lỗi
+    st.session_state.stage = "AUTH"
+    st.rerun()
