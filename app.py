@@ -1,76 +1,81 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
-import time, random
+import streamlit.components.v1 as components
+import time, random, json, base64, requests
+from openai import OpenAI
 
-# -------------------- [1] CẤU HÌNH HỆ THỐNG --------------------
+# -------------------- [1] CẤU HÌNH & DATA --------------------
 VERSION = "V5100"
 CREATOR = "Lê Trần Thiên Phát"
+FILE_DATA = "data.json"
 
-# Danh sách hình nền ngẫu nhiên (Phát có thể thay link ảnh của mình vào đây)
+# Danh sách hình nền ngẫu nhiên cho màn hình Login
 WALLPAPERS = [
-    "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070",
-    "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964",
-    "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070",
-    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072"
+    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072",
+    "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?q=80&w=2071",
+    "https://images.unsplash.com/photo-1502134249126-9f3755a50d78?q=80&w=2070",
+    "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=2072"
 ]
 
-st.set_page_config(page_title=f"NEXUS GATEWAY {VERSION}", layout="wide", initial_sidebar_state="collapsed")
+# Kiểm tra Secrets
+try:
+    GITHUB_TOKEN = st.secrets["GH_TOKEN"]
+    REPO_NAME = st.secrets["GH_REPO"]
+    GROQ_API_KEYS = st.secrets["GROQ_KEYS"]
+except:
+    st.error("Thiếu cấu hình Secrets (GH_TOKEN, GH_REPO, GROQ_KEYS)!")
+    st.stop()
 
-# -------------------- [2] HIỆU ỨNG KHỞI ĐỘNG (SAMSUNG STYLE) --------------------
-def boot_animation():
-    # Chọn ngẫu nhiên 1 hình nền để tải trước (cache) trong lúc chờ
-    if 'bg_login' not in st.session_state:
-        st.session_state.bg_login = random.choice(WALLPAPERS)
+st.set_page_config(page_title=f"NEXUS OS | {VERSION}", layout="wide", initial_sidebar_state="collapsed")
 
-    st.markdown(f"""
+# -------------------- [2] HÀM XỬ LÝ DỮ LIỆU GITHUB --------------------
+def load_db():
+    url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_DATA}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    try:
+        res = requests.get(url, headers=headers)
+        if res.status_code == 200:
+            content = base64.b64decode(res.json()['content']).decode('utf-8')
+            return json.loads(content)
+    except: pass
+    return {"users": {"admin": "123", "Phát": "123"}, "user_versions": {}}
+
+def save_db(data):
+    url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_DATA}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    res = requests.get(url, headers=headers)
+    sha = res.json().get("sha") if res.status_code == 200 else None
+    content = base64.b64encode(json.dumps(data, indent=4, ensure_ascii=False).encode()).decode()
+    payload = {"message": f"Update {VERSION}", "content": content, "sha": sha}
+    requests.put(url, headers=headers, json=payload)
+
+# -------------------- [3] HIỆU ỨNG BOOT (SAMSUNG STYLE) --------------------
+def show_boot_animation():
+    boot_html = f"""
     <style>
-    .stApp {{ background-color: #000000 !important; }}
-    
-    .boot-box {{
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        height: 100vh; width: 100%; position: fixed; top: 0; left: 0; z-index: 9999; background: #000;
-    }}
+        body {{ background-color: black; margin: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: 'Segoe UI', sans-serif; }}
+        .container {{ position: relative; text-align: center; width: 100%; }}
+        
+        .word {{ color: white; font-size: 40px; position: absolute; width: 100%; opacity: 0; letter-spacing: 8px; animation: flow 3s ease-in-out forwards; }}
+        @keyframes flow {{
+            0% {{ opacity: 0; transform: scale(0.6) translateY(30px); filter: blur(10px); }}
+            30% {{ opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }}
+            70% {{ opacity: 1; transform: scale(1.1); filter: blur(0px); }}
+            100% {{ opacity: 0; transform: scale(1.2) translateY(-30px); filter: blur(10px); }}
+        }}
 
-    /* Chữ uốn lượn */
-    .word {{
-        color: white; font-family: 'Segoe UI', sans-serif; font-size: 2.5rem;
-        position: absolute; opacity: 0; letter-spacing: 5px;
-        animation: flowText 3s ease-in-out forwards;
-    }}
+        .logo-box {{ opacity: 0; animation: fadeIn 3s ease-in-out 18s forwards; }}
+        @keyframes fadeIn {{ to {{ opacity: 1; }} }}
 
-    @keyframes flowText {{
-        0% {{ opacity: 0; transform: scale(0.5) translateY(30px); filter: blur(15px); }}
-        30% {{ opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }}
-        70% {{ opacity: 1; transform: scale(1.1); filter: blur(0px); }}
-        100% {{ opacity: 0; transform: scale(1.2) translateY(-30px); filter: blur(15px); }}
-    }}
+        svg {{ width: 150px; height: 150px; stroke: white; fill: none; stroke-width: 2; }}
+        .path {{ stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: draw 4s linear 18.5s forwards; }}
+        @keyframes draw {{ to {{ stroke-dashoffset: 0; }} }}
 
-    /* Logo vẽ bằng nét (SVG) */
-    .nexus-svg {{
-        width: 180px; height: 180px; opacity: 0;
-        animation: drawPath 4s ease-in-out 18.5s forwards, neonGlow 2s infinite 22.5s;
-    }}
-    
-    .path-line {{
-        fill: none; stroke: white; stroke-width: 2;
-        stroke-dasharray: 1000; stroke-dashoffset: 1000;
-        animation: drawing 4s linear 18.5s forwards;
-    }}
-
-    @keyframes drawing {{ to {{ stroke-dashoffset: 0; }} }}
-    @keyframes drawPath {{ from {{ opacity: 0; transform: scale(0.8); }} to {{ opacity: 1; transform: scale(1); }} }}
-    @keyframes neonGlow {{ 0%, 100% {{ filter: drop-shadow(0 0 5px #fff); }} 50% {{ filter: drop-shadow(0 0 20px #fff); }} }}
-
-    /* Điều chỉnh thời gian xuất hiện */
-    .w1 {{ animation-delay: 0.5s; }}
-    .w2 {{ animation-delay: 3.5s; }}
-    .w3 {{ animation-delay: 6.5s; }}
-    .w4 {{ animation-delay: 9.5s; color: #00f2ff; font-weight: bold; }}
-    .w5 {{ animation-delay: 12.5s; font-size: 3rem; }}
-    .w6 {{ animation-delay: 15.5s; font-size: 1.5rem; color: #888; }}
+        .w1 {{ animation-delay: 0s; }} .w2 {{ animation-delay: 3s; }} .w3 {{ animation-delay: 6s; }}
+        .w4 {{ animation-delay: 9s; color: #00f2ff; text-shadow: 0 0 20px #00f2ff; }}
+        .w5 {{ animation-delay: 12s; font-size: 50px; }} .w6 {{ animation-delay: 15s; font-size: 20px; color: #888; }}
     </style>
-
-    <div class="boot-box">
+    <div class="container">
         <div class="word w1">WELCOME</div>
         <div class="word w2">TO</div>
         <div class="word w3">THIS</div>
@@ -78,66 +83,99 @@ def boot_animation():
         <div class="word w5">NEXUS OS GATEWAY</div>
         <div class="word w6">THE NEW VERSION IS RELEASE!</div>
         
-        <div class="nexus-svg">
+        <div class="logo-box">
             <svg viewBox="0 0 100 100">
-                <rect class="path-line" x="10" y="10" width="80" height="80" rx="15" />
-                <path class="path-line" d="M30 30 L70 70 M70 30 L30 70" />
+                <rect class="path" x="10" y="10" width="80" height="80" rx="15" />
+                <path class="path" d="M30 30 L70 70 M70 30 L30 70" />
             </svg>
-            <h2 style="color:white; text-align:center; letter-spacing:10px; font-family: sans-serif;">NEXUS</h2>
+            <h1 style="color:white; letter-spacing: 15px; margin-top: 20px;">NEXUS</h1>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    components.html(boot_html, height=800)
 
-# -------------------- [3] MÀN HÌNH ĐĂNG NHẬP (HÌNH NỀN NGẪU NHIÊN) --------------------
-def login_screen():
-    bg = st.session_state.bg_login
+# -------------------- [4] MÀN HÌNH ĐĂNG NHẬP (RANDOM WP) --------------------
+def show_login():
+    if 'bg' not in st.session_state: st.session_state.bg = random.choice(WALLPAPERS)
+    
     st.markdown(f"""
     <style>
-    .stApp {{
-        background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url("{bg}");
-        background-size: cover; background-position: center;
-    }}
+    .stApp {{ background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url("{st.session_state.bg}"); background-size: cover; }}
     .login-card {{
-        background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(15px);
-        padding: 40px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.2);
-        max-width: 450px; margin: auto; margin-top: 100px;
+        background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px);
+        padding: 50px; border-radius: 30px; border: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: center; max-width: 400px; margin: auto;
     }}
-    h1, label, p {{ color: white !important; text-shadow: 0 0 10px rgba(0,0,0,0.5); }}
-    .stButton>button {{
-        width: 100%; border-radius: 10px; background: transparent; border: 1px solid white; color: white;
-    }}
-    .stButton>button:hover {{ background: white; color: black; }}
+    h1, label {{ color: white !important; }}
     </style>
     """, unsafe_allow_html=True)
-
-    st.markdown("<div class='login-card'>", unsafe_allow_html=True)
-    st.markdown("<h1 style='text-align:center;'>NEXUS ACCESS</h1>", unsafe_allow_html=True)
     
-    with st.container():
-        user = st.text_input("Tài khoản")
-        pw = st.text_input("Mật khẩu", type="password")
-        
-        if st.button("XÁC THỰC GATEWAY"):
-            with st.spinner("🚀 Đang kiểm tra bảo mật..."):
-                time.sleep(2) # Giả lập kiểm tra bảo mật (hiện vòng xoay không đơ)
-                st.session_state.auth_user = user
-                st.session_state.stage = "MENU"
+    st.markdown("<div class='login-card'>", unsafe_allow_html=True)
+    st.markdown("<h1>NEXUS GATEWAY</h1>", unsafe_allow_html=True)
+    u = st.text_input("Username")
+    p = st.text_input("Password", type="password")
+    if st.button("ACCESS SYSTEM", use_container_width=True):
+        db = load_db()
+        if u in db["users"] and db["users"][u] == p:
+            with st.spinner("🚀 Verifying Security..."):
+                time.sleep(2)
+                st.session_state.user = u
+                # Lưu version người dùng
+                db["user_versions"][u] = VERSION
+                save_db(db)
+                st.session_state.stage = "MAIN"
                 st.rerun()
+        else: st.error("Sai tài khoản hoặc mật khẩu!")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# -------------------- [4] ĐIỀU HƯỚNG CHÍNH --------------------
-if 'stage' not in st.session_state:
-    st.session_state.stage = "BOOT"
+# -------------------- [5] GIAO DIỆN CHÍNH (BÊN TRONG) --------------------
+def show_main():
+    st.markdown("""<style>
+        .stApp { background: #0e1117; color: white; }
+        [data-testid="stSidebar"] { background: rgba(255,255,255,0.05) !important; }
+    </style>""", unsafe_allow_html=True)
+    
+    user = st.session_state.user
+    st.sidebar.title(f"🚀 NEXUS {VERSION}")
+    st.sidebar.write(f"Chào, **{user}**")
+    
+    menu = st.sidebar.radio("MENU GATEWAY", ["Dashboard", "AI Chat", "Social", "Settings"])
+    
+    if menu == "Dashboard":
+        st.title("📊 HỆ THỐNG ĐIỀU KHIỂN")
+        col1, col2 = st.columns(2)
+        col1.metric("Phiên bản hiện tại", VERSION)
+        col2.metric("Trạng thái Gateway", "ONLINE", delta="Stable")
+        st.info(f"Chào mừng {user}. Hệ thống của bạn đang chạy ở phiên bản {VERSION}.")
+
+    elif menu == "AI Chat":
+        st.title("🧠 NEXUS SUPER AI")
+        if "messages" not in st.session_state: st.session_state.messages = []
+        for m in st.session_state.messages:
+            with st.chat_message(m["role"]): st.markdown(m["content"])
+        
+        if prompt := st.chat_input("Hỏi bất cứ điều gì..."):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"): st.markdown(prompt)
+            with st.chat_message("assistant"):
+                # Gọi API AI tại đây (giống các bản trước của bạn)
+                response = f"Nexus AI đã nhận được lệnh: {prompt}"
+                st.markdown(response)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+
+# -------------------- [6] ĐIỀU HƯỚNG --------------------
+if 'stage' not in st.session_state: st.session_state.stage = "BOOT"
 
 def main():
     if st.session_state.stage == "BOOT":
-        boot_animation()
-        time.sleep(24) # Tổng thời gian animation
+        show_boot_animation()
+        time.sleep(23)
         st.session_state.stage = "LOGIN"
         st.rerun()
-    
     elif st.session_state.stage == "LOGIN":
-        login_screen()
+        show_login()
+    elif st.session_state.stage == "MAIN":
+        show_main()
 
 if __name__ == "__main__":
     main()
