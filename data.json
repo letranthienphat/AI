@@ -7,7 +7,10 @@
         "mode": "light",
         "primary_color": "#00f2ff",
         "bg_url": "https://images.pexels.com/photos/276452/pexels-photo-276452.jpeg",
-        "bg_tone": "light"
+        "bg_tone": "light",
+        "use_glass": true,
+        "max_fails": 2,
+        "lockout_time": 30
     },
     "chat_library": {
         "Ch\u00e0o": [
