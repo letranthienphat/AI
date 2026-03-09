@@ -200,5 +200,8 @@
             "is_bot": false
         }
     ],
-    "total_messages": 4
+    "total_messages": 4,
+    "user_versions": {
+        "Thiên Phát": "V5100"
+    }
 }
