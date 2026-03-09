@@ -1,3 +1,5 @@
-requests
+streamlit
 openai
+requests
 streamlit-javascript
+user-agents
