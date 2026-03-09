@@ -1,118 +1,143 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
-import time
+import time, random
 
-# Cấu hình trang
-st.set_page_config(page_title="NEXUS OS GATEWAY", layout="wide", initial_sidebar_state="collapsed")
+# -------------------- [1] CẤU HÌNH HỆ THỐNG --------------------
+VERSION = "V5100"
+CREATOR = "Lê Trần Thiên Phát"
 
-def apply_samsung_style_animation():
-    st.markdown("""
+# Danh sách hình nền ngẫu nhiên (Phát có thể thay link ảnh của mình vào đây)
+WALLPAPERS = [
+    "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070",
+    "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964",
+    "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070",
+    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072"
+]
+
+st.set_page_config(page_title=f"NEXUS GATEWAY {VERSION}", layout="wide", initial_sidebar_state="collapsed")
+
+# -------------------- [2] HIỆU ỨNG KHỞI ĐỘNG (SAMSUNG STYLE) --------------------
+def boot_animation():
+    # Chọn ngẫu nhiên 1 hình nền để tải trước (cache) trong lúc chờ
+    if 'bg_login' not in st.session_state:
+        st.session_state.bg_login = random.choice(WALLPAPERS)
+
+    st.markdown(f"""
     <style>
-    /* Nền đen tuyệt đối */
-    .stApp { background-color: #000000 !important; }
-
-    .boot-container {
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
-        height: 100vh; width: 100%; position: fixed; top: 0; left: 0; z-index: 9999; background: #000;
-    }
-
-    /* Hiệu ứng vẽ Logo NEXUS bằng đường nét (SVG) */
-    .svg-logo {
-        width: 200px; height: 200px;
-        stroke: #ffffff; stroke-width: 2; fill: none;
-        stroke-dasharray: 600; stroke-dashoffset: 600;
-        animation: drawLogo 4s ease-in-out forwards, glow 2s infinite 4s;
-    }
-
-    @keyframes drawLogo {
-        0% { stroke-dashoffset: 600; transform: rotate(-10deg) scale(0.8); opacity: 0; }
-        50% { opacity: 1; }
-        100% { stroke-dashoffset: 0; transform: rotate(0deg) scale(1); }
-    }
-
-    @keyframes glow {
-        0%, 100% { filter: drop-shadow(0 0 5px #fff); }
-        50% { filter: drop-shadow(0 0 20px #fff); }
-    }
-
-    /* Chuỗi chữ uốn lượn xuất hiện */
-    .text-flow {
-        font-family: 'Segoe UI', sans-serif;
-        color: white; font-size: 1.8rem; font-weight: 300;
-        position: absolute; opacity: 0;
-        letter-spacing: 4px;
-        animation: textSequence 3s ease-in-out forwards;
-    }
-
-    @keyframes textSequence {
-        0% { opacity: 0; transform: scale(0.8) translateY(10px); filter: blur(10px); }
-        30% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
-        70% { opacity: 1; transform: scale(1.05) translateY(0); filter: blur(0px); }
-        100% { opacity: 0; transform: scale(1.1) translateY(-10px); filter: blur(10px); }
-    }
-
-    /* Delay cho từng câu chữ theo ý Phát */
-    .t1 { animation-delay: 0.5s; }
-    .t2 { animation-delay: 3.5s; }
-    .t3 { animation-delay: 6.5s; }
-    .t4 { animation-delay: 9.5s; font-weight: bold; color: #00f2ff; text-shadow: 0 0 15px #00f2ff; }
-    .t5 { animation-delay: 12.5s; font-size: 2.5rem; }
-    .t6 { animation-delay: 15.5s; font-size: 1.2rem; color: #888; }
+    .stApp {{ background-color: #000000 !important; }}
     
-    /* Logo cuối cùng xuất hiện nhịp nhàng */
-    .final-nexus {
-        position: absolute; opacity: 0;
-        animation: fadeIn 5s ease-in-out 18.5s forwards;
-        text-align: center;
-    }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .boot-box {{
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        height: 100vh; width: 100%; position: fixed; top: 0; left: 0; z-index: 9999; background: #000;
+    }}
 
+    /* Chữ uốn lượn */
+    .word {{
+        color: white; font-family: 'Segoe UI', sans-serif; font-size: 2.5rem;
+        position: absolute; opacity: 0; letter-spacing: 5px;
+        animation: flowText 3s ease-in-out forwards;
+    }}
+
+    @keyframes flowText {{
+        0% {{ opacity: 0; transform: scale(0.5) translateY(30px); filter: blur(15px); }}
+        30% {{ opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }}
+        70% {{ opacity: 1; transform: scale(1.1); filter: blur(0px); }}
+        100% {{ opacity: 0; transform: scale(1.2) translateY(-30px); filter: blur(15px); }}
+    }}
+
+    /* Logo vẽ bằng nét (SVG) */
+    .nexus-svg {{
+        width: 180px; height: 180px; opacity: 0;
+        animation: drawPath 4s ease-in-out 18.5s forwards, neonGlow 2s infinite 22.5s;
+    }}
+    
+    .path-line {{
+        fill: none; stroke: white; stroke-width: 2;
+        stroke-dasharray: 1000; stroke-dashoffset: 1000;
+        animation: drawing 4s linear 18.5s forwards;
+    }}
+
+    @keyframes drawing {{ to {{ stroke-dashoffset: 0; }} }}
+    @keyframes drawPath {{ from {{ opacity: 0; transform: scale(0.8); }} to {{ opacity: 1; transform: scale(1); }} }}
+    @keyframes neonGlow {{ 0%, 100% {{ filter: drop-shadow(0 0 5px #fff); }} 50% {{ filter: drop-shadow(0 0 20px #fff); }} }}
+
+    /* Điều chỉnh thời gian xuất hiện */
+    .w1 {{ animation-delay: 0.5s; }}
+    .w2 {{ animation-delay: 3.5s; }}
+    .w3 {{ animation-delay: 6.5s; }}
+    .w4 {{ animation-delay: 9.5s; color: #00f2ff; font-weight: bold; }}
+    .w5 {{ animation-delay: 12.5s; font-size: 3rem; }}
+    .w6 {{ animation-delay: 15.5s; font-size: 1.5rem; color: #888; }}
     </style>
 
-    <div class="boot-container">
-        <div class="text-flow t1">WELCOME</div>
-        <div class="text-flow t2">TO</div>
-        <div class="text-flow t3">THIS</div>
-        <div class="text-flow t4">SUPER A.I!</div>
-        <div class="text-flow t5">NEXUS OS GATEWAY</div>
-        <div class="text-flow t6">THE NEW VERSION IS RELEASE!</div>
-
-        <div class="final-nexus">
-            <svg class="svg-logo" viewBox="0 0 100 100">
-                <rect x="10" y="10" width="80" height="80" rx="15" />
-                <path d="M30 30 L70 70 M70 30 L30 70" stroke-width="4"/> </svg>
-            <h2 style="color:white; margin-top:20px; letter-spacing:10px;">NEXUS</h2>
+    <div class="boot-box">
+        <div class="word w1">WELCOME</div>
+        <div class="word w2">TO</div>
+        <div class="word w3">THIS</div>
+        <div class="word w4">SUPER A.I!</div>
+        <div class="word w5">NEXUS OS GATEWAY</div>
+        <div class="word w6">THE NEW VERSION IS RELEASE!</div>
+        
+        <div class="nexus-svg">
+            <svg viewBox="0 0 100 100">
+                <rect class="path-line" x="10" y="10" width="80" height="80" rx="15" />
+                <path class="path-line" d="M30 30 L70 70 M70 30 L30 70" />
+            </svg>
+            <h2 style="color:white; text-align:center; letter-spacing:10px; font-family: sans-serif;">NEXUS</h2>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-# -------------------- LOGIC CHÍNH --------------------
+# -------------------- [3] MÀN HÌNH ĐĂNG NHẬP (HÌNH NỀN NGẪU NHIÊN) --------------------
+def login_screen():
+    bg = st.session_state.bg_login
+    st.markdown(f"""
+    <style>
+    .stApp {{
+        background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url("{bg}");
+        background-size: cover; background-position: center;
+    }}
+    .login-card {{
+        background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(15px);
+        padding: 40px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.2);
+        max-width: 450px; margin: auto; margin-top: 100px;
+    }}
+    h1, label, p {{ color: white !important; text-shadow: 0 0 10px rgba(0,0,0,0.5); }}
+    .stButton>button {{
+        width: 100%; border-radius: 10px; background: transparent; border: 1px solid white; color: white;
+    }}
+    .stButton>button:hover {{ background: white; color: black; }}
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div class='login-card'>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center;'>NEXUS ACCESS</h1>", unsafe_allow_html=True)
+    
+    with st.container():
+        user = st.text_input("Tài khoản")
+        pw = st.text_input("Mật khẩu", type="password")
+        
+        if st.button("XÁC THỰC GATEWAY"):
+            with st.spinner("🚀 Đang kiểm tra bảo mật..."):
+                time.sleep(2) # Giả lập kiểm tra bảo mật (hiện vòng xoay không đơ)
+                st.session_state.auth_user = user
+                st.session_state.stage = "MENU"
+                st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# -------------------- [4] ĐIỀU HƯỚNG CHÍNH --------------------
 if 'stage' not in st.session_state:
     st.session_state.stage = "BOOT"
 
 def main():
     if st.session_state.stage == "BOOT":
-        apply_samsung_style_animation()
-        # Chờ 24 giây để hoàn tất toàn bộ chuỗi animation
-        time.sleep(24)
+        boot_animation()
+        time.sleep(24) # Tổng thời gian animation
         st.session_state.stage = "LOGIN"
         st.rerun()
-
+    
     elif st.session_state.stage == "LOGIN":
-        st.markdown("<style>.stApp { background: #000; }</style>", unsafe_allow_html=True)
-        st.title("🛡️ NEXUS OS GATEWAY")
-        
-        # Form đăng nhập với Spinner không đơ
-        with st.form("login_form"):
-            user = st.text_input("Username")
-            pw = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("LOGIN")
-            
-            if submitted:
-                with st.spinner("🚀 Checking Security Gateway..."):
-                    time.sleep(2)
-                    st.success(f"Welcome back, {user}!")
-                    # Ở đây Phát thêm logic lưu Version người dùng như bản trước nhé
+        login_screen()
 
 if __name__ == "__main__":
     main()
