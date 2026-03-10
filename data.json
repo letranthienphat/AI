@@ -4,19 +4,18 @@
         "Thi\u00ean Ph\u00e1t": "NEXUS OS GATEWAY"
     },
     "theme": {
-        "mode": "light",
         "primary_color": "#00f2ff",
-        "bg_url": "https://picsum.photos/1920/1080?random=58130",
-        "bg_tone": "light",
-        "use_glass": true,
-        "max_fails": 2,
-        "lockout_time": 30,
-        "auto_wallpaper": true,
-        "wp_interval": 10,
-        "last_wp_update": 1773056581,
-        "naming_threshold": 5,
-        "use_unsplash": true,
-        "unsplash_topic": "city"
+        "bg_list": [
+            "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?q=80&w=1920",
+            "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1920",
+            "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1920",
+            "https://images.unsplash.com/photo-1531297484001-80022131f5a1?q=80&w=1920",
+            "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1920"
+        ],
+        "auto_rotate": true,
+        "rotate_min": 5,
+        "current_bg_idx": 0,
+        "last_rotate": "2026-03-10 11:33:14.430845"
     },
     "chat_library": {
         "Ch\u00e0o": [
@@ -113,6 +112,11 @@
         {
             "user": "Thi\u00ean Ph\u00e1t",
             "time": "10/03 11:27:29",
+            "info": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+        },
+        {
+            "user": "Thi\u00ean Ph\u00e1t",
+            "time": "11:33:24",
             "info": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
         }
     ],
