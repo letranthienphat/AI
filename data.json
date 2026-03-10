@@ -3,7 +3,6 @@
         "admin": "123",
         "Thi\u00ean Ph\u00e1t": "NEXUS OS GATEWAY"
     },
-    "profiles": {},
     "theme": {
         "mode": "light",
         "primary_color": "#00f2ff",
@@ -83,6 +82,7 @@
             ]
         }
     },
+    "profiles": {},
     "groups": {},
     "access_logs": [
         {
@@ -108,6 +108,11 @@
         {
             "user": "Thi\u00ean Ph\u00e1t",
             "time": "11:25:03",
+            "info": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+        },
+        {
+            "user": "Thi\u00ean Ph\u00e1t",
+            "time": "10/03 11:27:29",
             "info": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
         }
     ],
