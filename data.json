@@ -3,6 +3,7 @@
         "admin": "123",
         "Thi\u00ean Ph\u00e1t": "NEXUS OS GATEWAY"
     },
+    "profiles": {},
     "theme": {
         "mode": "light",
         "primary_color": "#00f2ff",
@@ -82,12 +83,6 @@
             ]
         }
     },
-    "friends": {
-        "Thi\u00ean Ph\u00e1t": []
-    },
-    "friend_requests": {
-        "Thi\u00ean Ph\u00e1t": []
-    },
     "groups": {},
     "access_logs": [
         {
@@ -109,6 +104,12 @@
             "user": "Thi\u00ean Ph\u00e1t",
             "time": "10/03/2026 11:18:57",
             "info": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+        },
+        {
+            "user": "Thi\u00ean Ph\u00e1t",
+            "time": "11:25:03",
+            "info": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
         }
-    ]
+    ],
+    "punishments": {}
 }
