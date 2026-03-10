@@ -2,11 +2,11 @@
 import streamlit as st
 from openai import OpenAI
 import time, base64, json, requests
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --- [1] CẤU HÌNH ---
 CREATOR = "Lê Trần Thiên Phát"
-VERSION = "V4800 - NEXUS GATEWAY"
+VERSION = "V4900 - JUSTICE & STABLE"
 FILE_DATA = "data.json"
 SECRET_KEY = "NEXUS_ULTIMATE_KEY_2024"
 
@@ -15,12 +15,12 @@ try:
     GH_REPO = st.secrets["GH_REPO"]
     GROQ_KEYS = st.secrets["GROQ_KEYS"]
 except:
-    st.error("👉 Vui lòng dán Keys vào Secrets trên Streamlit Cloud!")
+    st.error("Cấu hình Secrets bị thiếu!")
     st.stop()
 
 st.set_page_config(page_title=f"NEXUS OS | {CREATOR}", layout="wide")
 
-# --- [2] CÔNG CỤ NỀN TẢNG ---
+# --- [2] HÀM NỀN TẢNG ---
 def ma_hoa(text):
     if not text: return ""
     encoded = "".join([chr(ord(c) ^ ord(SECRET_KEY[i % len(SECRET_KEY)])) for i, c in enumerate(text)])
@@ -45,10 +45,13 @@ def tai_du_lieu():
 
 def luu_du_lieu():
     data = {
-        "users": st.session_state.users, "theme": st.session_state.theme,
-        "chat_library": st.session_state.chat_library, "friends": st.session_state.friends,
-        "friend_requests": st.session_state.friend_requests, "groups": st.session_state.groups,
-        "access_logs": st.session_state.get("access_logs", [])
+        "users": st.session_state.users, 
+        "profiles": st.session_state.profiles,
+        "theme": st.session_state.theme,
+        "chat_library": st.session_state.chat_library, 
+        "groups": st.session_state.groups,
+        "access_logs": st.session_state.get("access_logs", []),
+        "punishments": st.session_state.punishments
     }
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{FILE_DATA}"
     headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
@@ -56,26 +59,25 @@ def luu_du_lieu():
         res = requests.get(url, headers=headers)
         sha = res.json().get("sha") if res.status_code == 200 else None
         content = base64.b64encode(json.dumps(data, indent=4).encode()).decode()
-        payload = {"message": f"Nexus Update {datetime.now()}", "content": content}
-        if sha: payload["sha"] = sha
+        payload = {"message": f"Nexus Update {datetime.now()}", "content": content, "sha": sha} if sha else {"message": "Init", "content": content}
         requests.put(url, headers=headers, json=payload)
     except: pass
 
 # --- [3] KHỞI TẠO ---
 if 'initialized' not in st.session_state:
     db = tai_du_lieu()
-    st.session_state.users = db.get("users", {"admin": "123", "Thiên Phát": "2002"})
+    st.session_state.users = db.get("users", {"Thiên Phát": "2002"})
+    st.session_state.profiles = db.get("profiles", {}) # {user: {avatar, bio, nickname}}
     st.session_state.theme = db.get("theme", {"primary_color": "#00f2ff", "bg_url": ""})
-    st.session_state.friends = db.get("friends", {})
-    st.session_state.friend_requests = db.get("friend_requests", {})
-    st.session_state.groups = db.get("groups", {}) # {name: {"type": "FULL_AI", "msgs": []}}
-    st.session_state.access_logs = db.get("access_logs", [])
     st.session_state.chat_library = db.get("chat_library", {})
+    st.session_state.groups = db.get("groups", {"Chung": {"type": "NONE", "msgs": []}})
+    st.session_state.access_logs = db.get("access_logs", [])
+    st.session_state.punishments = db.get("punishments", {}) # {user: {banned_until, reason}}
     st.session_state.stage = "AUTH"
     st.session_state.auth_status = None
     st.session_state.initialized = True
 
-# --- [4] UI & LOGO ---
+# --- [4] GIAO DIỆN & LOGO ---
 def apply_ui():
     t = st.session_state.theme
     p_color = t['primary_color']
@@ -83,149 +85,140 @@ def apply_ui():
     st.markdown(f"""
     <style>
     .stApp {{ background: {bg} no-repeat center fixed; background-size: cover; color: #F8F9FA; }}
-    .glass-box {{
-        background: rgba(15, 23, 42, 0.8) !important;
-        backdrop-filter: blur(12px); border-radius: 15px; padding: 20px; border: 1px solid {p_color}33;
-    }}
-    h1, h2, h3, p, label {{ color: #F8F9FA !important; text-shadow: 0px 2px 4px rgba(0,0,0,0.3); }}
-    .stButton > button {{ background: rgba(30, 41, 59, 0.7); color: #F8F9FA; border: 1px solid {p_color}; border-radius: 8px; }}
-    .stButton > button:hover {{ background: {p_color}; color: #000; }}
+    .glass-box {{ background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(10px); border-radius: 12px; padding: 20px; border: 1px solid {p_color}33; }}
+    h1, h2, h3 {{ color: #F8F9FA !important; text-shadow: 0 0 10px {p_color}; }}
+    p, label, span {{ color: #cbd5e1 !important; }}
     </style>
     """, unsafe_allow_html=True)
 
 def draw_logo():
     color = st.session_state.theme.get('primary_color', '#00f2ff')
     st.markdown(f"""
-    <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 20px;">
-        <div style="width: 80px; height: 80px; border-radius: 50%; border: 4px solid {color}; 
-                    border-top-color: transparent; animation: spin 2s linear infinite; 
-                    display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px {color}66;">
-            <div style="width: 30px; height: 30px; background: {color}; border-radius: 50%; animation: pulse 1.5s infinite;"></div>
-        </div>
-        <div style="color: #F8F9FA; font-weight: 800; letter-spacing: 2px; margin-top: 10px;">NEXUS GATEWAY</div>
+    <div style="display: flex; flex-direction: column; align-items: center; margin: 20px 0;">
+        <div style="width: 70px; height: 70px; border: 4px solid {color}; border-radius: 20% 50%; animation: orbit 4s linear infinite; box-shadow: 0 0 15px {color};"></div>
+        <div style="color: #F8F9FA; font-weight: bold; margin-top: 10px; letter-spacing: 2px;">NEXUS GATEWAY</div>
     </div>
-    <style>
-    @keyframes spin {{ 100% {{ transform: rotate(360deg); }} }}
-    @keyframes pulse {{ 0%, 100% {{ transform: scale(0.8); opacity: 0.5; }} 50% {{ transform: scale(1.1); opacity: 1; }} }}
-    </style>
+    <style> @keyframes orbit {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }} </style>
     """, unsafe_allow_html=True)
 
-# --- [5] XỬ LÝ AI ---
-def goi_ai(messages, temp=0.7):
-    try:
-        client = OpenAI(api_key=GROQ_KEYS[0], base_url="https://api.groq.com/openai/v1")
-        res = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role":"system","content":"Bạn là thành viên trong nhóm chat Nexus. Nói chuyện tự nhiên, bình dân."}] + messages,
-            temperature=temp
-        )
-        return res.choices[0].message.content
-    except: return "Hệ thống AI đang bận xử lý..."
+# --- [5] CÁC MÀN HÌNH CHỨC NĂNG ---
 
-# --- [6] MÀN HÌNH CỘNG ĐỒNG ---
-def screen_social():
+def check_ban(user):
+    if user in st.session_state.punishments:
+        ban_info = st.session_state.punishments[user]
+        until = datetime.strptime(ban_info['until'], "%Y-%m-%d %H:%M:%S")
+        if datetime.now() < until:
+            return ban_info['reason'], until
+    return None, None
+
+def screen_profile():
     apply_ui()
     me = st.session_state.auth_status
-    st.title("🌐 NEXUS COMMUNITY")
+    st.title("👤 CÁ NHÂN HÓA TÀI KHOẢN")
+    p = st.session_state.profiles.setdefault(me, {"nickname": me, "bio": "Thành viên Nexus", "avatar": ""})
     
-    tab1, tab2, tab3 = st.tabs(["👥 Bạn bè", "🏘️ Nhóm Chat", "➕ Tạo Nhóm"])
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        if p['avatar']: st.image(p['avatar'], width=150)
+        else: st.warning("Chưa có ảnh đại diện")
+        new_avatar = st.text_input("Link ảnh đại diện (URL)", p['avatar'])
+    with col2:
+        new_nick = st.text_input("Biệt danh", p['nickname'])
+        new_bio = st.text_area("Giới thiệu", p['bio'])
+    
+    if st.button("LƯU CÁ NHÂN HÓA"):
+        st.session_state.profiles[me] = {"nickname": new_nick, "bio": new_bio, "avatar": new_avatar}
+        luu_du_lieu(); st.success("Đã cập nhật!"); time.sleep(1); st.rerun()
+    if st.button("Quay lại"): st.session_state.stage = "MENU"; st.rerun()
+
+def screen_law():
+    apply_ui()
+    st.title("📜 LUẬT LỆ NEXUS OS GATEWAY")
+    st.markdown("""
+    <div class='glass-box'>
+    1. <b>Tôn trọng:</b> Không xúc phạm chủ nhân hệ thống (Phát) và người dùng khác.<br>
+    2. <b>An toàn:</b> Không cố gắng tấn công, phá hoại hoặc spam dữ liệu lên GitHub.<br>
+    3. <b>Nội dung:</b> Không sử dụng AI để tạo nội dung độc hại, vi phạm pháp luật.<br>
+    4. <b>Xử phạt:</b> Admin có quyền cấm truy cập vĩnh viễn mà không cần báo trước nếu vi phạm.<br>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Tôi đã hiểu"): st.session_state.stage = "MENU"; st.rerun()
+
+def screen_admin():
+    apply_ui()
+    st.title("🛡️ ADMIN CONTROL PANEL")
+    
+    tab1, tab2 = st.tabs(["📊 Logs Truy Cập", "🔨 Xử Phạt Người Dùng"])
     
     with tab1:
-        # Kết bạn & Lời mời (Giữ logic cũ đã sửa lỗi)
-        st.subheader("Lời mời kết bạn")
-        reqs = st.session_state.friend_requests.get(me, [])
-        for r in reqs:
-            c1, c2 = st.columns([0.7, 0.3])
-            c1.write(f"🔔 **{r}** muốn kết bạn")
-            if c2.button("Đồng ý", key=f"acc_{r}"):
-                st.session_state.friends.setdefault(me, []).append(r)
-                st.session_state.friends.setdefault(r, []).append(me)
-                st.session_state.friend_requests[me].remove(r)
-                luu_du_lieu(); st.rerun()
-
-    with tab2:
-        st.subheader("Danh sách nhóm")
-        for g_name, g_info in st.session_state.groups.items():
-            type_label = "🤖 AI Toàn phần" if g_info['type'] == "FULL_AI" else "🌗 AI Bán phần" if g_info['type'] == "HALF_AI" else "👤 Người"
-            if st.button(f"{g_name} ({type_label})", use_container_width=True):
-                st.session_state.current_group = g_name
-                st.session_state.stage = "GROUP_CHAT"
-                st.rerun()
-
-    with tab3:
-        st.subheader("Tạo nhóm mới")
-        new_g_name = st.text_input("Tên nhóm")
-        g_type = st.selectbox("Chế độ AI", ["FULL_AI", "HALF_AI", "NONE"], format_func=lambda x: "🤖 AI Toàn phần (Tự thảo luận)" if x=="FULL_AI" else "🌗 AI Bán phần (Thanh bên)" if x=="HALF_AI" else "👤 Không có AI")
-        if st.button("Khởi tạo nhóm"):
-            if new_g_name and new_g_name not in st.session_state.groups:
-                st.session_state.groups[new_g_name] = {"type": g_type, "msgs": []}
-                luu_du_lieu(); st.success("Đã tạo nhóm!"); st.rerun()
-
-    if st.button("🏠 VỀ MENU"): st.session_state.stage = "MENU"; st.rerun()
-
-def screen_group_chat():
-    apply_ui()
-    g_name = st.session_state.current_group
-    g_info = st.session_state.groups[g_name]
-    me = st.session_state.auth_status
-
-    st.title(f"🏘️ Nhóm: {g_name}")
+        for log in reversed(st.session_state.access_logs):
+            st.write(f"**{log['user']}** - {log['time']}")
+            st.code(log['info'])
     
-    if g_info['type'] == "HALF_AI":
-        with st.sidebar:
-            st.write("### 🌗 Trợ lý nhóm")
-            ask = st.text_input("Hỏi riêng AI trong nhóm...")
-            if st.button("Hỏi"):
-                res = goi_ai([{"role":"user","content": ask}])
-                st.info(res)
-
-    # Hiển thị tin nhắn
-    for m in g_info['msgs']:
-        with st.chat_message("user" if m['user'] == me else "assistant"):
-            st.write(f"**{m['user']}**: {giai_ma(m['text'])}")
-
-    if p := st.chat_input("Gửi tin nhắn..."):
-        # Người gửi
-        g_info['msgs'].append({"user": me, "text": ma_hoa(p)})
+    with tab2:
+        user_to_ban = st.selectbox("Chọn người dùng", list(st.session_state.users.keys()))
+        reason = st.text_area("Lý do phạm tội (Sẽ hiện cho người đó thấy)")
+        duration = st.number_input("Số phút cấm", min_value=1, value=60)
         
-        # Nếu là FULL_AI, AI sẽ tự trả lời ngay trong dòng chat
-        if g_info['type'] == "FULL_AI":
-            context = [{"role": "user" if m['user'] != "NEXUS_AI" else "assistant", "content": giai_ma(m['text'])} for m in g_info['msgs'][-5:]]
-            ai_res = goi_ai(context)
-            g_info['msgs'].append({"user": "NEXUS_AI", "text": ma_hoa(ai_res)})
-        
-        luu_du_lieu(); st.rerun()
+        c1, c2 = st.columns(2)
+        if c1.button("🔥 THỰC THI LỆNH CẤM"):
+            until = (datetime.now() + timedelta(minutes=duration)).strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.punishments[user_to_ban] = {"until": until, "reason": reason}
+            luu_du_lieu(); st.warning(f"Đã cấm {user_to_ban}!"); st.rerun()
+        if c2.button("✨ GỠ CẤM"):
+            if user_to_ban in st.session_state.punishments:
+                del st.session_state.punishments[user_to_ban]
+                luu_du_lieu(); st.success(f"Đã gỡ cấm cho {user_to_ban}"); st.rerun()
 
-    if st.button("⬅️ RỜI NHÓM"): st.session_state.stage = "SOCIAL"; st.rerun()
+    if st.button("Quay lại"): st.session_state.stage = "MENU"; st.rerun()
 
-# --- [7] ROUTER ---
+# --- [6] MAIN ROUTER ---
 if st.session_state.stage == "AUTH":
     apply_ui(); draw_logo()
-    _, cc, _ = st.columns([1, 1.5, 1])
+    _, cc, _ = st.columns([1, 1.2, 1])
     with cc:
         st.markdown("<div class='glass-box'>", unsafe_allow_html=True)
-        u = st.text_input("Tên đăng nhập")
-        p = st.text_input("Mật khẩu", type="password")
-        if st.button("VÀO HỆ THỐNG", use_container_width=True):
+        u = st.text_input("User")
+        p = st.text_input("Pass", type="password")
+        if st.button("ENTER GATEWAY", use_container_width=True):
             if u in st.session_state.users and st.session_state.users[u] == p:
-                st.session_state.auth_status = u; st.session_state.stage = "MENU"; st.rerun()
+                st.session_state.auth_status = u
+                st.session_state.stage = "MENU"
+                agent = st.context.headers.get("User-Agent", "Unknown")
+                st.session_state.access_logs.append({"user": u, "time": datetime.now().strftime("%H:%M:%S"), "info": agent})
+                luu_du_lieu(); st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
 elif st.session_state.stage == "MENU":
     apply_ui()
-    st.title(f"CHÀO {st.session_state.auth_status.upper()}")
-    st.markdown("<div class='glass-box'>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    if c1.button("🧠 AI CHAT"): st.session_state.stage = "CHAT"; st.rerun()
-    if c2.button("🌐 CỘNG ĐỒNG"): st.session_state.stage = "SOCIAL"; st.rerun()
-    if c3.button("⚙️ CÀI ĐẶT"): st.session_state.stage = "SETTINGS"; st.rerun()
-    if st.button("🛡️ ADMIN", use_container_width=True) and st.session_state.auth_status.lower() == "thiên phát":
-        st.session_state.stage = "ADMIN"; st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Kiểm tra xem có bị cấm không
+    reason, until = check_ban(st.session_state.auth_status)
+    if reason:
+        st.error(f"🚫 TÀI KHOẢN ĐANG BỊ KHÓA!")
+        st.info(f"**Lý do phạm tội:** {reason}")
+        st.warning(f"**Thời hạn đến:** {until}")
+        if st.button("Đăng xuất"): st.session_state.stage = "AUTH"; st.rerun()
+    else:
+        st.title(f"🚀 NEXUS MENU - {st.session_state.auth_status}")
+        cols = st.columns(2)
+        if cols[0].button("🧠 AI CHAT", use_container_width=True): st.session_state.stage = "CHAT"; st.rerun()
+        if cols[1].button("🌐 CỘNG ĐỒNG", use_container_width=True): st.session_state.stage = "SOCIAL"; st.rerun()
+        
+        c1, c2, c3 = st.columns(3)
+        if c1.button("👤 CÁ NHÂN"): st.session_state.stage = "PROFILE"; st.rerun()
+        if c2.button("📜 LUẬT LỆ"): st.session_state.stage = "LAW"; st.rerun()
+        if c3.button("⚙️ CÀI ĐẶT"): st.session_state.stage = "SETTINGS"; st.rerun()
+        
+        if st.session_state.auth_status.lower() == "thiên phát":
+            if st.button("🛡️ ADMIN PANEL", use_container_width=True): st.session_state.stage = "ADMIN"; st.rerun()
+        if st.button("🚪 LOGOUT"): st.session_state.stage = "AUTH"; st.rerun()
 
-elif st.session_state.stage == "SOCIAL": screen_social()
-elif st.session_state.stage == "GROUP_CHAT": screen_group_chat()
-elif st.session_state.stage == "CHAT": 
-    # Thêm lại screen_chat() từ bản trước của bạn vào đây
-    st.write("Màn hình AI Chat riêng tư")
+elif st.session_state.stage == "PROFILE": screen_profile()
+elif st.session_state.stage == "LAW": screen_law()
+elif st.session_state.stage == "ADMIN": screen_admin()
+# ... (Các stage CHAT, SOCIAL, SETTINGS Phát giữ lại từ bản trước hoặc copy thêm vào) ...
+else:
+    # Fallback để tránh màn hình trắng
+    apply_ui()
+    st.write("Tính năng này đang được đồng bộ...")
     if st.button("Về Menu"): st.session_state.stage = "MENU"; st.rerun()
