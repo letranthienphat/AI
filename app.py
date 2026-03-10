@@ -2,26 +2,25 @@
 import streamlit as st
 from openai import OpenAI
 import time, base64, json, requests
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # --- [1] THÔNG TIN CHUNG ---
 CREATOR = "Lê Trần Thiên Phát"
-VERSION = "V4800 - ULTIMATE PLUS"
+VERSION = "NEXUS OS GATEWAY - STABLE"
 FILE_DATA = "data.json"
 SECRET_KEY = "NEXUS_ULTIMATE_KEY_2024"
 
-# Kiểm tra "chìa khóa" hệ thống
 try:
     GH_TOKEN = st.secrets["GH_TOKEN"]
     GH_REPO = st.secrets["GH_REPO"]
     GROQ_KEYS = st.secrets["GROQ_KEYS"]
 except:
-    st.error("👉 Anh Phát ơi, nhớ dán Keys vào phần Settings > Secrets trên Streamlit nhé!")
+    st.error("👉 Vui lòng cấu hình Keys trong phần Settings > Secrets trên Streamlit.")
     st.stop()
 
 st.set_page_config(page_title=f"NEXUS OS | {CREATOR}", layout="wide")
 
-# --- [2] HÀM BỔ TRỢ (MÃ HÓA & LƯU TRỮ) ---
+# --- [2] HÀM BỔ TRỢ ---
 def ma_hoa(text):
     if not text: return ""
     encoded = "".join([chr(ord(c) ^ ord(SECRET_KEY[i % len(SECRET_KEY)])) for i, c in enumerate(text)])
@@ -70,8 +69,6 @@ if 'initialized' not in st.session_state:
         "primary_color": "#00f2ff", 
         "bg_url": "", 
         "ai_temp": 0.7,
-        "font_size": "16px",
-        "glass_opacity": 0.3
     })
     st.session_state.chat_library = db.get("chat_library", {})
     st.session_state.friends = db.get("friends", {})
@@ -88,39 +85,93 @@ def ghi_log(user):
     log_entry = {
         "user": user,
         "time": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-        "info": agent
+        "info": agent 
     }
     st.session_state.access_logs.append(log_entry)
-    # Giữ log 14 ngày
-    st.session_state.access_logs = st.session_state.access_logs[-100:] # Lưu tối đa 100 lần gần nhất
+    st.session_state.access_logs = st.session_state.access_logs[-100:] 
     luu_du_lieu()
+
+def draw_animated_logo():
+    color = st.session_state.theme.get('primary_color', '#00f2ff')
+    st.markdown(f"""
+    <style>
+    .logo-box {{ display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 30px; }}
+    .gateway-ring {{
+        width: 100px; height: 100px;
+        border-radius: 50%;
+        border: 3px solid rgba(255,255,255,0.1);
+        border-top: 4px solid {color};
+        border-bottom: 4px solid {color};
+        animation: spin 3s linear infinite;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 0 25px {color}66;
+    }}
+    .gateway-core {{
+        width: 40px; height: 40px;
+        background: {color};
+        border-radius: 50%;
+        animation: pulse 1.5s ease-in-out infinite;
+        box-shadow: 0 0 15px {color};
+    }}
+    .gateway-text {{
+        margin-top: 15px; font-size: 24px; font-weight: 800;
+        letter-spacing: 3px; color: #F8F9FA;
+        text-shadow: 0px 0px 10px {color}88;
+    }}
+    @keyframes spin {{ 100% {{ transform: rotate(360deg); }} }}
+    @keyframes pulse {{ 0%, 100% {{ transform: scale(0.8); opacity: 0.7;}} 50% {{ transform: scale(1.1); opacity: 1; }} }}
+    </style>
+    <div class="logo-box">
+        <div class="gateway-ring"><div class="gateway-core"></div></div>
+        <div class="gateway-text">NEXUS OS GATEWAY</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 def apply_ui():
     t = st.session_state.theme
     p_color = t['primary_color']
-    op = t.get('glass_opacity', 0.3)
-    bg = f"url('{t['bg_url']}')" if t['bg_url'] else "#0e1117"
+    bg = f"url('{t['bg_url']}')" if t['bg_url'] else "#0f172a" # Màu nền mặc định tối, dịu mắt
     st.markdown(f"""
     <style>
     .stApp {{ background: {bg} no-repeat center fixed; background-size: cover; }}
+    
+    /* Làm hộp nền mờ tối màu hơn để chữ sáng nổi bật, không bị chói */
     .glass-box {{
-        background: rgba(255, 255, 255, {op}) !important;
-        backdrop-filter: blur(10px);
-        border-radius: 15px;
-        padding: 20px;
-        border: 1px solid {p_color}55;
+        background: rgba(15, 23, 42, 0.75) !important; 
+        backdrop-filter: blur(12px);
+        border-radius: 12px;
+        padding: 25px;
+        border: 1px solid {p_color}44;
+        color: #F8F9FA;
     }}
-    h1, h2, h3, p, label {{ 
-        color: white !important; 
-        text-shadow: 2px 2px 8px {p_color};
-        font-size: {t.get('font_size', '16px')};
+    
+    /* Chữ dịu mắt, bóng mờ nhẹ nhàng */
+    h1, h2, h3, p, label, .stMarkdown {{ 
+        color: #F8F9FA !important; 
+        text-shadow: 0px 2px 5px rgba(0,0,0,0.5);
     }}
-    .stButton > button {{ border: 2px solid {p_color} !important; border-radius: 20px; font-weight: bold; }}
+    
+    /* Ô chat AI mượt mà */
+    [data-testid="stChatMessage"] {{
+        background: rgba(30, 41, 59, 0.8) !important;
+        border-radius: 10px;
+        border-left: 3px solid {p_color};
+    }}
+    
+    /* Nút bấm tinh tế */
+    .stButton > button {{ 
+        background: rgba(15, 23, 42, 0.8) !important;
+        color: #F8F9FA !important;
+        border: 1px solid {p_color} !important; 
+        border-radius: 8px; 
+        transition: 0.3s;
+    }}
+    .stButton > button:hover {{ background: {p_color} !important; color: #000 !important; box-shadow: 0 0 10px {p_color}; }}
     [data-testid="stHeader"] {{ visibility: hidden; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- [4] MÀN HÌNH AI CHAT (SỬA LỖI KHÔNG TRẢ LỜI) ---
+# --- [4] MÀN HÌNH CHỨC NĂNG ---
 def screen_chat():
     apply_ui()
     user = st.session_state.auth_status
@@ -130,7 +181,6 @@ def screen_chat():
         st.title("🧠 NEXUS AI")
         if st.button("➕ TẠO CHAT MỚI", use_container_width=True):
             st.session_state.current_chat = None; st.rerun()
-        
         st.divider()
         for t in list(lib.keys()):
             c1, c2 = st.columns([0.8, 0.2])
@@ -138,39 +188,33 @@ def screen_chat():
                 st.session_state.current_chat = t; st.rerun()
             if c2.button("🗑️", key=f"d_{t}"):
                 del lib[t]; luu_du_lieu(); st.rerun()
-        
         if st.button("⬅️ VỀ MENU", use_container_width=True):
             st.session_state.stage = "MENU"; st.rerun()
 
     c_id = st.session_state.current_chat
     st.subheader(f"💬 {c_id if c_id else 'Phiên làm việc mới'}")
 
-    # Hiển thị lịch sử
     if c_id and c_id in lib:
         for m in lib[c_id]:
             with st.chat_message(m["role"]): st.write(giai_ma(m["content"]))
 
-    # Ô nhập liệu
-    if p := st.chat_input("Anh Phát muốn hỏi gì nè?"):
+    if p := st.chat_input("Nhập câu hỏi của bạn..."):
         if not c_id:
             c_id = f"Chat_{datetime.now().strftime('%H%M%S')}"
             st.session_state.current_chat = c_id
             lib[c_id] = []
         
-        # Lưu câu hỏi
         lib[c_id].append({"role": "user", "content": ma_hoa(p)})
         with st.chat_message("user"): st.write(p)
         
-        # AI Trả lời
         with st.chat_message("assistant"):
             res_box = st.empty(); full_res = ""
             try:
                 client = OpenAI(api_key=GROQ_KEYS[0], base_url="https://api.groq.com/openai/v1")
-                # Lấy lịch sử 5 câu gần nhất để AI hiểu ngữ cảnh
                 context = [{"role": m["role"], "content": giai_ma(m["content"])} for m in lib[c_id][-6:]]
                 stream = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
-                    messages=[{"role":"system","content":f"Bạn là NEXUS OS, người tạo ra bạn là {CREATOR}."}] + context,
+                    messages=[{"role":"system","content":f"Bạn là NEXUS OS. Phục vụ người dùng thân thiện, dễ hiểu."}] + context,
                     stream=True,
                     temperature=st.session_state.theme.get('ai_temp', 0.7)
                 )
@@ -179,108 +223,98 @@ def screen_chat():
                         full_res += chunk.choices[0].delta.content
                         res_box.markdown(full_res + "▌")
                 res_box.markdown(full_res)
-                # Lưu câu trả lời
                 lib[c_id].append({"role": "assistant", "content": ma_hoa(full_res)})
                 luu_du_lieu()
             except Exception as e:
-                st.error(f"Lỗi AI rồi anh ơi: {str(e)}")
+                st.error("Kết nối AI đang bận, vui lòng thử lại sau.")
 
-# --- [5] MÀN HÌNH ADMIN (CHO ANH PHÁT) ---
 def screen_admin():
     apply_ui()
-    st.title("🛡️ BẢNG ĐIỀU KHIỂN CHỦ NHÂN")
+    st.title("🛡️ BẢNG ĐIỀU KHIỂN QUẢN TRỊ")
     
-    tab1, tab2 = st.tabs(["📊 Lịch sử truy cập", "👥 Quản lý User"])
+    tab1, tab2 = st.tabs(["📊 Lịch sử truy cập", "👥 Người dùng"])
     
     with tab1:
-        st.write("### Danh sách thiết bị vào hệ thống (14 ngày)")
+        st.write("Danh sách thiết bị truy cập gần đây:")
         for log in reversed(st.session_state.access_logs):
             with st.expander(f"👤 {log['user']} - 🕒 {log['time']}"):
-                # Phân tích chuỗi Agent cho bình dân dễ hiểu
-                info = log['info']
+                # SỬA LỖI KEYERROR TẠI ĐÂY: Dùng .get() để an toàn với dữ liệu cũ
+                info = log.get('info', log.get('device', 'Không xác định được thiết bị'))
+                
                 st.write(f"**Chi tiết:** {info}")
                 if "Windows" in info: st.info("🖥️ Máy tính Windows")
                 elif "Android" in info: st.info("📱 Điện thoại Android")
-                elif "iPhone" in info: st.info("🍎 Điện thoại iPhone")
+                elif "iPhone" in info or "Mac OS" in info: st.info("🍎 Thiết bị Apple")
                 
-                if "Edg/" in info: st.write("Trình duyệt: Microsoft Edge")
-                elif "Chrome/" in info: st.write("Trình duyệt: Google Chrome")
+                if "Edg/" in info: st.write("Trình duyệt: Edge")
+                elif "Chrome/" in info: st.write("Trình duyệt: Chrome")
                 elif "CocCoc/" in info: st.write("Trình duyệt: Cốc Cốc")
 
     with tab2:
-        st.write("### Danh sách tài khoản")
         st.json(st.session_state.users)
 
     if st.button("🏠 QUAY LẠI"):
         st.session_state.stage = "MENU"; st.rerun()
 
-# --- [6] MÀN HÌNH SETTINGS (NHIỀU OPTION) ---
 def screen_settings():
     apply_ui()
     st.title("⚙️ TÙY CHỈNH HỆ THỐNG")
     t = st.session_state.theme
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write("#### 🎨 Giao diện")
-        new_bg = st.text_input("Link ảnh nền", t['bg_url'], placeholder="Dán link ảnh từ Google vào đây...")
-        new_color = st.color_picker("Màu Neon chủ đạo", t['primary_color'])
-        new_op = st.slider("Độ trong suốt của bảng (Glass)", 0.1, 1.0, float(t.get('glass_opacity', 0.3)))
-        new_font = st.select_slider("Kích cỡ chữ", options=["12px", "14px", "16px", "18px", "20px"], value=t.get('font_size', '16px'))
-
-    with col2:
-        st.write("#### 🧠 Trí tuệ AI")
-        new_temp = st.slider("Độ 'phiêu' của AI (Sáng tạo)", 0.0, 1.0, t.get('ai_temp', 0.7))
-        st.info("Thấp: AI trả lời chính xác, thực tế. Cao: AI trả lời văn vẻ, bay bổng.")
+    st.write("Cá nhân hóa giao diện và trải nghiệm của bạn.")
+    new_bg = st.text_input("Đường dẫn ảnh nền (Link URL)", t['bg_url'])
+    new_color = st.color_picker("Màu nhấn (Accent Color)", t['primary_color'])
+    new_temp = st.slider("Mức độ sáng tạo của AI", 0.0, 1.0, t.get('ai_temp', 0.7))
     
-    if st.button("💾 LƯU TẤT CẢ THAY ĐỔI", use_container_width=True):
+    if st.button("💾 LƯU THAY ĐỔI", use_container_width=True):
         st.session_state.theme.update({
-            "bg_url": new_bg, "primary_color": new_color, 
-            "ai_temp": new_temp, "glass_opacity": new_op,
-            "font_size": new_font
+            "bg_url": new_bg, "primary_color": new_color, "ai_temp": new_temp
         })
         luu_du_lieu()
-        st.success("Đã lưu rồi nhé anh Phát!")
+        st.success("Đã cập nhật cấu hình thành công!")
         time.sleep(1); st.rerun()
 
     if st.button("🏠 QUAY LẠI"):
         st.session_state.stage = "MENU"; st.rerun()
 
-# --- [7] ĐIỀU HƯỚNG CHÍNH ---
+# --- [5] ĐIỀU HƯỚNG CHÍNH ---
 if st.session_state.stage == "AUTH":
     apply_ui()
-    st.markdown("<h1 style='text-align:center;'>🔐 ĐĂNG NHẬP NEXUS</h1>", unsafe_allow_html=True)
-    _, cc, _ = st.columns([1, 2, 1])
+    st.write("<br><br>", unsafe_allow_html=True)
+    draw_animated_logo() # Hiển thị Logo động
+    
+    _, cc, _ = st.columns([1, 1.5, 1])
     with cc:
-        u = st.text_input("Tên của anh")
+        st.markdown("<div class='glass-box'>", unsafe_allow_html=True)
+        u = st.text_input("Tên đăng nhập")
         p = st.text_input("Mật khẩu", type="password")
-        if st.button("VÀO HỆ THỐNG", use_container_width=True):
+        if st.button("TIẾN VÀO GATEWAY", use_container_width=True):
             if u in st.session_state.users and st.session_state.users[u] == p:
                 st.session_state.auth_status = u
                 st.session_state.stage = "MENU"
                 ghi_log(u)
                 st.rerun()
-            else: st.error("Sai tên hoặc mật khẩu rồi!")
+            else: st.error("Thông tin không chính xác. Vui lòng thử lại!")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 elif st.session_state.stage == "MENU":
     apply_ui()
-    st.title(f"🚀 XIN CHÀO {st.session_state.auth_status.upper()}")
+    st.title(f"Chào mừng trở lại, {st.session_state.auth_status}")
     
-    with st.container():
-        st.markdown("<div class='glass-box'>", unsafe_allow_html=True)
-        if st.session_state.auth_status.lower() == "thiên phát":
-            if st.button("🛡️ BẢNG ĐIỀU KHIỂN ADMIN", use_container_width=True):
-                st.session_state.stage = "ADMIN"; st.rerun()
-        
-        c1, c2 = st.columns(2)
-        if c1.button("🧠 CHAT VỚI AI", use_container_width=True):
-            st.session_state.stage = "CHAT"; st.rerun()
-        if c2.button("⚙️ CÀI ĐẶT HỆ THỐNG", use_container_width=True):
-            st.session_state.stage = "SETTINGS"; st.rerun()
-        
-        if st.button("🚪 THOÁT HỆ THỐNG", use_container_width=True):
-            st.session_state.auth_status = None; st.session_state.stage = "AUTH"; st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<div class='glass-box'>", unsafe_allow_html=True)
+    if st.session_state.auth_status.lower() == "thiên phát":
+        if st.button("🛡️ QUẢN TRỊ HỆ THỐNG", use_container_width=True):
+            st.session_state.stage = "ADMIN"; st.rerun()
+    
+    c1, c2 = st.columns(2)
+    if c1.button("🧠 TRỢ LÝ AI", use_container_width=True):
+        st.session_state.stage = "CHAT"; st.rerun()
+    if c2.button("⚙️ CÀI ĐẶT", use_container_width=True):
+        st.session_state.stage = "SETTINGS"; st.rerun()
+    
+    if st.button("🚪 ĐĂNG XUẤT", use_container_width=True):
+        st.session_state.auth_status = None; st.session_state.stage = "AUTH"; st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 elif st.session_state.stage == "CHAT": screen_chat()
 elif st.session_state.stage == "ADMIN": screen_admin()
