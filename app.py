@@ -4,31 +4,32 @@ from openai import OpenAI
 import time, base64, json, requests, random, string
 from datetime import datetime
 
-# --- [1] CẤU HÌNH NEXUS ---
+# --- [1] CẤU HÌNH HỆ THỐNG ---
 SYSTEM_NAME = "NEXUS"
-VERSION = "V6100 - NEBULA"
+VERSION = "V6200 - SUPER NOVA"
 FILE_DATA = "data.json"
 SECRET_KEY = "NEXUS_ULTIMATE_KEY_2024"
 
 WALLPAPERS = [
-    "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?q=80&w=1920",
-    "https://images.unsplash.com/photo-1506318137071-a8e063b4b519?q=80&w=1920",
-    "https://images.unsplash.com/photo-1439337153520-7082a56a81f4?q=80&w=1920"
+    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1920",
+    "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1920",
+    "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1920"
 ]
 
+# Kiểm tra Secrets
 try:
     GH_TOKEN = st.secrets["GH_TOKEN"]
     GH_REPO = st.secrets["GH_REPO"]
     GROQ_KEYS = st.secrets["GROQ_KEYS"]
     if isinstance(GROQ_KEYS, str): GROQ_KEYS = [GROQ_KEYS]
     GEMINI_KEY = st.secrets.get("GEMINI_KEY", "")
-except:
-    st.error("⚠️ Lỗi: Chưa cấu hình Secrets trên Cloud!")
+except Exception as e:
+    st.error(f"❌ Thiếu Secrets cấu hình: {e}")
     st.stop()
 
 st.set_page_config(page_title=SYSTEM_NAME, layout="wide", initial_sidebar_state="collapsed")
 
-# --- [2] CORE FUNCTIONS ---
+# --- [2] CÔNG CỤ DỮ LIỆU ---
 def ma_hoa(text, tier="free"):
     if not text: return ""
     k = SECRET_KEY[::-1] if tier == "promax" else SECRET_KEY
@@ -65,184 +66,187 @@ def luu_du_lieu():
         res = requests.get(url, headers=headers)
         sha = res.json().get("sha") if res.status_code == 200 else None
         content = base64.b64encode(json.dumps(data, indent=4).encode()).decode()
-        requests.put(url, headers=headers, json={"message": "Nexus Nebula Update", "content": content, "sha": sha})
+        requests.put(url, headers=headers, json={"message": "Nexus Sync", "content": content, "sha": sha})
     except: pass
 
-# --- [3] KIỂM TRA DỮ LIỆU (CHỐNG KEYERROR) ---
-def kiem_tra_du_lieu():
-    if not isinstance(st.session_state.groups, dict): st.session_state.groups = {}
-    if "Sảnh Chung" not in st.session_state.groups:
-        st.session_state.groups["Sảnh Chung"] = {"msgs": []}
-    
-    me = st.session_state.get("auth_status")
-    if me and me != "Guest":
-        if me not in st.session_state.chat_library:
-            st.session_state.chat_library[me] = {"sessions": {"Cuộc trò chuyện mới": []}, "active": "Cuộc trò chuyện mới"}
+# --- [3] KHỞI TẠO TRẠNG THÁI (CHỐNG MÀN HÌNH TRẮNG) ---
+def init_all():
+    if 'initialized' not in st.session_state:
+        db = tai_du_lieu()
+        st.session_state.users = db.get("users", {"Thiên Phát": "2002"})
+        st.session_state.user_status = db.get("user_status", {"Thiên Phát": "promax"})
+        st.session_state.chat_library = db.get("chat_library", {})
+        st.session_state.groups = db.get("groups", {"Sảnh Chung": {"msgs": []}})
+        st.session_state.cloud_drive = db.get("cloud_drive", {})
+        st.session_state.tickets = db.get("tickets", [])
+        st.session_state.activation_keys = db.get("activation_keys", {})
+        st.session_state.notice = db.get("notice", {"content": "Hệ thống Nexus Online.", "is_emergency": False, "id": 0})
+        st.session_state.stage = "AUTH"
+        st.session_state.auth_status = None
+        st.session_state.initialized = True
 
-# --- [4] UI GLASSMORPHISM ---
+init_all()
+
+# --- [4] GIAO DIỆN SƯƠNG MỜ ---
 def apply_ui():
     bg = random.choice(WALLPAPERS)
     st.markdown(f"""
     <style>
     .stApp {{ background: url('{bg}') no-repeat center fixed; background-size: cover; color: #F8FAFC; }}
-    /* Lớp sương mờ cho tất cả khung phản hồi */
-    .stChatMessage, .glass-card, [data-testid="stExpander"] {{
-        background: rgba(15, 23, 42, 0.65) !important;
-        backdrop-filter: blur(12px) saturate(180%);
-        -webkit-backdrop-filter: blur(12px) saturate(180%);
+    /* Hiệu ứng sương mờ Deep Blur */
+    .glass-card, .stChatMessage, [data-testid="stExpander"], .stSidebar {{
+        background: rgba(15, 23, 42, 0.7) !important;
+        backdrop-filter: blur(15px) saturate(160%);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 15px !important;
         padding: 15px;
         margin-bottom: 15px;
     }}
     .stButton > button {{ 
-        background: rgba(30, 41, 59, 0.7) !important; 
-        backdrop-filter: blur(5px);
-        color: #38BDF8 !important; border: 1px solid #38BDF8 !important; border-radius: 10px; font-weight: 600; 
+        background: rgba(30, 41, 59, 0.8) !important; 
+        color: #38BDF8 !important; border: 1px solid #38BDF8 !important; 
+        border-radius: 10px; transition: 0.3s; width: 100%;
     }}
-    .stButton > button:hover {{ background: #38BDF8 !important; color: #0F172A !important; }}
+    .stButton > button:hover {{ background: #38BDF8 !important; color: #0F172A !important; transform: translateY(-2px); }}
     [data-testid="stHeader"] {{ visibility: hidden; }}
-    h1, h2, h3 {{ text-shadow: 0 4px 12px rgba(0,0,0,0.5); }}
     </style>
     """, unsafe_allow_html=True)
 
 # --- [5] AI ENGINE ---
 def goi_ai(messages, tier):
     try:
-        # Cấu hình Gemini chuẩn
         client = OpenAI(api_key=GEMINI_KEY, base_url="https://generativelanguage.googleapis.com/v1beta/openai")
         res = client.chat.completions.create(model="gemini-1.5-flash", messages=messages)
         return res.choices[0].message.content
     except:
         try:
-            # Fallback sang Groq
             client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
             res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages)
             return res.choices[0].message.content
-        except Exception as e: return f"⚠️ Lỗi AI: {str(e)}"
+        except Exception as e: return f"⚠️ Hệ thống AI quá tải: {str(e)}"
 
 def ai_dat_ten(text):
-    prompt = f"Đặt 1 cái tên ngắn gọn (dưới 5 từ) cho cuộc trò chuyện này dựa trên nội dung: {text}"
+    prompt = [{"role": "user", "content": f"Đặt 1 cái tên tiêu đề ngắn (3-5 từ) cho cuộc trò chuyện về: {text}"}]
     try:
-        res = goi_ai([{"role": "user", "content": prompt}], "free")
+        res = goi_ai(prompt, "free")
         return res.strip().replace('"', '')
-    except: return text[:15] + "..."
+    except: return "Hội thoại mới"
 
-# --- [6] MÀN HÌNH ---
+# --- [6] CÁC MÀN HÌNH CHỨC NĂNG ---
 
 def screen_ai_chat():
     apply_ui()
-    kiem_tra_du_lieu()
     me = st.session_state.auth_status
     tier = st.session_state.user_status.get(me, "free")
-    lib = st.session_state.chat_library[me]
-    active_s = lib["active"]
-
-    # --- Header & Đổi tên ---
-    c1, c2 = st.columns([0.8, 0.2])
-    with c1:
-        new_title = st.text_input("📍 Tên cuộc trò chuyện (Nhấn để đổi)", value=active_s)
-        if new_title != active_s:
-            lib["sessions"][new_title] = lib["sessions"].pop(active_s)
-            lib["active"] = new_title
+    lib = st.session_state.chat_library.setdefault(me, {"sessions": {"Cuộc trò chuyện mới": []}, "active": "Cuộc trò chuyện mới"})
+    
+    col1, col2 = st.columns([0.8, 0.2])
+    with col1:
+        new_name = st.text_input("📍 Tiêu đề hội thoại", value=lib["active"])
+        if new_name != lib["active"]:
+            lib["sessions"][new_name] = lib["sessions"].pop(lib["active"])
+            lib["active"] = new_name
             luu_du_lieu(); st.rerun()
-    if c2.button("⬅️ HOME"): st.session_state.stage = "MENU"; st.rerun()
+    if col2.button("⬅️ HOME"): st.session_state.stage = "MENU"; st.rerun()
 
-    # --- Sidebar Cấu hình ---
     with st.sidebar:
-        st.title("⚙️ AI CONFIG")
-        context_limit = st.slider("Số lượng tin nhắn xử lý", 1, 30, 10)
-        st.write("---")
+        st.subheader("Cấu hình AI")
+        limit = st.slider("Trí nhớ (số tin nhắn)", 1, 40, 10)
         if st.button("➕ Hội thoại mới"):
-            name = f"Chat {len(lib['sessions'])+1}"
-            lib["sessions"][name] = []; lib["active"] = name
-            luu_du_lieu(); st.rerun()
-        for s in lib["sessions"].keys():
-            if st.button(f"💬 {s}", use_container_width=True):
-                lib["active"] = s; st.rerun()
+            n = f"Chat {len(lib['sessions'])+1}"
+            lib["sessions"][n] = []; lib["active"] = n; st.rerun()
+        for s in list(lib["sessions"].keys()):
+            if st.button(f"💬 {s}"): lib["active"] = s; st.rerun()
 
-    # --- Khu vực Chat ---
-    history = lib["sessions"][active_s]
+    history = lib["sessions"][lib["active"]]
     for m in history:
-        with st.chat_message(m['role']):
-            st.markdown(f"<div style='color: #E2E8F0;'>{giai_ma(m['content'], tier)}</div>", unsafe_allow_html=True)
+        with st.chat_message(m['role']): st.write(giai_ma(m['content'], tier))
 
-    if p := st.chat_input("Hỏi Nexus Nebula..."):
-        # AI tự đặt tên nếu là tin nhắn đầu tiên
+    if p := st.chat_input("Hỏi Nexus..."):
         if not history:
-            auto_name = ai_dat_ten(p)
-            lib["sessions"][auto_name] = lib["sessions"].pop(active_s)
-            lib["active"] = auto_name
-            active_s = auto_name
-            history = lib["sessions"][active_s]
+            lib["active"] = ai_dat_ten(p)
+            lib["sessions"][lib["active"]] = lib["sessions"].pop("Cuộc trò chuyện mới")
+            history = lib["sessions"][lib["active"]]
 
         history.append({"role": "user", "content": ma_hoa(p, tier)})
         with st.chat_message("user"): st.write(p)
-        
         with st.chat_message("assistant"):
-            # Chỉ gửi số lượng tin nhắn giới hạn theo slider
-            context = [{"role": giai_ma(m['role']), "content": giai_ma(m['content'], tier)} for m in history[-context_limit:]]
-            res = goi_ai(context, tier)
+            ctx = [{"role": m['role'], "content": giai_ma(m['content'], tier)} for m in history[-limit:]]
+            res = goi_ai(ctx, tier)
             st.write(res)
             history.append({"role": "assistant", "content": ma_hoa(res, tier)})
             luu_du_lieu()
 
 def screen_social():
     apply_ui()
-    kiem_tra_du_lieu() # Bảo vệ KeyError
-    me = st.session_state.auth_status
+    st.title("🌐 CỘNG ĐỒNG NEXUS")
+    if st.button("⬅️ QUAY LẠI"): st.session_state.stage = "MENU"; st.rerun()
     
-    st.title("🌐 NEXUS COMMUNITY")
-    if st.button("⬅️ HOME"): st.session_state.stage = "MENU"; st.rerun()
-
-    # Đảm bảo group tồn tại
-    group = st.session_state.groups.get("Sảnh Chung", {"msgs": []})
-    
+    group = st.session_state.groups.setdefault("Sảnh Chung", {"msgs": []})
     st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-    for m in group['msgs'][-50:]:
-        with st.chat_message("user"):
-            st.write(f"**{m['user']}**: {giai_ma(m['text'])}")
+    for m in group['msgs'][-30:]:
+        with st.chat_message("user"): st.write(f"**{m['user']}**: {giai_ma(m['text'])}")
     
-    if me != "Guest":
-        if p := st.chat_input("Nhắn gì đó..."):
-            group['msgs'].append({"user": me, "text": ma_hoa(p)})
+    if st.session_state.auth_status != "Guest":
+        if p := st.chat_input("Nhắn tin vào sảnh..."):
+            group['msgs'].append({"user": st.session_state.auth_status, "text": ma_hoa(p)})
             luu_du_lieu(); st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- [7] ROUTER ---
-if 'initialized' not in st.session_state:
-    db = tai_du_lieu()
-    st.session_state.users = db.get("users", {"Thiên Phát": "2002"})
-    st.session_state.user_status = db.get("user_status", {})
-    st.session_state.chat_library = db.get("chat_library", {})
-    st.session_state.groups = db.get("groups", {"Sảnh Chung": {"msgs": []}})
-    st.session_state.cloud_drive = db.get("cloud_drive", {})
-    st.session_state.tickets = db.get("tickets", [])
-    st.session_state.activation_keys = db.get("activation_keys", {})
-    st.session_state.notice = db.get("notice", {"content": "Nexus Nebula v6.1", "is_emergency": False, "id": 0})
-    st.session_state.stage = "AUTH"
-    st.session_state.initialized = True
+def screen_cloud():
+    apply_ui()
+    me = st.session_state.auth_status
+    st.title("☁️ NEXUS CLOUD STORAGE")
+    if st.button("⬅️ HOME"): st.session_state.stage = "MENU"; st.rerun()
+    
+    my_files = st.session_state.cloud_drive.setdefault(me, [])
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    up = st.file_uploader("Chọn tệp")
+    if up and st.button("🚀 TẢI LÊN"):
+        my_files.append({"name": up.name, "data": base64.b64encode(up.getvalue()).decode(), "date": datetime.now().strftime("%d/%m/%Y")})
+        luu_du_lieu(); st.success("Đã xong!"); st.rerun()
+    
+    for idx, f in enumerate(my_files):
+        c1, c2, c3 = st.columns([0.7, 0.15, 0.15])
+        c1.write(f"📄 {f['name']}")
+        c2.download_button("💾", base64.b64decode(f['data']), file_name=f['name'], key=f"d_{idx}")
+        if c3.button("🗑️", key=f"del_{idx}"):
+            my_files.pop(idx); luu_du_lieu(); st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
+def screen_admin():
+    apply_ui()
+    st.title("🛡️ SUPREME ADMIN")
+    if st.button("⬅️ MENU"): st.session_state.stage = "MENU"; st.rerun()
+    t1, t2 = st.tabs(["📥 YÊU CẦU", "📢 THÔNG BÁO"])
+    with t1:
+        for t in [x for x in st.session_state.tickets if x['status'] == 'open']:
+            st.warning(f"Từ: {t['user']} | Loại: {t['type']}")
+            st.write(t['content'])
+            rep = st.text_input("Phản hồi/Mã quà", key=f"r_{t['id']}")
+            if st.button("GỬI PHẢN HỒI", key=f"b_{t['id']}"):
+                t['reply'] = rep; t['status'] = 'closed'; luu_du_lieu(); st.rerun()
+
+# --- [7] ROUTER ---
 if st.session_state.stage == "AUTH":
     apply_ui()
     _, cc, _ = st.columns([1, 1.2, 1])
     with cc:
         st.markdown("<div class='glass-card' style='text-align:center;'>", unsafe_allow_html=True)
-        st.title("NEXUS NEBULA")
-        t1, t2, t3 = st.tabs(["Đăng nhập", "Đăng ký", "Khách"])
-        with t1:
-            u = st.text_input("Định danh")
+        st.title("NEXUS LOGIN")
+        m = st.tabs(["Vào", "Tạo", "Khách"])
+        with m[0]:
+            u = st.text_input("Tên")
             p = st.text_input("Mật mã", type="password")
-            if st.button("TRUY CẬP"):
+            if st.button("TIẾN VÀO"):
                 if u in st.session_state.users and st.session_state.users[u] == p:
                     st.session_state.auth_status = u; st.session_state.stage = "MENU"; st.rerun()
-        with t2:
-            nu = st.text_input("Tên mới")
-            np = st.text_input("Mật mã mới", type="password")
-            if st.button("TẠO"):
+        with m[1]:
+            nu = st.text_input("Tên mới"); np = st.text_input("Mật mã mới", type="password")
+            if st.button("ĐĂNG KÝ"):
                 st.session_state.users[nu] = np; luu_du_lieu(); st.success("Xong!")
-        with t3:
-            if st.button("VÀO VỚI QUYỀN KHÁCH"):
+        with m[2]:
+            if st.button("VÀO VỚI QUYỀN GUEST"):
                 st.session_state.auth_status = "Guest"; st.session_state.stage = "MENU"; st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -253,10 +257,44 @@ elif st.session_state.stage == "MENU":
     c1, c2 = st.columns(2); c3, c4 = st.columns(2)
     if c1.button("🧠 AI CHAT"): st.session_state.stage = "AI_CHAT"; st.rerun()
     if c2.button("🌐 COMMUNITY"): st.session_state.stage = "SOCIAL"; st.rerun()
-    if c3.button("🛡️ ADMIN PANEL"): 
-        if st.session_state.auth_status == "Thiên Phát": st.session_state.stage = "ADMIN"; st.rerun()
-    if c4.button("🚪 LOGOUT"): st.session_state.stage = "AUTH"; st.rerun()
+    if c3.button("☁️ STORAGE"): st.session_state.stage = "CLOUD"; st.rerun()
+    if c4.button("🎧 SUPPORT"): st.session_state.stage = "SUPPORT"; st.rerun()
+    
+    st.write("---")
+    if st.button("⚙️ SETTINGS"): st.session_state.stage = "SETTINGS"; st.rerun()
+    if st.session_state.auth_status == "Thiên Phát" and st.button("🛡️ ADMIN PANEL"): 
+        st.session_state.stage = "ADMIN"; st.rerun()
+    if st.button("🚪 ĐĂNG XUẤT"): st.session_state.stage = "AUTH"; st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
 elif st.session_state.stage == "AI_CHAT": screen_ai_chat()
 elif st.session_state.stage == "SOCIAL": screen_social()
+elif st.session_state.stage == "CLOUD": screen_cloud()
+elif st.session_state.stage == "ADMIN": screen_admin()
+elif st.session_state.stage == "SUPPORT":
+    apply_ui()
+    st.title("🎧 HỖ TRỢ")
+    if st.button("⬅️ HOME"): st.session_state.stage = "MENU"; st.rerun()
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    tp = st.selectbox("Vấn đề", ["Mua bản Pro", "Lỗi phần mềm", "Khác"])
+    ct = st.text_area("Chi tiết")
+    if st.button("GỬI"):
+        st.session_state.tickets.append({"id": str(random.randint(1,999)), "user": st.session_state.auth_status, "type": tp, "content": ct, "status": "open", "reply": ""})
+        luu_du_lieu(); st.success("Đã gửi!"); st.rerun()
+    for t in reversed(st.session_state.tickets):
+        if t['user'] == st.session_state.auth_status:
+            with st.expander(f"[{t['status'].upper()}] {t['type']}"):
+                st.write(t['content'])
+                if t['reply']: st.info(f"Admin: {t['reply']}")
+    st.markdown("</div>", unsafe_allow_html=True)
+elif st.session_state.stage == "SETTINGS":
+    apply_ui()
+    st.title("⚙️ CÀI ĐẶT")
+    if st.button("⬅️ HOME"): st.session_state.stage = "MENU"; st.rerun()
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    code = st.text_input("Nhập mã kích hoạt")
+    if st.button("KÍCH HOẠT"):
+        if code in st.session_state.activation_keys:
+            st.session_state.user_status[st.session_state.auth_status] = st.session_state.activation_keys[code]['tier']
+            luu_du_lieu(); st.success("Nâng cấp thành công!"); st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
