@@ -81,10 +81,15 @@
                     "role": "assistant",
                     "content": "GsKxMXXFgsev4bq2L3Q94busLnQ3Pmsn4bqGNhJd4burQG4rMMKmPn82wq03aSMpwrRlLyPCpC1/RkJb4bu3IGUuwrVzNOG6rGwnx7ltMTzhu6IxayjhupgyElNaQTfCrzZ1PTg9JeG6kzljYRzhuoh/xZrCpnks4bufEFbhu5EgIng2wrI8dS/CoCcqYToiN+G6jGUtNsOYXhJAJ+G7ujZ1PTfHpWwgO8KgYSAw4bqYaysxwr1cEEbhupUhZXAUGnZ5bDzhuoQuYTnCpCZrbRQ+UVhbWitlFDAyLTslOi5kYSLCpX8z4bqoeTPDjxBcU8K6K3g7NOG6sHU44bqlaSMpPcKvMWttFxNiGRLEpeG6jWUs4bu0PH8nLXQ9wrkoek9VH8KxMH/Eo8aA4buRV27FlMK4OnMr4bu0I3Q9P8KrOmUy4bqSMXkzxoLhu5NcU24p4bqDO3M74bq6bDgg4bqKNHQzxZwlZTvhu7xcEETDlG7FlMeo4bq2MH8hJD3hu7Y5YT/hu7p/xZrhuoZ5N+G7v1MSXOG6gSx4I8Kzfzbhu689aTkpPeG6gjFrKTDCtVwQRuG7kS1reMWFOuG6niBsOsKpNGEzLMKlO2UtwqtbEFHDh24xMOG6lnMrJ+G7r3Ql4bqQKHQmwr4oZTrCvUcQWuG7uydlLsK1cys94bq9N2klKOG6kyt/KMKkOn9cWFvhu7MjZS7hurBzMuG6jDh0KsKsIjxlPCPCqDc3EkjDk1duM8K4dTs24bqSOXQ4OOG7onpPVR8wIH9cWFvDniBpeCHCpzZ1JzzCvSMmdCbCrGso4bqAKxISUVwvZcWJ4buucX824bqpdD0l4bqCeGUpwqdlLcKrWxBew5RuKOG6gSFzLOG7tiJ0OSXhu6g5ZTzhuqwkeSzhu4MQWuG7lz5lLMK0MH8yJeG6uyhtLzws4bqePmU3OMaC4butWxQ4wqV4IeG6hn82JOG6vSptKjzCpDxrKzE+Rx4SeibHtTYycyvCoSV0O+G7qDV0MeG6rmstwrkwEkbhu7MUOCzhup82c8WOx6Xhuq83aTnhu6A7ZS0qZcWI4bqcEldbw44+ZcWJ4bq0cynCtWw84bqebTUm4bqmfyUix6nhuoJbEFbDjSAieDs7x691LuG7tSds"
                 }
-            ]
+            ],
+            "history": []
         }
     },
-    "groups": {},
+    "groups": {
+        "C\u1ed9ng \u0110\u1ed3ng NEXUS": {
+            "msgs": []
+        }
+    },
     "cloud_drive": {},
     "tickets": [],
     "access_logs": [
@@ -166,6 +171,11 @@
             "used_by": [
                 "Thi\u00ean Ph\u00e1t"
             ]
+        },
+        "phatdepzai": {
+            "tier": "promax",
+            "global": false,
+            "used_by": []
         }
     },
     "notice": {
