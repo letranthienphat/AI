@@ -6,20 +6,6 @@
     "user_status": {
         "Thi\u00ean Ph\u00e1t": "promax"
     },
-    "theme": {
-        "primary_color": "#00f2ff",
-        "bg_list": [
-            "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?q=80&w=1920",
-            "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1920",
-            "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1920",
-            "https://images.unsplash.com/photo-1531297484001-80022131f5a1?q=80&w=1920",
-            "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1920"
-        ],
-        "auto_rotate": true,
-        "rotate_min": 5,
-        "current_bg_idx": 0,
-        "last_rotate": "2026-03-10 11:33:14.430845"
-    },
     "chat_library": {
         "Ch\u00e0o": [
             {
@@ -107,7 +93,20 @@
                     "role": "assistant",
                     "content": "YMOGWRIzwrllJuG6hjF0IiXHuce1IjJ/JyfCtCsmFF/DkUt/LcKoJTdlxYXHseG6rip0OD024busIXgu4buxFMSj4buzEjLCrWU7N+G6ijombSoh4bqVNn8nJ8KqZS1cR0nhu7UxeTPhupA2ZTcuI2k6K8el4bqCOnt4EcK6XRLEocaC4bq8OmUs4bqSLHQtwq1pdjgn4bq8cznCpWXhu61bEBBaMOG7riZrfSY8IDkrOzh3fyXCtXjFlMe+4buXURDEo8K/NmU/4bu+KnQ1P8KjOmw44bqGJ3U0x7Xhuq1aVRBe4bqEN2Uv4bqwZTgo4bqKPHQ6xZYxczfhu7srbsSl4buxEFHCrHkxI+G6nGUgM+G7rmk44bqRPH8wwrQ7ZS3DlkcQWuG6kDBpazwwOiZtKuG7sTx1KzvCoTYibkBbXhIpwrllPzckOWEqIDVsI8K/PHU7wqQtFFFF4burPHkxOcKtZTcpODDhupMidTQ7wrQ7ZSBcU0Ucfw3CsSJ/LjzCtSMudDw94bu8OnU0wqVuWeG7q0QSPDYrazEix6ThupwkaSAk4bu4K3Mm4bqpaW5aWsaAXDh5McK/NmXFhcex4bquKnQ4PTbhu6wheC7hu7EUxKPhu7MSODDCvzt/xZThurVhO8KpdC8gMTR1O+G7oD4URljDhjE+ZT82K3Qp4bqiPHTCoTY3czYwKm5aVcaA4buvNnkhwrIxInphGcK9PWw2wqxzITDhuoZuU1vDikJ/PsKpazwtO2Ev4buoOmw9wqs+dTYkNws="
                 }
-            ]
+            ],
+            "active": "Cu\u1ed9c tr\u00f2 chuy\u1ec7n 1",
+            "sessions": {
+                "Cu\u1ed9c tr\u00f2 chuy\u1ec7n 1": [
+                    {
+                        "role": "user",
+                        "content": "V1rDkF0="
+                    },
+                    {
+                        "role": "assistant",
+                        "content": "bFteEjwxwqUkfmUAwrUkaTfCv3UrO+G6lngiJ8OOQhBVwrN5JiMwZTbhu6AjaTzCuDh/PTQheg=="
+                    }
+                ]
+            }
         }
     },
     "groups": {
