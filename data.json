@@ -82,7 +82,13 @@
         }
     ],
     "punishments": {},
-    "activation_keys": {},
+    "activation_keys": {
+        "123456789101112131415": {
+            "expiry": "v\u00f4 h\u1ea1n",
+            "global": false,
+            "used_by": []
+        }
+    },
     "notice": {
         "content": "Ch\u00e0o m\u1eebng \u0111\u1ebfn Nexus!",
         "is_emergency": false,
