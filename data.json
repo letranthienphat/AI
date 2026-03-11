@@ -86,7 +86,9 @@
         "123456789101112131415": {
             "expiry": "v\u00f4 h\u1ea1n",
             "global": false,
-            "used_by": []
+            "used_by": [
+                "Thi\u00ean Ph\u00e1t"
+            ]
         }
     },
     "notice": {
@@ -94,7 +96,9 @@
         "is_emergency": false,
         "id": 0
     },
-    "user_status": {},
+    "user_status": {
+        "Thi\u00ean Ph\u00e1t": "pro"
+    },
     "chat_library": {
         "Ch\u00e0o": [
             {
