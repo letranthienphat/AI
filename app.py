@@ -7,11 +7,10 @@ from datetime import datetime
 # --- [1] CẤU HÌNH HỆ THỐNG ---
 SYSTEM_NAME = "NEXUS OS GATEWAY"
 CREATOR = "Thiên Phát"
-VERSION = "V10.000 - ULTIMATE"
+VERSION = "V10.100 - CITY LIGHT"
 FILE_DATA = "nexus_vault.json"
-MASTER_PASS = "nexus os gateway" # Mật mã của Phát
+MASTER_PASS = "nexus os gateway" 
 
-# Kiểm tra Secrets
 try:
     GH_TOKEN = st.secrets["GH_TOKEN"]
     GH_REPO = st.secrets["GH_REPO"]
@@ -23,46 +22,66 @@ except:
 
 st.set_page_config(page_title=SYSTEM_NAME, layout="wide", initial_sidebar_state="collapsed")
 
-# --- [2] GIAO DIỆN CYBERCORE ---
+# --- [2] GIAO DIỆN CITY LIGHT (NỀN THÀNH PHỐ - CHỮ ĐEN VIỀN XANH) ---
 def apply_ui():
     st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
-    .stApp {{ background-color: #030712 !important; color: #22d3ee !important; font-family: 'JetBrains Mono', monospace !important; }}
-    [data-testid="stHeader"] {{ visibility: hidden; }}
+    @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@700&display=swap');
     
-    /* Nút bấm NEXUS */
-    div.stButton > button {{
-        background: rgba(34, 211, 238, 0.1) !important;
-        color: #22d3ee !important;
-        border: 1px solid #22d3ee !important;
-        border-radius: 2px !important;
-        width: 100% !important;
-        transition: 0.3s;
+    .stApp {{
+        background-image: url('https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=1920&q=80');
+        background-size: cover;
+        background-attachment: fixed;
     }}
-    div.stButton > button:hover {{ background: #22d3ee !important; color: #030712 !important; box-shadow: 0 0 15px #22d3ee; }}
     
-    /* Input */
-    input {{ background-color: #0f172a !important; color: #fff !important; border: 1px solid #334155 !important; }}
+    /* Chữ đen viền xanh dương */
+    h1, h2, h3, p, span, label, .stMarkdown {{
+        color: black !important;
+        font-family: 'Segoe UI', sans-serif !important;
+        text-shadow: -1px -1px 0 #22d3ee, 1px -1px 0 #22d3ee, -1px 1px 0 #22d3ee, 1px 1px 0 #22d3ee;
+        font-weight: bold !important;
+    }}
+
+    /* Nút bấm nổi bật */
+    div.stButton > button {{
+        background-color: rgba(255, 255, 255, 0.8) !important;
+        color: black !important;
+        border: 2px solid #22d3ee !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
+    }}
+    div.stButton > button:hover {{
+        background-color: #22d3ee !important;
+        color: white !important;
+    }}
+
+    /* Thẻ chứa nội dung (Glassmorphism sáng) */
+    .stChatFloatingInputContainer, .stChatMessage {{
+        background: rgba(255, 255, 255, 0.7) !important;
+        border-radius: 15px !important;
+    }}
+    
+    [data-testid="stHeader"] {{ visibility: hidden; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- [3] LOGO VẼ TỰ ĐỘNG (5 GIÂY) ---
+# --- [3] MÀN HÌNH KHỞI ĐỘNG (5 GIÂY) ---
 def show_splash():
     placeholder = st.empty()
     with placeholder.container():
         st.markdown("""
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 90vh;">
-            <svg width="150" height="150" viewBox="0 0 100 100">
-                <polygon points="50,5 95,95 5,95" fill="none" stroke="#22d3ee" stroke-width="2" stroke-dasharray="300" stroke-dashoffset="300">
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: white;">
+            <svg width="200" height="200" viewBox="0 0 100 100">
+                <path d="M10 90 L50 10 L90 90 Z" fill="none" stroke="#22d3ee" stroke-width="3" stroke-dasharray="300" stroke-dashoffset="300">
                     <animate attributeName="stroke-dashoffset" from="300" to="0" dur="4s" fill="freeze" />
-                </polygon>
-                <path d="M30 60 Q50 20 70 60" fill="none" stroke="#22d3ee" stroke-width="1">
-                    <animate attributeName="opacity" from="0" to="1" dur="5s" />
                 </path>
+                <circle cx="50" cy="55" r="20" fill="none" stroke="#22d3ee" stroke-width="1">
+                    <animate attributeName="r" from="0" to="20" dur="4s" />
+                </circle>
             </svg>
-            <h1 style="color: #22d3ee; margin-top: 20px; letter-spacing: 8px;">NEXUS CORE</h1>
-            <p style="color: #64748b; font-size: 12px;">SYSTEM INITIALIZING...</p>
+            <h1 style="color: black; margin-top: 20px; text-shadow: 0 0 10px #22d3ee;">NEXUS OS GATEWAY</h1>
+            <p style="color: #555;">SYSTEM LOADING...</p>
         </div>
         """, unsafe_allow_html=True)
         time.sleep(5)
@@ -92,10 +111,10 @@ def sync_save():
         res = requests.get(url, headers=headers)
         sha = res.json().get("sha") if res.status_code == 200 else None
         content = base64.b64encode(json.dumps(data, indent=4, ensure_ascii=False).encode('utf-8')).decode('utf-8')
-        requests.put(url, headers=headers, json={"message": "Nexus Ultimate Sync", "content": content, "sha": sha})
-    except: st.error("⚠️ Sync Error!")
+        requests.put(url, headers=headers, json={"message": "System Maintenance Sync", "content": content, "sha": sha})
+    except: st.error("⚠️ Lỗi đồng bộ dữ liệu!")
 
-# --- [5] XỬ LÝ TRANG ---
+# --- [5] ĐIỀU KHIỂN ---
 if 'boot' not in st.session_state:
     show_splash()
     db = sync_get()
@@ -113,100 +132,95 @@ apply_ui()
 if st.session_state.page == "AUTH":
     _, col, _ = st.columns([1, 1.2, 1])
     with col:
-        st.markdown("<div style='height: 10vh;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 15vh;'></div>", unsafe_allow_html=True)
         st.markdown(f"<h1 style='text-align:center;'>🌌 {SYSTEM_NAME}</h1>", unsafe_allow_html=True)
         
-        tab_in, tab_up = st.tabs(["🔐 ĐĂNG NHẬP", "📝 ĐĂNG KÝ"])
-        with tab_in:
-            u = st.text_input("Username").strip()
-            p = st.text_input("Password", type="password").strip()
-            if st.button("XÁC THỰC HỆ THỐNG"):
-                if u in st.session_state.users and st.session_state.users[u] == p:
-                    st.session_state.user = u
-                    st.session_state.page = "DASHBOARD"
-                    st.rerun()
-                else: st.error("❌ Sai thông tin!")
-        with tab_up:
-            nu = st.text_input("Username mới").strip()
-            np = st.text_input("Password mới", type="password").strip()
-            if st.button("GHI DANH"):
-                if nu and np and nu not in st.session_state.users:
-                    st.session_state.users[nu] = np
-                    st.session_state.status[nu] = "FREE"
-                    sync_save(); st.success("✅ Đã tạo! Mời đăng nhập.")
-                else: st.warning("⚠️ Lỗi tên trùng hoặc để trống.")
+        u = st.text_input("Username").strip()
+        p = st.text_input("Password", type="password").strip()
+        
+        if st.button("KÍCH HOẠT GATEWAY"):
+            if u in st.session_state.users and st.session_state.users[u] == p:
+                st.session_state.user = u
+                st.session_state.page = "DASHBOARD"
+                st.rerun()
+            else: st.error("❌ Sai thông tin truy cập!")
+        
+        st.markdown("<p style='text-align:center;'>Chưa có tài khoản? Nhập tên và pass rồi nhấn đăng ký bên dưới.</p>", unsafe_allow_html=True)
+        if st.button("ĐĂNG KÝ MỚI"):
+            if u and p and u not in st.session_state.users:
+                st.session_state.users[u] = p
+                st.session_state.status[u] = "FREE"
+                sync_save(); st.success("✅ Đăng ký xong! Hãy nhấn Kích hoạt.")
+            else: st.warning("⚠️ Tên trùng hoặc để trống.")
 
 # --- [7] DASHBOARD ---
 elif st.session_state.page == "DASHBOARD":
-    st.title(f"🚀 NEXUS TERMINAL | {st.session_state.user}")
+    st.title(f"🏙️ DASHBOARD | {st.session_state.user}")
     st.write(f"Cấp độ: `{st.session_state.status.get(st.session_state.user, 'FREE')}`")
     
-    # Grid Menu
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3 = st.columns(3)
     with c1: 
-        if st.button("🧠 AI TERMINAL"): st.session_state.page = "AI"; st.rerun()
+        if st.button("🧠 AI CHAT"): st.session_state.page = "AI"; st.rerun()
     with c2: 
         if st.button("☁️ CLOUD VAULT"): st.session_state.page = "CLOUD"; st.rerun()
-    with c3:
-        if st.button("💎 NÂNG CẤP PRO"): st.session_state.page = "UPGRADE"; st.rerun()
-    with c4:
-        if st.session_state.user == CREATOR:
-            if st.button("🛠️ ADMIN"): st.session_state.page = "ADMIN"; st.rerun()
+    with c3: 
+        if st.button("💎 UPGRADE PRO"): st.session_state.page = "UPGRADE"; st.rerun()
 
-    if st.button("🔌 ĐĂNG XUẤT"): 
+    if st.button("🔌 THOÁT"): 
         st.session_state.page = "AUTH"; st.session_state.user = None; st.rerun()
 
-# --- [8] CLOUD VAULT (UPLOAD & DOWNLOAD) ---
+# --- [8] CLOUD VAULT (FIXED) ---
 elif st.session_state.page == "CLOUD":
-    st.subheader("☁️ NEXUS CLOUD STORAGE")
-    if st.button("🔙 VỀ"): st.session_state.page = "DASHBOARD"; st.rerun()
+    st.subheader("☁️ CLOUD STORAGE")
+    if st.button("🔙 VỀ MENU"): st.session_state.page = "DASHBOARD"; st.rerun()
     
     files = st.session_state.vault.setdefault(st.session_state.user, [])
-    
-    up = st.file_uploader("Tải tệp lên đám mây")
-    if up and st.button("XÁC NHẬN TẢI LÊN"):
+    up = st.file_uploader("Chọn file tải lên")
+    if up and st.button("LƯU VÀO MÂY"):
         b64 = base64.b64encode(up.getvalue()).decode()
         files.append({"name": up.name, "data": b64, "date": str(datetime.now())[:16]})
-        sync_save(); st.success("✅ Đã lưu vào Cloud!"); st.rerun()
+        sync_save(); st.success("✅ Đã lưu!"); st.rerun()
     
-    st.write("---")
     for i, f in enumerate(files):
         col_n, col_d = st.columns([0.8, 0.2])
         col_n.write(f"📄 {f['name']} ({f['date']})")
-        # Cho phép tải về
         btn_data = base64.b64decode(f['data'])
-        col_d.download_button("📥 Tải", data=btn_data, file_name=f['name'], key=f"dl_{i}")
+        col_d.download_button("📥", data=btn_data, file_name=f['name'], key=f"dl_{i}")
 
-# --- [9] UPGRADE PRO ---
+# --- [9] UPGRADE PRO (FIXED) ---
 elif st.session_state.page == "UPGRADE":
-    st.subheader("💎 NÂNG CẤP HỆ THỐNG")
-    if st.button("🔙 VỀ"): st.session_state.page = "DASHBOARD"; st.rerun()
+    st.subheader("💎 KÍCH HOẠT PRO-MAX")
+    if st.button("🔙 VỀ MENU"): st.session_state.page = "DASHBOARD"; st.rerun()
     
-    code = st.text_input("Nhập mã PRO (Liên hệ Thiên Phát để lấy mã)").strip()
-    if st.button("KÍCH HOẠT"):
-        if code == "PHAT_PRO_2026": # Mã mẫu
+    code = st.text_input("Nhập mã kích hoạt").strip()
+    if st.button("XÁC NHẬN MÃ"):
+        if code == "PHAT_PRO_2026":
             st.session_state.status[st.session_state.user] = "PRO-MAX"
-            sync_save(); st.balloons(); st.success("💎 CHÚC MỪNG! BẠN ĐÃ LÀ PRO-MAX."); st.rerun()
-        else: st.error("❌ Mã không hợp lệ!")
+            sync_save() # Lưu ngay lập tức
+            st.balloons()
+            st.success("✅ Nâng cấp thành công! Cấp độ hiện tại: PRO-MAX")
+            time.sleep(2)
+            st.session_state.page = "DASHBOARD"
+            st.rerun()
+        else: st.error("❌ Mã không chính xác!")
 
-# --- [10] AI TERMINAL ---
+# --- [10] AI CHAT ---
 elif st.session_state.page == "AI":
-    st.subheader("🧠 NEXUS AI (Powered by Groq)")
-    if st.button("🔙 VỀ"): st.session_state.page = "DASHBOARD"; st.rerun()
+    st.subheader("🧠 NEXUS AI TERMINAL")
+    if st.button("🔙 VỀ MENU"): st.session_state.page = "DASHBOARD"; st.rerun()
     
     chat_log = st.session_state.chats.setdefault(st.session_state.user, [])
     for m in chat_log:
         with st.chat_message(m['role']): st.write(m['content'])
         
-    if p := st.chat_input("Gửi lệnh..."):
+    if p := st.chat_input("Nhập lệnh cho AI..."):
         chat_log.append({"role": "user", "content": p})
         with st.chat_message("user"): st.write(p)
         
-        # Gọi AI
         client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
         res = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[{"role":"system","content":f"Bạn là NEXUS OS của {CREATOR}."}] + chat_log[-10:]
+            messages=[{"role":"system","content":f"Bạn là NEXUS OS của Thiên Phát."}] + chat_log[-10:]
         )
         ans = res.choices[0].message.content
         with st.chat_message("assistant"): st.write(ans)
