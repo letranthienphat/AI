@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
-import time, base64, json, requests, random, hashlib, re
+import time
+import base64
+import json
+import requests
+import random
+import hashlib
+import re
 from openai import OpenAI
 from datetime import datetime
 from typing import Dict, Optional, List
@@ -10,7 +16,7 @@ import mimetypes
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
     "CREATOR": "Lê Trần Thiên Phát",
-    "FILE_DATA": "nexus_gateway_v60.json",
+    "FILE_DATA": "nexus_gateway_v70.json",
     "GUEST_ENABLED": True,
     "MAX_RETRIES": 3,
     "RETRY_DELAY": 1,
@@ -19,11 +25,13 @@ CONFIG = {
 
 # Load secrets
 try:
-    GH_TOKEN, GH_REPO = st.secrets["GH_TOKEN"], st.secrets["GH_REPO"]
+    GH_TOKEN = st.secrets["GH_TOKEN"]
+    GH_REPO = st.secrets["GH_REPO"]
     GROQ_KEYS = st.secrets["GROQ_KEYS"]
-    if isinstance(GROQ_KEYS, str): GROQ_KEYS = [GROQ_KEYS]
-except Exception:
-    st.error("🛑 LỖI: Thiếu cấu hình Secrets trên Streamlit Cloud!")
+    if isinstance(GROQ_KEYS, str):
+        GROQ_KEYS = [GROQ_KEYS]
+except Exception as e:
+    st.error(f"🛑 LỖI: Thiếu cấu hình Secrets trên Streamlit Cloud!\n{str(e)}")
     st.stop()
 
 st.set_page_config(page_title=CONFIG["NAME"], layout="wide", initial_sidebar_state="expanded")
@@ -76,6 +84,7 @@ st.markdown("""
     border-radius: 40px;
     font-size: 0.8rem;
     font-weight: bold;
+    display: inline-block;
 }
 .pro-badge { background: linear-gradient(135deg, #FFD700, #FFB347); }
 /* Input */
@@ -100,6 +109,14 @@ st.markdown("""
     border-radius: 40px;
     padding: 8px 20px;
 }
+/* Success message */
+.success-message {
+    background: #d4edda;
+    color: #155724;
+    padding: 12px;
+    border-radius: 8px;
+    margin: 10px 0;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -108,22 +125,25 @@ def get_device_fp() -> str:
     ua = st.context.headers.get("User-Agent", "Unknown")
     return hashlib.sha256(ua.encode()).hexdigest()[:16]
 
+
 def safe_load_json(content: str) -> Dict:
     try:
         return json.loads(content)
     except json.JSONDecodeError:
         return {
             "users": {CONFIG["CREATOR"]: "nexus os gateway"},
-            "codes": ["PHAT2026"],
+            "codes": ["PHAT2026", "VIP2024", "PRO2025"],
             "pro_users": [],
             "chats": [],
             "files": {},
             "emails": {}
         }
 
+
 def sync_io(data: Optional[Dict] = None, retries: int = CONFIG["MAX_RETRIES"]) -> Optional[Dict]:
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['FILE_DATA']}"
     headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+    
     for attempt in range(retries):
         try:
             res = requests.get(url, headers=headers, timeout=10)
@@ -163,9 +183,11 @@ def sync_io(data: Optional[Dict] = None, retries: int = CONFIG["MAX_RETRIES"]) -
                 return None
     return None
 
+
 @st.cache_data(ttl=60)
 def load_db():
     return sync_io()
+
 
 def init_session():
     if 'db' not in st.session_state:
@@ -186,14 +208,19 @@ def init_session():
         st.session_state.preview_file = None
     if 'register_success' not in st.session_state:
         st.session_state.register_success = False
+    if 'show_register' not in st.session_state:
+        st.session_state.show_register = False
+
 
 init_session()
 fp = get_device_fp()
-is_pro = (st.session_state.user in st.session_state.db.get("pro_users", []))
+is_pro = (st.session_state.user in st.session_state.db.get("pro_users", [])) if st.session_state.user else False
+
 
 def go_to(page):
     st.session_state.page = page
     st.rerun()
+
 
 def get_used_storage(user: str) -> int:
     total = 0
@@ -201,6 +228,7 @@ def get_used_storage(user: str) -> int:
         if info.get("owner") == user:
             total += info.get("size", 0)
     return total
+
 
 def list_dir(path: str) -> Dict[str, List]:
     folders = set()
@@ -218,6 +246,7 @@ def list_dir(path: str) -> Dict[str, List]:
                 files.append({"name": rest, "info": info})
     return {"folders": sorted(folders), "files": sorted(files, key=lambda x: x["name"])}
 
+
 def create_folder(path: str):
     if path and not path.endswith("/"):
         path += "/"
@@ -234,6 +263,7 @@ def create_folder(path: str):
         return True
     return False
 
+
 def delete_path(path: str):
     to_delete = []
     for full_path in list(st.session_state.db["files"].keys()):
@@ -243,61 +273,62 @@ def delete_path(path: str):
         del st.session_state.db["files"][p]
     sync_io(st.session_state.db)
 
+
 def validate_username(username: str) -> tuple:
-    """Kiểm tra username hợp lệ: 3-20 ký tự, chỉ chữ cái, số và dấu gạch dưới"""
+    """Kiểm tra username hợp lệ"""
     if not username:
         return False, "Tên đăng nhập không được để trống"
     if len(username) < 3:
         return False, "Tên đăng nhập phải có ít nhất 3 ký tự"
     if len(username) > 20:
         return False, "Tên đăng nhập không được quá 20 ký tự"
-    if not re.match(r'^[a-zA-Z0-9_]+$', username):
+    if not re.match(r'^[a-zA-Z0-9_\u00C0-\u1EF9]+$', username):
         return False, "Tên đăng nhập chỉ được chứa chữ cái, số và dấu gạch dưới"
     if username in st.session_state.db["users"]:
         return False, "Tên đăng nhập đã tồn tại"
     return True, "OK"
 
+
 def validate_password(password: str) -> tuple:
-    """Kiểm tra mật khẩu: ít nhất 6 ký tự"""
+    """Kiểm tra mật khẩu"""
     if not password:
         return False, "Mật khẩu không được để trống"
     if len(password) < 6:
         return False, "Mật khẩu phải có ít nhất 6 ký tự"
     return True, "OK"
 
+
 def validate_email(email: str) -> tuple:
     """Kiểm tra email hợp lệ"""
     if not email:
-        return True, "OK"  # Email không bắt buộc
+        return True, "OK"
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if re.match(email_pattern, email):
         return True, "OK"
     return False, "Email không hợp lệ"
 
+
 def register_user(username: str, password: str, email: str = "") -> tuple:
     """Đăng ký người dùng mới"""
-    # Kiểm tra username
     valid, msg = validate_username(username)
     if not valid:
         return False, msg
     
-    # Kiểm tra password
     valid, msg = validate_password(password)
     if not valid:
         return False, msg
     
-    # Kiểm tra email
     valid, msg = validate_email(email)
     if not valid:
         return False, msg
     
-    # Thêm người dùng
     st.session_state.db["users"][username] = password
     if email:
         st.session_state.db["emails"][username] = email
     
     sync_io(st.session_state.db)
     return True, "Đăng ký thành công! Vui lòng đăng nhập."
+
 
 # ================== SIDEBAR ==================
 with st.sidebar:
@@ -337,7 +368,7 @@ with st.sidebar:
 
     st.divider()
     st.caption(f"© 2025 {CONFIG['CREATOR']}")
-    st.caption("NEXUS OS GATEWAY v6.0")
+    st.caption("NEXUS OS GATEWAY v7.0")
 
 # ================== TRANG ĐĂNG NHẬP/ĐĂNG KÝ ==================
 if st.session_state.page == "AUTH":
@@ -350,26 +381,35 @@ if st.session_state.page == "AUTH":
         
         with tab1:
             st.subheader("Đăng nhập vào NEXUS OS")
-            u = st.text_input("Tài khoản", key="login_username")
-            p = st.text_input("Mật khẩu", type="password", key="login_password")
+            
+            # Hiển thị thông tin demo
+            st.info("💡 **Tài khoản mặc định:**\n- Tên: Thiên Phát\n- Mật khẩu: nexus os gateway")
+            
+            login_username = st.text_input("Tài khoản", key="login_username", placeholder="Nhập tên đăng nhập")
+            login_password = st.text_input("Mật khẩu", type="password", key="login_password", placeholder="Nhập mật khẩu")
             
             col_btn1, col_btn2 = st.columns(2)
             with col_btn1:
-                if st.button("ĐĂNG NHẬP", use_container_width=True, key="login_btn"):
-                    # Kiểm tra đăng nhập (không phân biệt khoảng trắng đầu cuối)
-                    username_clean = u.strip()
-                    password_clean = p.strip()
-                    
-                    if username_clean in st.session_state.db["users"] and st.session_state.db["users"][username_clean] == password_clean:
-                        st.session_state.user = username_clean
-                        st.session_state.guest_mode = False
-                        st.toast(f"✅ Chào mừng {username_clean} quay trở lại!", icon="🎉")
-                        go_to("DASHBOARD")
+                if st.button("🔐 ĐĂNG NHẬP", use_container_width=True, key="login_btn"):
+                    if login_username and login_password:
+                        # Xử lý đăng nhập - không strip mật khẩu vì có thể có khoảng trắng
+                        username_clean = login_username.strip()
+                        password_original = login_password  # Giữ nguyên mật khẩu
+                        
+                        # Kiểm tra trong database
+                        if username_clean in st.session_state.db["users"]:
+                            stored_password = st.session_state.db["users"][username_clean]
+                            if stored_password == password_original:
+                                st.session_state.user = username_clean
+                                st.session_state.guest_mode = False
+                                st.toast(f"✅ Chào mừng {username_clean} quay trở lại!", icon="🎉")
+                                go_to("DASHBOARD")
+                            else:
+                                st.error("❌ Sai mật khẩu!")
+                        else:
+                            st.error("❌ Tài khoản không tồn tại!")
                     else:
-                        st.error("❌ Sai tài khoản hoặc mật khẩu!")
-                        # Gợi ý cho tài khoản admin
-                        if username_clean == CONFIG["CREATOR"]:
-                            st.info("💡 Gợi ý: Mật khẩu mặc định là 'nexus os gateway' (không dấu)")
+                        st.warning("Vui lòng nhập đầy đủ tài khoản và mật khẩu!")
             
             if CONFIG["GUEST_ENABLED"]:
                 with col_btn2:
@@ -382,24 +422,25 @@ if st.session_state.page == "AUTH":
         with tab2:
             st.subheader("Tạo tài khoản mới")
             
-            # Hiển thị thông báo đăng ký thành công nếu có
+            # Hiển thị thông báo đăng ký thành công
             if st.session_state.register_success:
-                st.success("✅ Đăng ký thành công! Vui lòng đăng nhập.")
+                st.markdown('<div class="success-message">✅ Đăng ký thành công! Vui lòng đăng nhập.</div>', unsafe_allow_html=True)
                 st.session_state.register_success = False
             
-            new_username = st.text_input("Tên đăng nhập *", placeholder="3-20 ký tự, chỉ chữ cái, số, _", key="reg_username")
-            new_password = st.text_input("Mật khẩu *", type="password", placeholder="Ít nhất 6 ký tự", key="reg_password")
-            confirm_password = st.text_input("Xác nhận mật khẩu *", type="password", key="reg_confirm")
-            new_email = st.text_input("Email (tùy chọn)", placeholder="example@email.com", key="reg_email")
+            reg_username = st.text_input("Tên đăng nhập *", placeholder="3-20 ký tự, chữ cái, số, _", key="reg_username")
+            reg_password = st.text_input("Mật khẩu *", type="password", placeholder="Ít nhất 6 ký tự", key="reg_password")
+            reg_confirm = st.text_input("Xác nhận mật khẩu *", type="password", key="reg_confirm")
+            reg_email = st.text_input("Email (tùy chọn)", placeholder="example@email.com", key="reg_email")
             
             st.caption("* là bắt buộc")
             
             if st.button("📝 ĐĂNG KÝ", use_container_width=True, key="register_btn"):
-                # Kiểm tra mật khẩu xác nhận
-                if new_password != confirm_password:
+                if not reg_username or not reg_password:
+                    st.error("❌ Vui lòng nhập đầy đủ thông tin bắt buộc!")
+                elif reg_password != reg_confirm:
                     st.error("❌ Mật khẩu xác nhận không khớp!")
                 else:
-                    success, message = register_user(new_username.strip(), new_password, new_email.strip())
+                    success, message = register_user(reg_username.strip(), reg_password, reg_email.strip())
                     if success:
                         st.session_state.register_success = True
                         st.rerun()
@@ -444,8 +485,15 @@ elif st.session_state.page == "AI":
             if st.button("➕ Hội thoại mới", use_container_width=True):
                 st.session_state.chat_id = None
                 st.rerun()
+            
+            # Hiển thị danh sách chat
+            chats_to_show = []
             for i, c in enumerate(st.session_state.db["chats"]):
                 if c["owner"] == st.session_state.user:
+                    chats_to_show.append((i, c))
+            
+            if chats_to_show:
+                for i, c in chats_to_show:
                     col_t, col_d = st.columns([4, 1])
                     with col_t:
                         if st.button(f"💬 {c['name']}", key=f"chat_{i}", use_container_width=True):
@@ -463,10 +511,13 @@ elif st.session_state.page == "AI":
                             else:
                                 st.session_state[f"confirm_del_{i}"] = True
                                 st.warning("Nhấn lại để xác nhận xóa")
+            else:
+                st.info("Chưa có hội thoại nào")
     else:
         with st.sidebar:
             st.info("👤 Chế độ khách: lịch sử chat không được lưu.")
 
+    # Xử lý chat hiện tại
     if st.session_state.guest_mode:
         chat = st.session_state.temp_chat
         if "msgs" not in chat:
@@ -483,6 +534,7 @@ elif st.session_state.page == "AI":
         temp_mode = st.toggle("🧹 Chế độ tạm thời (xóa sau 24h)", value=chat.get("temp", False))
         chat["temp"] = temp_mode
 
+    # Hiển thị tin nhắn
     for m in chat["msgs"]:
         if m["role"] == "user":
             with st.chat_message("user"):
@@ -490,11 +542,12 @@ elif st.session_state.page == "AI":
         else:
             st.markdown(f'<div class="ai-banner">{m["content"]}</div>', unsafe_allow_html=True)
 
+    # Nhập câu hỏi
     if p := st.chat_input("Nhập câu hỏi của bạn..."):
         chat["msgs"].append({"role": "user", "content": p})
         with st.spinner("🤖 Đang suy nghĩ..."):
-            client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
             try:
+                client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
                 context = chat["msgs"][-5:] if not is_pro else chat["msgs"][-10:]
                 res = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
@@ -507,6 +560,7 @@ elif st.session_state.page == "AI":
                 ans = f"❌ Lỗi AI: {str(e)}"
             chat["msgs"].append({"role": "assistant", "content": ans})
 
+        # Đặt tên tự động nếu cần
         if not st.session_state.guest_mode and (chat["name"] == "Hội thoại mới" or len(chat["msgs"]) == (10 if is_pro else 4)):
             try:
                 client_small = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
@@ -529,7 +583,7 @@ elif st.session_state.page == "CLOUD":
     st.header("☁️ NEXUS CLOUD - Quản lý tệp")
 
     if st.session_state.guest_mode:
-        st.warning("Guest không thể sử dụng lưu trữ. Đăng nhập để quản lý file.")
+        st.warning("👤 Guest không thể sử dụng lưu trữ. Đăng nhập để quản lý file.")
     else:
         used = get_used_storage(st.session_state.user)
         limit = CONFIG["FREE_STORAGE_LIMIT"] if not is_pro else float('inf')
@@ -538,7 +592,7 @@ elif st.session_state.page == "CLOUD":
         progress_val = min(used / limit, 1.0) if limit != float('inf') else 0
         st.progress(progress_val, text=f"Đã dùng: {used_gb:.2f} GB / {limit_gb} GB")
         if not is_pro and used >= limit:
-            st.error("Bạn đã vượt quá dung lượng miễn phí (30GB). Hãy xóa bớt file hoặc nâng cấp Pro.")
+            st.error("⚠️ Bạn đã vượt quá dung lượng miễn phí (30GB). Hãy xóa bớt file hoặc nâng cấp Pro.")
 
         col1, col2, col3 = st.columns([3, 1, 1])
         with col1:
@@ -588,7 +642,7 @@ elif st.session_state.page == "CLOUD":
                 with col1:
                     st.write(f"📄 {name} ({size_kb:.1f} KB)")
                 with col2:
-                    st.markdown(f'<a href="data:{info["type"]};base64,{info["data"]}" download="{name}" style="text-decoration:none;"><button style="background:#0047AB; color:white; border:none; border-radius:20px; padding:5px 12px;">📥 Tải về</button></a>', unsafe_allow_html=True)
+                    st.markdown(f'<a href="data:{info["type"]};base64,{info["data"]}" download="{name}" style="text-decoration:none;"><button style="background:#0047AB; color:white; border:none; border-radius:20px; padding:5px 12px; cursor:pointer;">📥 Tải về</button></a>', unsafe_allow_html=True)
                 with col3:
                     if st.button("👁️ Xem", key=f"view_{name}"):
                         st.session_state.preview_file = {"name": name, "data": info["data"], "type": info["type"]}
@@ -606,7 +660,7 @@ elif st.session_state.page == "CLOUD":
             if uploaded_file:
                 file_size = len(uploaded_file.getvalue())
                 if not is_pro and used + file_size > limit:
-                    st.error(f"Không thể tải file vì vượt quá dung lượng {limit_gb} GB. Hãy xóa bớt file hoặc nâng cấp Pro.")
+                    st.error(f"Không thể tải file vì vượt quá dung lượng {limit_gb} GB.")
                 else:
                     if st.button("Tải lên"):
                         if st.session_state.current_dir:
@@ -625,7 +679,7 @@ elif st.session_state.page == "CLOUD":
                                 "upload_time": str(datetime.now())
                             }
                             sync_io(st.session_state.db)
-                            st.toast(f"Đã tải lên {uploaded_file.name}", icon="✅")
+                            st.toast(f"✅ Đã tải lên {uploaded_file.name}", icon="✅")
                             st.rerun()
 
         if st.session_state.preview_file:
@@ -658,28 +712,31 @@ elif st.session_state.page == "SETTINGS":
             code = st.text_input("Nhập mã kích hoạt", placeholder="VD: PHAT2026", help="Liên hệ admin để có mã").upper()
             if st.button("KÍCH HOẠT NGAY", use_container_width=True):
                 if code in st.session_state.db["codes"]:
-                    st.session_state.db["pro_users"].append(st.session_state.user)
-                    st.session_state.db["codes"].remove(code)
-                    sync_io(st.session_state.db)
-                    st.balloons()
-                    st.toast("🎉 Chúc mừng! Bạn đã trở thành thành viên Pro!", icon="💎")
-                    st.rerun()
+                    if st.session_state.user not in st.session_state.db["pro_users"]:
+                        st.session_state.db["pro_users"].append(st.session_state.user)
+                        st.session_state.db["codes"].remove(code)
+                        sync_io(st.session_state.db)
+                        st.balloons()
+                        st.toast("🎉 Chúc mừng! Bạn đã trở thành thành viên Pro!", icon="💎")
+                        st.rerun()
+                    else:
+                        st.info("Bạn đã là thành viên Pro rồi!")
                 else:
                     st.error("❌ Mã không hợp lệ hoặc đã được sử dụng.")
 
         st.divider()
         st.subheader("ℹ️ Thông tin tài khoản")
         st.write(f"**Tên:** {st.session_state.user}")
-        st.write(f"**Hạng:** {'Pro' if is_pro else 'Miễn phí'}")
+        st.write(f"**Hạng:** {'💎 Pro' if is_pro else '🆓 Miễn phí'}")
         if st.session_state.user in st.session_state.db.get("emails", {}):
             st.write(f"**Email:** {st.session_state.db['emails'][st.session_state.user]}")
         if not is_pro:
-            st.caption("Nâng cấp Pro để có: Context AI dài hơn, lưu trữ không giới hạn, ưu tiên hỗ trợ.")
+            st.info("💡 **Nâng cấp Pro để có:**\n- Context AI dài hơn (10 tin nhắn)\n- Lưu trữ không giới hạn\n- Ưu tiên hỗ trợ")
 
 # ================== ADMIN ==================
 elif st.session_state.page == "ADMIN":
     if st.session_state.user != CONFIG["CREATOR"]:
-        st.error("Bạn không có quyền truy cập.")
+        st.error("⛔ Bạn không có quyền truy cập!")
         go_to("DASHBOARD")
     else:
         st.header("🛠️ QUẢN TRỊ VIÊN")
@@ -690,26 +747,29 @@ elif st.session_state.page == "ADMIN":
             st.subheader("Tạo mã Pro mới")
             new_code = st.text_input("Nhập mã mới", placeholder="VD: VIP2025").upper()
             if st.button("TẠO MÃ", use_container_width=True):
-                if new_code and new_code not in st.session_state.db["codes"]:
-                    st.session_state.db["codes"].append(new_code)
-                    sync_io(st.session_state.db)
-                    st.toast(f"✅ Đã tạo mã {new_code} thành công!", icon="🎫")
-                    st.rerun()
+                if new_code:
+                    if new_code not in st.session_state.db["codes"]:
+                        st.session_state.db["codes"].append(new_code)
+                        sync_io(st.session_state.db)
+                        st.toast(f"✅ Đã tạo mã {new_code} thành công!", icon="🎫")
+                        st.rerun()
+                    else:
+                        st.error("Mã đã tồn tại!")
                 else:
-                    st.error("Mã đã tồn tại hoặc không hợp lệ.")
+                    st.error("Vui lòng nhập mã!")
             
-            st.subheader("Danh sách mã Pro hiện có")
+            st.subheader("📋 Danh sách mã Pro hiện có")
             for code in st.session_state.db["codes"]:
                 st.write(f"- {code}")
         
         with tab_admin2:
-            st.subheader("Danh sách người dùng")
+            st.subheader("👥 Danh sách người dùng")
             for user in st.session_state.db["users"]:
                 is_pro_user = "💎 PRO" if user in st.session_state.db["pro_users"] else "🆓 FREE"
                 st.write(f"- {user} ({is_pro_user})")
             
             st.divider()
-            st.subheader("Danh sách Pro Users")
+            st.subheader("💎 Danh sách Pro Users")
             if st.session_state.db["pro_users"]:
                 for u in st.session_state.db["pro_users"]:
                     col1, col2 = st.columns([3, 1])
@@ -723,12 +783,16 @@ elif st.session_state.page == "ADMIN":
                 st.write("Chưa có người dùng Pro.")
         
         with tab_admin3:
-            if st.button("🔄 Đồng bộ dữ liệu từ GitHub", use_container_width=True):
-                with st.spinner("Đang đồng bộ..."):
-                    st.session_state.db = sync_io()
-                    st.toast("Đã đồng bộ dữ liệu từ GitHub!", icon="🔄")
-                    st.rerun()
-            if st.button("💾 Lưu dữ liệu lên GitHub", use_container_width=True):
-                with st.spinner("Đang lưu..."):
-                    sync_io(st.session_state.db)
-                    st.toast("Đã lưu dữ liệu lên GitHub!", icon="💾")
+            st.subheader("🔄 Đồng bộ dữ liệu")
+            col_sync1, col_sync2 = st.columns(2)
+            with col_sync1:
+                if st.button("📥 Đồng bộ từ GitHub", use_container_width=True):
+                    with st.spinner("Đang đồng bộ..."):
+                        st.session_state.db = sync_io()
+                        st.toast("Đã đồng bộ dữ liệu từ GitHub!", icon="🔄")
+                        st.rerun()
+            with col_sync2:
+                if st.button("📤 Lưu lên GitHub", use_container_width=True):
+                    with st.spinner("Đang lưu..."):
+                        sync_io(st.session_state.db)
+                        st.toast("Đã lưu dữ liệu lên GitHub!", icon="💾")
