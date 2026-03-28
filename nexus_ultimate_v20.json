@@ -1,1 +1,1 @@
-{"users": {"Thiên Phát": "nexus os gateway"}, "blacklist": [], "pro_users": [], "pro_devices": [], "rem": {}, "files": {}, "codes": ["PHAT2026", "123456789101112131415", "12345678"], "chats": [], "update_cfg": {"latest_ver": 20.0}}
+{"users": {"Thiên Phát": "nexus os gateway"}, "blacklist": [], "pro_users": ["Thiên Phát"], "pro_devices": ["53304b2e8c092ed6"], "rem": {}, "files": {}, "codes": ["PHAT2026", "123456789101112131415", "12345678"], "chats": [], "update_cfg": {"latest_ver": 20.0}}
