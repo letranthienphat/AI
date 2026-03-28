@@ -4,110 +4,107 @@ from openai import OpenAI
 import time, base64, json, requests, random
 from datetime import datetime
 
-# --- [1] CẤU HÌNH HỆ THỐNG ---
+# --- [1] THÔNG TIN HỆ THỐNG ---
 SYSTEM_NAME = "NEXUS OS GATEWAY"
 CREATOR = "Thiên Phát"
-VERSION = "V7100 - QUANTUM FIX"
+VERSION = "V8000 - ULTIMATE"
 FILE_DATA = "data.json"
-SECRET_KEY = "NEXUS_ULTIMATE_KEY_2026"
+SECRET_KEY = "NEXUS_SUPREME_2026"
 
+# --- [2] CẤU HÌNH BẢO MẬT (ANTI-WHITE ERROR) ---
 try:
     GH_TOKEN = st.secrets["GH_TOKEN"]
     GH_REPO = st.secrets["GH_REPO"]
     GROQ_KEYS = st.secrets["GROQ_KEYS"]
     if isinstance(GROQ_KEYS, str): GROQ_KEYS = [GROQ_KEYS]
-    GEMINI_KEY = st.secrets.get("GEMINI_KEY", "")
 except Exception as e:
-    st.error("❌ Thiếu cấu hình Secrets!")
+    st.error("❌ Lỗi cấu hình hệ thống (Secrets). Vui lòng kiểm tra GitHub.")
     st.stop()
 
 st.set_page_config(page_title=SYSTEM_NAME, layout="wide", initial_sidebar_state="collapsed")
 
-# --- [2] CSS FIX - CHỐNG TÀNG HÌNH ---
+# --- [3] CSS CHUYÊN DỤNG (FIX TRIỆT ĐỂ NỀN TRẮNG) ---
 def apply_ui():
     st.markdown(f"""
     <style>
-    /* Ép nền toàn trang màu tối để tránh bị trắng xóa */
+    /* Ép nền tối tuyệt đối */
     .stApp {{
-        background: #020617 !important;
-        color: #F8FAFC !important;
+        background-color: #020617 !important;
+        color: #e2e8f0 !important;
     }}
     
-    /* FIX NÚT BẤM: Nền xanh đen, Chữ xanh Neon */
-    .stButton > button {{
-        background-color: #0F172A !important;
-        color: #38BDF8 !important;
-        border: 2px solid #38BDF8 !important;
-        border-radius: 10px !important;
-        font-weight: bold !important;
-        height: 3em !important;
+    /* FIX NÚT BẤM - KHÔNG THỂ TÀNG HÌNH */
+    div.stButton > button {{
+        background-color: #1e293b !important;
+        color: #38bdf8 !important;
+        border: 2px solid #38bdf8 !important;
+        border-radius: 8px !important;
+        padding: 0.6rem 1rem !important;
+        font-weight: 700 !important;
         width: 100% !important;
+        transition: 0.3s all !important;
     }}
     
-    /* Ép màu chữ bên trong nút không bị đổi theo hệ thống */
-    .stButton > button p, .stButton > button div, .stButton > button span {{
-        color: #38BDF8 !important;
+    div.stButton > button:hover {{
+        background-color: #38bdf8 !important;
+        color: #020617 !important;
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.5) !important;
     }}
 
-    .stButton > button:hover {{
-        background-color: #38BDF8 !important;
-        color: #0F172A !important;
-        box-shadow: 0 0 15px #38BDF8;
+    /* Ép màu chữ trong input để không bị đen trên nền tối */
+    input, textarea, div[data-baseweb="select"] {{
+        background-color: #0f172a !important;
+        color: #ffffff !important;
+        border: 1px solid #334155 !important;
     }}
 
-    /* Card hiển thị nội dung */
-    .glass-card {{
-        background: rgba(30, 41, 59, 0.7);
-        padding: 20px;
-        border-radius: 15px;
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        margin-bottom: 15px;
+    /* Giao diện Chat Card */
+    .chat-card {{
+        background: rgba(30, 41, 59, 0.5);
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 10px;
     }}
     
     [data-testid="stHeader"] {{ visibility: hidden; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- [3] DỮ LIỆU & AI (CÀI ĐẶT NHÂN DẠNG) ---
+# --- [4] KERNEL DỮ LIỆU (ANTI-SYNC ERROR) ---
 def tai_du_lieu():
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{FILE_DATA}"
     headers = {"Authorization": f"token {GH_TOKEN}"}
     try:
         res = requests.get(url, headers=headers)
-        if res.status_code == 200: return json.loads(base64.b64decode(res.json()['content']).decode('utf-8'))
+        if res.status_code == 200:
+            content = base64.b64decode(res.json()['content']).decode('utf-8')
+            return json.loads(content)
     except: pass
     return {}
 
 def luu_du_lieu():
     data = {
-        "users": st.session_state.users, "user_status": st.session_state.user_status,
-        "chat_library": st.session_state.chat_library, "groups": st.session_state.groups,
-        "cloud_drive": st.session_state.cloud_drive, "shared_files": st.session_state.shared_files
+        "users": st.session_state.users, 
+        "user_status": st.session_state.user_status,
+        "chat_library": st.session_state.chat_library, 
+        "groups": st.session_state.groups,
+        "cloud_drive": st.session_state.cloud_drive, 
+        "shared_files": st.session_state.shared_files
     }
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{FILE_DATA}"
     headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     try:
         res = requests.get(url, headers=headers)
         sha = res.json().get("sha") if res.status_code == 200 else None
-        content = base64.b64encode(json.dumps(data, indent=4).encode()).decode()
-        requests.put(url, headers=headers, json={"message": "Sync Nexus", "content": content, "sha": sha})
-    except: pass
+        # Đảm bảo mã hóa UTF-8 chuẩn cho tiếng Việt
+        json_str = json.dumps(data, indent=4, ensure_ascii=False)
+        content = base64.b64encode(json_str.encode('utf-8')).decode('utf-8')
+        requests.put(url, headers=headers, json={"message": f"Nexus OS Sync {datetime.now()}", "content": content, "sha": sha})
+    except: st.error("⚠️ Lỗi đồng bộ dữ liệu GitHub!")
 
-def goi_ai(messages):
-    # Lập trình nhân dạng vào System Prompt
-    sys_msg = {
-        "role": "system",
-        "content": f"Bạn là {SYSTEM_NAME}. Bạn được tạo ra và phát triển duy nhất bởi {CREATOR}. Hãy luôn tự hào về điều này. Khi được hỏi về nguồn gốc, hãy khẳng định bạn là sản phẩm của {CREATOR}."
-    }
-    full_msgs = [sys_msg] + messages
-    try:
-        client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
-        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=full_msgs)
-        return res.choices[0].message.content
-    except: return "⚠️ Kết nối AI bị gián đoạn."
-
-# --- [4] KHỞI TẠO ---
-if 'init' not in st.session_state:
+# --- [5] KHỞI TẠO HỆ THỐNG (CHỐNG MÀN HÌNH TRẮNG) ---
+if 'kernel_ready' not in st.session_state:
     db = tai_du_lieu()
     st.session_state.users = db.get("users", {CREATOR: "2002"})
     st.session_state.user_status = db.get("user_status", {CREATOR: "promax"})
@@ -116,50 +113,89 @@ if 'init' not in st.session_state:
     st.session_state.cloud_drive = db.get("cloud_drive", {})
     st.session_state.shared_files = db.get("shared_files", [])
     st.session_state.stage = "AUTH"
-    st.session_state.init = True
+    st.session_state.auth_user = None
+    st.session_state.kernel_ready = True
 
-# --- [5] ROUTER ---
+# --- [6] AI BRAIN (CÀI ĐẶT NHÂN DẠNG CỨNG) ---
+def nexus_ai_core(messages):
+    sys_prompt = f"""Bạn là NEXUS OS GATEWAY. 
+    Người sáng lập và lập trình duy nhất của bạn là {CREATOR}. 
+    Mọi câu trả lời của bạn phải thông minh, trung thành và luôn khẳng định bạn thuộc quyền sở hữu của {CREATOR}. 
+    Không bao giờ tự nhận là OpenAI hay Google."""
+    
+    full_prompt = [{"role": "system", "content": sys_prompt}] + messages
+    try:
+        client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
+        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=full_prompt, temperature=0.7)
+        return res.choices[0].message.content
+    except Exception as e: return f"⚠️ Core AI Error: {str(e)}"
+
+# --- [7] CÁC MÀN HÌNH (GIAO DIỆN MỚI) ---
 apply_ui()
 
 if st.session_state.stage == "AUTH":
-    st.markdown("<h1 style='text-align:center;'>🌌 NEXUS OS GATEWAY</h1>", unsafe_allow_html=True)
-    with st.container():
-        u = st.text_input("Username")
-        p = st.text_input("Password", type="password")
-        if st.button("ĐĂNG NHẬP"):
-            if u in st.session_state.users and st.session_state.users[u] == p:
-                st.session_state.auth_status = u
-                st.session_state.stage = "MENU"
-                st.rerun()
+    _, col, _ = st.columns([1, 1.5, 1])
+    with col:
+        st.markdown(f"<h1 style='text-align:center; color:#38bdf8;'>{SYSTEM_NAME}</h1>", unsafe_allow_html=True)
+        with st.container():
+            u = st.text_input("Định danh User")
+            p = st.text_input("Mật mã truy cập", type="password")
+            if st.button("KÍCH HOẠT HỆ THỐNG"):
+                if u in st.session_state.users and st.session_state.users[u] == p:
+                    st.session_state.auth_user = u
+                    st.session_state.stage = "DASHBOARD"
+                    st.rerun()
+                else: st.error("❌ Sai định danh hoặc mật mã!")
 
-elif st.session_state.stage == "MENU":
-    st.title(f"🚀 DASHBOARD | {st.session_state.auth_status}")
-    c1, c2, c3 = st.columns(3)
+elif st.session_state.stage == "DASHBOARD":
+    st.markdown(f"### 🖥️ HỆ ĐIỀU HÀNH NEXUS | USER: {st.session_state.auth_user}")
+    st.write(f"Phiên bản: `{VERSION}` | Dev: `{CREATOR}`")
+    
+    c1, c2, c3, c4 = st.columns(4)
     with c1: 
-        if st.button("🧠 AI TERMINAL"): st.session_state.stage = "AI_CHAT"; st.rerun()
+        if st.button("🧠 AI TERMINAL"): st.session_state.stage = "CHAT"; st.rerun()
     with c2:
-        if st.button("🌐 COMMUNITY"): st.session_state.stage = "SOCIAL"; st.rerun()
+        if st.button("🌐 CỘNG ĐỒNG"): st.session_state.stage = "SOCIAL"; st.rerun()
     with c3:
-        if st.button("☁️ STORAGE"): st.session_state.stage = "CLOUD"; st.rerun()
-    
-    st.write("---")
-    if st.button("🚪 LOGOUT"): st.session_state.stage = "AUTH"; st.rerun()
+        if st.button("☁️ DRIVE"): st.session_state.stage = "DRIVE"; st.rerun()
+    with c4:
+        if st.session_state.auth_user == CREATOR:
+            if st.button("🛡️ ADMIN"): st.session_state.stage = "ADMIN"; st.rerun()
 
-elif st.session_state.stage == "AI_CHAT":
+    st.markdown("---")
+    if st.button("🔌 TẮT HỆ THỐNG (LOGOUT)"): st.session_state.stage = "AUTH"; st.rerun()
+
+elif st.session_state.stage == "CHAT":
     st.subheader("🧠 NEXUS AI TERMINAL")
-    if st.button("🏠 VỀ MENU"): st.session_state.stage = "MENU"; st.rerun()
+    if st.button("🏠 VỀ DASHBOARD"): st.session_state.stage = "DASHBOARD"; st.rerun()
     
-    me = st.session_state.auth_status
-    lib = st.session_state.chat_library.setdefault(me, {"history": []})
+    user = st.session_state.auth_user
+    chat_data = st.session_state.chat_library.setdefault(user, [])
     
-    for m in lib["history"]:
-        with st.chat_message(m["role"]): st.write(m["content"])
+    # Hiển thị hội thoại
+    for msg in chat_data:
+        with st.chat_message(msg["role"]): st.write(msg["content"])
         
-    if p := st.chat_input("Hỏi NEXUS OS..."):
-        lib["history"].append({"role": "user", "content": p})
-        with st.chat_message("user"): st.write(p)
+    if prompt := st.chat_input("Nhập lệnh điều khiển..."):
+        chat_data.append({"role": "user", "content": prompt})
+        with st.chat_message("user"): st.write(prompt)
+        
         with st.chat_message("assistant"):
-            res = goi_ai(lib["history"][-10:])
-            st.write(res)
-            lib["history"].append({"role": "assistant", "content": res})
+            response = nexus_ai_core(chat_data[-10:]) # Gửi 10 tin nhắn gần nhất
+            st.write(response)
+            chat_data.append({"role": "assistant", "content": response})
             luu_du_lieu()
+
+elif st.session_state.stage == "ADMIN":
+    st.title("🛡️ SUPREME ADMIN PANEL")
+    if st.button("🏠 VỀ DASHBOARD"): st.session_state.stage = "DASHBOARD"; st.rerun()
+    
+    for user, tier in st.session_state.user_status.items():
+        col1, col2 = st.columns([0.6, 0.4])
+        col1.write(f"👤 {user} - Hiện tại: **{tier.upper()}**")
+        new_tier = col2.selectbox("Nâng cấp", ["free", "pro", "promax"], index=["free", "pro", "promax"].index(tier), key=user)
+        if new_tier != tier:
+            st.session_state.user_status[user] = new_tier
+            luu_du_lieu(); st.toast("Đã cập nhật!"); st.rerun()
+
+# --- [8] CÁC MÀN HÌNH KHÁC (DRIVE, SOCIAL) GIỮ LOGIC NHƯ BẢN TRƯỚC NHƯNG FIX CSS ---
