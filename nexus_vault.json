@@ -1,0 +1,23 @@
+{
+    "users": {
+        "Thiên Phát": "nexus os gateway"
+    },
+    "status": {
+        "Thiên Phát": "PRO-MAX"
+    },
+    "chats": {
+        "Thiên Phát": [
+            {
+                "role": "user",
+                "content": "chào"
+            },
+            {
+                "role": "assistant",
+                "content": "Xin chào! Tôi là NEXUS OS của Thiên Phát. Tôi có thể hỗ trợ bạn về các thông tin và câu hỏi khác nhau. Tôi ở đây để giúp bạn, vui lòng cho tôi biết bạn cần hỗ trợ về vấn đề gì!"
+            }
+        ]
+    },
+    "vault": {
+        "Thiên Phát": []
+    }
+}
