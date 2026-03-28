@@ -4,11 +4,11 @@ import time, base64, json, requests, random, hashlib
 from openai import OpenAI
 from datetime import datetime
 
-# --- [1] CẤU HÌNH HỆ THỐNG ---
+# --- [1] CẤU HÌNH ---
 CONFIG = {
     "NAME": "NEXUS PLATINUM OS",
     "CREATOR": "Thiên Phát",
-    "FILE_DATA": "nexus_platinum_v30.json"
+    "FILE_DATA": "nexus_v31_core.json" # Đổi tên file để tránh dữ liệu lỗi cũ
 }
 
 try:
@@ -16,130 +16,125 @@ try:
     GROQ_KEYS = st.secrets["GROQ_KEYS"]
     if isinstance(GROQ_KEYS, str): GROQ_KEYS = [GROQ_KEYS]
 except:
-    st.error("🛑 THIẾU SECRETS TRÊN CLOUD!"); st.stop()
+    st.error("🛑 THIẾU SECRETS!"); st.stop()
 
 st.set_page_config(page_title=CONFIG["NAME"], layout="wide", initial_sidebar_state="collapsed")
 
-# --- [2] KERNEL DỮ LIỆU ---
-def get_device_fp():
-    ua = st.context.headers.get("User-Agent", "Unknown")
-    return hashlib.sha256(ua.encode()).hexdigest()[:16]
-
+# --- [2] KERNEL BẢO VỆ JSON (FIX LỖI JSONDECODEERROR) ---
 def sync_io(data=None):
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['FILE_DATA']}"
     headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     res = requests.get(url, headers=headers)
-    if data is None:
+    
+    # Mẫu dữ liệu mặc định để cứu hệ thống
+    default_db = {
+        "users": {CONFIG["CREATOR"]: "nexus2026"}, 
+        "codes": ["PHAT888"], "pro_users": [], "chats": [], "files": {}, "rem": {}
+    }
+
+    if data is None: # Chế độ ĐỌC
         if res.status_code == 200:
-            return json.loads(base64.b64decode(res.json()['content']).decode('utf-8'))
-        return {
-            "users": {CONFIG["CREATOR"]: "nexus2026"}, 
-            "codes": ["VIP999"], "pro_users": [], "chats": [], "files": {}, "rem": {}
-        }
-    else:
+            try:
+                content = base64.b64decode(res.json()['content']).decode('utf-8')
+                return json.loads(content) if content.strip() else default_db
+            except: return default_db
+        return default_db
+    else: # Chế độ GHI
         sha = res.json().get("sha") if res.status_code == 200 else None
-        content = base64.b64encode(json.dumps(data, ensure_ascii=False).encode('utf-8')).decode('utf-8')
+        js_str = json.dumps(data, ensure_ascii=False, indent=2)
+        content = base64.b64encode(js_str.encode('utf-8')).decode('utf-8')
         requests.put(url, headers=headers, json={"message": "Nexus Sync", "content": content, "sha": sha})
 
-# --- [3] GIAO DIỆN XỊN (CSS CUSTOM) ---
-st.markdown(f"""
+# --- [3] GIAO DIỆN XỊN ---
+st.markdown("""
 <style>
-    .stApp {{ background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; }}
-    [data-testid="stHeader"] {{ visibility: hidden; }}
-    .main-card {{
-        background: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 15px;
-        border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 20px;
-    }}
-    .ai-bubble {{
-        background: #0047AB; color: white; padding: 15px; border-radius: 15px 15px 15px 2px;
-        margin: 10px 0; border: 1px solid #1d4ed8; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }}
-    .stButton>button {{
-        background: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 100%);
-        color: white; border: none; border-radius: 10px; font-weight: bold; transition: 0.3s;
-    }}
-    .stButton>button:hover {{ transform: translateY(-2px); box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4); }}
-    .back-btn {{ color: #94a3b8 !important; text-decoration: none; font-weight: bold; }}
+    .stApp { background: #0f172a; color: #f1f5f9; }
+    .ai-bubble { 
+        background: #0047AB; color: white !important; padding: 18px; 
+        border-radius: 15px 15px 15px 5px; margin: 10px 0;
+        box-shadow: 0 4px 15px rgba(0,71,171,0.3); border-left: 5px solid #3b82f6;
+    }
+    .stButton>button { 
+        border-radius: 12px; height: 50px; font-weight: bold; 
+        background: linear-gradient(90deg, #1e40af, #3b82f6); color: white; border: none;
+    }
+    .main-card {
+        background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
+        padding: 20px; border-radius: 20px; text-align: center;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- [4] KHỞI CHẠY ---
+# --- [4] LOGIC HỆ THỐNG ---
 if 'db' not in st.session_state:
     st.session_state.db = sync_io()
     st.session_state.user = None
     st.session_state.page = "AUTH"
 
-fp = get_device_fp()
-# Tự động đăng nhập
-if st.session_state.user is None and fp in st.session_state.db.get("rem", {}):
-    st.session_state.user = st.session_state.db["rem"][fp]
+def get_fp(): return hashlib.sha256(st.context.headers.get("User-Agent","").encode()).hexdigest()[:16]
+
+# Tự động vào (Ghi nhớ)
+if st.session_state.user is None and get_fp() in st.session_state.db.get("rem", {}):
+    st.session_state.user = st.session_state.db["rem"][get_fp()]
     st.session_state.page = "DASHBOARD"
 
 is_pro = (st.session_state.user in st.session_state.db.get("pro_users", []))
 
-def nav(page):
-    st.session_state.page = page
-    st.rerun()
-
-# --- [5] MÀN HÌNH ĐĂNG NHẬP ---
+# --- [5] TRANG ĐĂNG NHẬP ---
 if st.session_state.page == "AUTH":
     _, col, _ = st.columns([1, 1.2, 1])
     with col:
-        st.markdown("<h1 style='text-align:center; color:#3b82f6;'>NEXUS PLATINUM</h1>", unsafe_allow_html=True)
-        with st.container():
-            u = st.text_input("Tài khoản").strip()
-            p = st.text_input("Mật khẩu", type="password").strip()
-            rem = st.checkbox("Ghi nhớ thiết bị này")
-            if st.button("🚀 ĐĂNG NHẬP HỆ THỐNG", use_container_width=True):
-                if u in st.session_state.db["users"] and st.session_state.db["users"][u] == p:
-                    st.session_state.user = u
-                    if rem: st.session_state.db["rem"][fp] = u; sync_io(st.session_state.db)
-                    nav("DASHBOARD")
-                else: st.error("Sai tài khoản hoặc mật khẩu!")
+        st.title("💠 NEXUS LOGIN")
+        u = st.text_input("Tên đăng nhập")
+        p = st.text_input("Mật khẩu", type="password")
+        r = st.checkbox("Ghi nhớ thiết bị này")
+        if st.button("🚀 TRUY CẬP", use_container_width=True):
+            if u in st.session_state.db["users"] and st.session_state.db["users"][u] == p:
+                st.session_state.user = u
+                if r: st.session_state.db["rem"][get_fp()] = u; sync_io(st.session_state.db)
+                st.session_state.page = "DASHBOARD"; st.rerun()
+            else: st.error("Sai thông tin!")
 
-# --- [6] DASHBOARD (GIAO DIỆN CARD) ---
+# --- [6] DASHBOARD ---
 elif st.session_state.page == "DASHBOARD":
-    st.markdown(f"### 🛡️ Hệ điều hành Nexus | Chào, {st.session_state.user}")
-    st.write(f"Cấp độ: {'💎 PLATINUM PRO' if is_pro else '🆓 STANDARD'}")
-    st.divider()
+    st.title(f"🚀 Chào Phát, Nexus đã sẵn sàng")
+    st.caption(f"Trạng thái: {'💎 PRO' if is_pro else '🆓 Miễn phí'}")
     
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.markdown("<div class='main-card'><h3>🧠 AI Core</h3><p>Trí tuệ nhân tạo thế hệ mới</p></div>", unsafe_allow_html=True)
-        if st.button("TRUY CẬP AI", key="nav_ai"): nav("AI")
+        st.markdown('<div class="main-card"><h3>🧠 AI CORE</h3></div>', unsafe_allow_html=True)
+        if st.button("MỞ CHAT"): st.session_state.page = "AI"; st.rerun()
     with c2:
-        st.markdown("<div class='main-card'><h3>☁️ Cloud Storage</h3><p>Lưu trữ dữ liệu đám mây</p></div>", unsafe_allow_html=True)
-        if st.button("MỞ KHO LƯU TRỮ", key="nav_cloud"): nav("CLOUD")
+        st.markdown('<div class="main-card"><h3>☁️ CLOUD</h3></div>', unsafe_allow_html=True)
+        if st.button("MỞ KHO FILE"): st.session_state.page = "CLOUD"; st.rerun()
     with c3:
-        st.markdown("<div class='main-card'><h3>⚙️ Settings</h3><p>Cấu hình và nâng cấp VIP</p></div>", unsafe_allow_html=True)
-        if st.button("CÀI ĐẶT HỆ THỐNG", key="nav_set"): nav("SETTINGS")
+        st.markdown('<div class="main-card"><h3>⚙️ VIP</h3></div>', unsafe_allow_html=True)
+        if st.button("NÂNG CẤP"): st.session_state.page = "SETTINGS"; st.rerun()
     
     st.write("---")
-    col_a, col_b = st.columns([5, 1])
     if st.session_state.user == CONFIG["CREATOR"]:
-        if col_a.button("🛠️ BẢNG ĐIỀU KHIỂN QUẢN TRỊ (ADMIN)"): nav("ADMIN")
-    if col_b.button("🔌 ĐĂNG XUẤT"):
-        if fp in st.session_state.db["rem"]: del st.session_state.db["rem"][fp]
-        sync_io(st.session_state.db); st.session_state.user = None; nav("AUTH")
+        if st.button("🛠️ QUẢN TRỊ VIÊN (ADMIN)"): st.session_state.page = "ADMIN"; st.rerun()
+    if st.button("🚪 ĐĂNG XUẤT"):
+        if get_fp() in st.session_state.db["rem"]: del st.session_state.db["rem"][get_fp()]
+        sync_io(st.session_state.db); st.session_state.user = None; st.session_state.page = "AUTH"; st.rerun()
 
-# --- [7] TRÒ CHUYỆN AI ---
+# --- [7] AI CHAT ---
 elif st.session_state.page == "AI":
-    if st.button("🔙 QUAY LẠI"): nav("DASHBOARD")
+    if st.button("🔙 QUAY LẠI"): st.session_state.page = "DASHBOARD"; st.rerun()
     
     with st.sidebar:
-        st.header("Lịch sử")
         if st.button("➕ Hội thoại mới"): st.session_state.chat_id = None; st.rerun()
         for i, c in enumerate(st.session_state.db["chats"]):
             if c["owner"] == st.session_state.user:
-                col_t, col_d = st.columns([4, 1])
-                if col_t.button(f"💬 {c['name']}", key=f"t_{i}"): st.session_state.chat_id = i; st.rerun()
+                col_c, col_d = st.columns([4, 1])
+                if col_c.button(f"💬 {c['name']}", key=f"c_{i}"): st.session_state.chat_id = i; st.rerun()
                 if col_d.button("🗑️", key=f"d_{i}"):
                     st.session_state.db["chats"].pop(i)
                     st.session_state.chat_id = None; sync_io(st.session_state.db); st.rerun()
 
     cid = st.session_state.get("chat_id")
     if cid is None or cid >= len(st.session_state.db["chats"]):
-        st.session_state.db["chats"].append({"name": "Hội thoại mới", "msgs": [], "owner": st.session_state.user, "time": str(datetime.now())})
+        st.session_state.db["chats"].append({"name": "Mới", "msgs": [], "owner": st.session_state.user})
         st.session_state.chat_id = len(st.session_state.db["chats"]) - 1
         cid = st.session_state.chat_id
 
@@ -148,7 +143,7 @@ elif st.session_state.page == "AI":
         if m["role"] == "user": st.chat_message("user").write(m["content"])
         else: st.markdown(f'<div class="ai-bubble">{m["content"]}</div>', unsafe_allow_html=True)
 
-    if p := st.chat_input("Hỏi Nexus AI..."):
+    if p := st.chat_input("Hỏi Nexus..."):
         chat["msgs"].append({"role": "user", "content": p})
         client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
         res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=chat["msgs"][-5:])
@@ -156,74 +151,62 @@ elif st.session_state.page == "AI":
         chat["msgs"].append({"role": "assistant", "content": ans})
         sync_io(st.session_state.db); st.rerun()
 
-# --- [8] CLOUD (AUTO SAVE & DELETE) ---
+# --- [8] CLOUD (TỰ LƯU & XÓA) ---
 elif st.session_state.page == "CLOUD":
-    if st.button("🔙 QUAY LẠI"): nav("DASHBOARD")
-    st.header("☁️ CLOUD STORAGE")
+    if st.button("🔙 QUAY LẠI DASHBOARD"): st.session_state.page = "DASHBOARD"; st.rerun()
+    st.header("☁️ KHO LƯU TRỮ")
     
-    # Auto-upload
-    up = st.file_uploader("Kéo file vào để tự động tải lên", label_visibility="collapsed")
+    up = st.file_uploader("Kéo thả để tự động lưu", label_visibility="collapsed")
     if up:
         if up.name not in st.session_state.db["files"]:
-            f_data = up.getvalue()
-            st.session_state.db["files"][up.name] = {"data": base64.b64encode(f_data).decode(), "owner": st.session_state.user}
-            sync_io(st.session_state.db); st.success(f"Đã lưu: {up.name}"); time.sleep(1); st.rerun()
+            st.session_state.db["files"][up.name] = {
+                "data": base64.b64encode(up.getvalue()).decode(),
+                "owner": st.session_state.user
+            }
+            sync_io(st.session_state.db); st.success("Đã tự động lưu!"); time.sleep(1); st.rerun()
 
     st.write("---")
     my_files = {k:v for k,v in st.session_state.db["files"].items() if v.get("owner") == st.session_state.user}
-    
     for name, info in my_files.items():
-        with st.container():
-            c1, c2, c3 = st.columns([4, 1, 1])
-            c1.markdown(f"📄 **{name}**")
-            # Tải xuống
-            bin_f = base64.b64decode(info["data"])
-            c2.download_button("📥 TẢI VỀ", data=bin_f, file_name=name, key=f"dl_{name}")
-            # XÓA FILE
-            if c3.button("🗑️ XÓA", key=f"del_{name}"):
-                del st.session_state.db["files"][name]; sync_io(st.session_state.db); st.rerun()
+        c1, c2, c3 = st.columns([3, 1, 1])
+        c1.write(f"📄 {name}")
+        c2.download_button("📥 TẢI VỀ", base64.b64decode(info["data"]), file_name=name, key=f"dl_{name}")
+        if c3.button("🗑️ XÓA", key=f"del_{name}"):
+            del st.session_state.db["files"][name]; sync_io(st.session_state.db); st.rerun()
 
-# --- [9] ADMIN PANEL (SIÊU QUYỀN LỰC) ---
+# --- [9] ADMIN PANEL ---
 elif st.session_state.page == "ADMIN":
-    if st.button("🔙 QUAY LẠI"): nav("DASHBOARD")
-    st.title("🛠️ HỆ THỐNG QUẢN TRỊ")
+    if st.button("🔙 QUAY LẠI"): st.session_state.page = "DASHBOARD"; st.rerun()
+    st.title("🛠️ QUẢN TRỊ VIÊN")
     
-    tab1, tab2, tab3 = st.tabs(["👥 NGƯỜI DÙNG", "📂 TẤT CẢ FILE", "🔑 MÃ VIP"])
-    
-    with tab1:
-        st.write("### Danh sách người dùng")
-        for user, pwd in st.session_state.db["users"].items():
-            col_u, col_p, col_x = st.columns([2, 2, 1])
-            col_u.write(f"👤 {user}")
-            col_p.write(f"🔑 {pwd}")
-            if user != CONFIG["CREATOR"]:
-                if col_x.button("XÓA USER", key=f"u_{user}"):
-                    del st.session_state.db["users"][user]; sync_io(st.session_state.db); st.rerun()
-    
-    with tab2:
-        st.write("### Quản lý tệp tin toàn hệ thống")
-        for fname, finfo in st.session_state.db["files"].items():
-            col_f, col_o, col_dx = st.columns([3, 1, 1])
-            col_f.write(f"📄 {fname}")
-            col_o.write(f"By: {finfo['owner']}")
-            if col_dx.button("XÓA FILE", key=f"admin_f_{fname}"):
-                del st.session_state.db["files"][fname]; sync_io(st.session_state.db); st.rerun()
-                
-    with tab3:
-        new_vip = st.text_input("Tạo mã VIP mới").upper()
-        if st.button("XÁC NHẬN TẠO"):
-            st.session_state.db["codes"].append(new_vip); sync_io(st.session_state.db); st.success("Đã tạo mã!")
+    t1, t2, t3 = st.tabs(["👥 NGƯỜI DÙNG", "🔑 MÃ VIP", "📂 TOÀN BỘ FILE"])
+    with t1:
+        new_u = st.text_input("Tên User mới")
+        new_p = st.text_input("Mật khẩu mới")
+        if st.button("THÊM NGƯỜI DÙNG"):
+            st.session_state.db["users"][new_u] = new_p; sync_io(st.session_state.db); st.success("Đã thêm!")
+        st.write(st.session_state.db["users"])
+    with t2:
+        v_code = st.text_input("Tạo mã Pro").upper()
+        if st.button("TẠO MÃ"):
+            st.session_state.db["codes"].append(v_code); sync_io(st.session_state.db); st.success("Đã tạo!")
         st.write("Mã chưa dùng:", st.session_state.db["codes"])
+    with t3:
+        for f in list(st.session_state.db["files"].keys()):
+            col_f, col_x = st.columns([4, 1])
+            col_f.write(f"📄 {f} (By: {st.session_state.db['files'][f]['owner']})")
+            if col_x.button("XÓA", key=f"adm_{f}"):
+                del st.session_state.db["files"][f]; sync_io(st.session_state.db); st.rerun()
 
 # --- [10] SETTINGS ---
 elif st.session_state.page == "SETTINGS":
-    if st.button("🔙 QUAY LẠI"): nav("DASHBOARD")
-    st.header("⚙️ CÀI ĐẶT")
-    if not is_pro:
-        code = st.text_input("Nhập mã kích hoạt PRO").upper()
+    if st.button("🔙 QUAY LẠI"): st.session_state.page = "DASHBOARD"; st.rerun()
+    st.header("⚙️ NÂNG CẤP VIP")
+    if is_pro: st.success("💎 BẠN ĐANG LÀ PLATINUM PRO")
+    else:
+        c = st.text_input("Nhập mã kích hoạt").upper()
         if st.button("KÍCH HOẠT"):
-            if code in st.session_state.db["codes"]:
+            if c in st.session_state.db["codes"]:
                 st.session_state.db["pro_users"].append(st.session_state.user)
-                st.session_state.db["codes"].remove(code)
+                st.session_state.db["codes"].remove(c)
                 sync_io(st.session_state.db); st.balloons(); st.rerun()
-    else: st.success("💎 BẠN ĐANG SỬ DỤNG PHIÊN BẢN PLATINUM PRO")
