@@ -1,0 +1,16 @@
+{
+    "users": {
+        "Thiên Phát": "nexus os gateway"
+    },
+    "status": {},
+    "codes": {},
+    "vault": {},
+    "chats": {
+        "Thiên Phát": [
+            {
+                "role": "user",
+                "content": "chao2"
+            }
+        ]
+    }
+}
