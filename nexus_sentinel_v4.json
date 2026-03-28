@@ -2,7 +2,9 @@
     "users": {
         "Thiên Phát": "nexus os gateway"
     },
-    "status": {},
+    "status": {
+        "Thiên Phát": "PRO-MAX"
+    },
     "codes": {
         "12345678": {
             "multi": false,
