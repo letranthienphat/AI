@@ -2,13 +2,17 @@
     "users": {
         "Thiên Phát": "nexus os gateway"
     },
-    "status": {},
+    "status": {
+        "Thiên Phát": "PRO-MAX (Hạn: VĨNH VIỄN)"
+    },
     "codes": {
         "12345678": {
             "multi": false,
             "perm": true,
             "days": 30,
-            "used_by": []
+            "used_by": [
+                "Thiên Phát"
+            ]
         }
     },
     "vault": {}
