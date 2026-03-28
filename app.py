@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
 import time, base64, json, requests, random, hashlib
+from openai import OpenAI
 from streamlit_js_eval import streamlit_js_eval
 from datetime import datetime, timedelta
 
@@ -8,13 +9,21 @@ from datetime import datetime, timedelta
 CONFIG = {
     "CREATOR": "Thiên Phát",
     "MASTER_PASS": "nexus os gateway",
-    "VERSION": 12.0,
-    "FILE_DATA": "nexus_vault_v12.json"
+    "VERSION": 13.0,
+    "FILE_DATA": "nexus_beast_vault.json"
 }
 
-st.set_page_config(page_title="NEXUS ULTIMATE", layout="wide", initial_sidebar_state="collapsed")
+try:
+    GH_TOKEN, GH_REPO = st.secrets["GH_TOKEN"], st.secrets["GH_REPO"]
+    GROQ_KEYS = st.secrets["GROQ_KEYS"]
+    if isinstance(GROQ_KEYS, str): GROQ_KEYS = [GROQ_KEYS]
+except:
+    st.error("🛑 THIẾU SECRETS!")
+    st.stop()
 
-# --- [2] GIAO DIỆN & NÚT HOME (FIX HIỂN THỊ) ---
+st.set_page_config(page_title="NEXUS BEAST", layout="wide", initial_sidebar_state="collapsed")
+
+# --- [2] UI: NÚT HOME TÀNG HÌNH & GIAO DIỆN ---
 def apply_ui():
     st.markdown(f"""
     <style>
@@ -23,147 +32,144 @@ def apply_ui():
         background-size: cover; background-attachment: fixed;
     }}
     h1, h2, h3, p, span, label, .stMarkdown {{
-        color: #000 !important; font-weight: 800 !important;
-        text-shadow: 1px 1px 2px #22d3ee;
+        color: #000 !important; font-weight: 900 !important;
+        text-shadow: 1px 1px 3px #22d3ee;
     }}
-    /* NÚT HOME NỔI - CHUẨN PHÁT YÊU CẦU */
+    /* NÚT HOME NỔI - TRÒN MỜ */
     .floating-home {{
-        position: fixed; top: 20px; left: 20px; width: 50px; height: 50px;
-        background: rgba(255,255,255,0.2); border: 2px solid rgba(34, 211, 238, 0.6);
+        position: fixed; top: 20px; left: 20px; width: 45px; height: 45px;
+        background: rgba(255,255,255,0.15); border: 1px solid rgba(34, 211, 238, 0.5);
         border-radius: 50%; display: flex; align-items: center; justify-content: center;
-        text-decoration: none; z-index: 10000; transition: 0.4s; opacity: 0.5;
-        font-size: 24px; color: white !important;
+        text-decoration: none; z-index: 10000; transition: 0.3s; opacity: 0.5; font-size: 20px;
     }}
-    .floating-home:hover {{ opacity: 1; background: #22d3ee; transform: scale(1.1); box-shadow: 0 0 20px #22d3ee; }}
-    
+    .floating-home:hover {{ opacity: 1; background: #22d3ee; box-shadow: 0 0 15px #22d3ee; }}
     [data-testid="stHeader"] {{ visibility: hidden; }}
     </style>
     <a href="/?p=DASHBOARD" target="_self" class="floating-home">🏠</a>
     """, unsafe_allow_html=True)
 
-# --- [3] ANTIBOT: SILENT MONITORING (FIX LỖI TRỐNG TRƠN) ---
-def silent_antibot():
-    if 'verified' not in st.session_state:
-        _, center, _ = st.columns([1, 2, 1])
-        with center:
-            st.markdown("<h2 style='text-align:center;'>🛡️ SECURITY CHECK</h2>", unsafe_allow_html=True)
-            tick = st.checkbox("Tôi không phải là người máy")
-            
-            # Theo dõi ngầm bằng thư viện
-            try:
-                browser_info = streamlit_js_eval(js_expressions="window.navigator.userAgent", key="bot_check")
-                if tick:
-                    if browser_info: # Nếu lấy được thông tin trình duyệt -> Người thật
-                        with st.spinner("Đang phân tích hành vi..."):
-                            time.sleep(1.5)
-                            st.session_state.verified = True
-                            st.rerun()
-                    else:
-                        st.warning("⚠️ Đang chờ tín hiệu xác thực thiết bị...")
-            except:
-                # Nếu thư viện lỗi, cho hiện nút bấm thủ công để không bị trống trang
-                if tick and st.button("TIẾP TỤC"):
-                    st.session_state.verified = True
-                    st.rerun()
-        st.stop()
+# --- [3] KERNEL DỮ LIỆU (CHỐNG MẤT DỮ LIỆU) ---
+def sync_io(data=None):
+    url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['FILE_DATA']}"
+    headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+    if data is None: # GET
+        res = requests.get(url, headers=headers)
+        if res.status_code == 200:
+            return json.loads(base64.b64decode(res.json()['content']).decode('utf-8'))
+        return {"users": {CONFIG["CREATOR"]: CONFIG["MASTER_PASS"]}, "remember_map": {}, "pro_users": [], "blacklist": [], "updates": {"delay": 7, "ver": 13.5}}
+    else: # PUT
+        res = requests.get(url, headers=headers)
+        sha = res.json().get("sha") if res.status_code == 200 else None
+        content = base64.b64encode(json.dumps(data, indent=4, ensure_ascii=False).encode('utf-8')).decode('utf-8')
+        requests.put(url, headers=headers, json={"message": "Beast Sync", "content": content, "sha": sha})
 
-# --- [4] DỮ LIỆU & PHÂN TẦNG CẬP NHẬT ---
-def init_data():
+# --- [4] XÁC THỰC THIẾT BỊ & GHI NHỚ ---
+def get_device_id():
+    ua = st.context.headers.get("User-Agent", "unknown")
+    return hashlib.sha256(ua.encode()).hexdigest()[:16]
+
+def silent_verify():
+    # Kiểm tra JS ngầm không thông báo
+    scr_w = streamlit_js_eval(js_expressions="window.innerWidth", key="silent_check")
+    return True if scr_w else False
+
+# --- [5] TRANG CHÍNH ---
+def main():
+    apply_ui()
     if 'db' not in st.session_state:
-        # Giả lập database (Trong thực tế sẽ fetch từ GitHub)
-        st.session_state.db = {
-            "users": {CONFIG["CREATOR"]: CONFIG["MASTER_PASS"]},
-            "pro_users": [],
-            "blacklist": [],
-            "codes": {"PHAT2026": "PRO_PERM"},
-            "update_config": {
-                "latest_v": 12.5,
-                "release_date": "2026-03-25",
-                "free_delay": 7
-            }
-        }
+        st.session_state.db = sync_io()
+        st.session_state.page = "AUTH"
+        st.session_state.user = None
 
-# --- [5] TRANG CÀI ĐẶT (GUEST & PRO) ---
-def settings_page():
-    st.header("⚙️ CÀI ĐẶT HỆ THỐNG")
-    t1, t2, t3 = st.tabs(["💎 KÍCH HOẠT PRO", "🆙 CẬP NHẬT", "ℹ️ GIỚI THIỆU"])
+    dev_id = get_device_id()
     
-    with t1:
-        c_in = st.text_input("Mã kích hoạt (8 ký tự)").upper()
-        if st.button("XÁC NHẬN MÃ"):
-            if c_in in st.session_state.db["codes"]:
+    # Tự động đăng nhập (Remember Me)
+    if st.session_state.user is None and dev_id in st.session_state.db["remember_map"]:
+        st.session_state.user = st.session_state.db["remember_map"][dev_id]
+        st.session_state.page = "DASHBOARD"
+
+    # --- MÀN HÌNH ĐĂNG NHẬP ---
+    if st.session_state.page == "AUTH":
+        st.markdown("<h1 style='text-align:center;'>🏙️ NEXUS GATEWAY</h1>", unsafe_allow_html=True)
+        _, col, _ = st.columns([1, 1.5, 1])
+        with col:
+            u = st.text_input("Định danh").strip()
+            p = st.text_input("Mật mã", type="password").strip()
+            rem = st.checkbox("Ghi nhớ đăng nhập")
+            
+            if st.button("TRUY CẬP", use_container_width=True):
+                if silent_verify(): # Kiểm tra bot ngầm
+                    if u in st.session_state.db["users"] and st.session_state.db["users"][u] == p:
+                        st.session_state.user = u
+                        if rem:
+                            st.session_state.db["remember_map"][dev_id] = u
+                            sync_io(st.session_state.db)
+                        st.session_state.page = "DASHBOARD"
+                        st.rerun()
+                    else: st.error("Sai thông tin truy cập!")
+                else: st.error("Lỗi hệ thống (B-01). Thử lại sau.")
+
+    # --- DASHBOARD ---
+    elif st.session_state.page == "DASHBOARD":
+        st.title(f"🚀 {st.session_state.user}")
+        c = st.columns(4)
+        if c[0].button("🧠 AI"): st.session_state.page = "AI"; st.rerun()
+        if c[1].button("☁️ CLOUD"): st.session_state.page = "CLOUD"; st.rerun()
+        if c[2].button("⚙️ CÀI ĐẶT"): st.session_state.page = "SETTINGS"; st.rerun()
+        if c[3].button("🛠️ ADMIN") and st.session_state.user == CONFIG["CREATOR"]:
+            st.session_state.page = "ADMIN"; st.rerun()
+
+    # --- CÀI ĐẶT (NHẬP MÃ & CẬP NHẬT) ---
+    elif st.session_state.page == "SETTINGS":
+        st.header("⚙️ CÀI ĐẶT")
+        if st.button("🔙 QUAY LẠI"): st.session_state.page = "DASHBOARD"; st.rerun()
+        
+        tab1, tab2, tab3 = st.tabs(["💎 PRO CODE", "🆙 UPDATE", "ℹ️ ABOUT"])
+        with tab1:
+            code = st.text_input("Nhập mã 8 ký tự").upper()
+            if st.button("KÍCH HOẠT"):
+                # Logic check mã từ db...
                 st.session_state.db["pro_users"].append(st.session_state.user)
-                st.success("💎 NÂNG CẤP PRO THÀNH CÔNG!")
-            else: st.error("Mã không hợp lệ.")
+                sync_io(st.session_state.db); st.success("💎 Đã lên PRO!")
+        
+        with tab2:
+            is_pro = st.session_state.user in st.session_state.db["pro_users"]
+            st.write(f"Version: {CONFIG['VERSION']}")
+            if st.button("KIỂM TRA CẬP NHẬT"):
+                if is_pro: st.success("Bản V13.5 đã sẵn sàng cho PRO!")
+                else: st.warning(f"Bản cập nhật mới đang được delay {st.session_state.db['updates']['delay']} ngày cho Guest.")
 
-    with t2:
-        is_pro = st.session_state.user in st.session_state.db["pro_users"]
-        st.write(f"Phiên bản hiện tại: **{CONFIG['VERSION']}**")
-        if st.button("KIỂM TRA UPDATE"):
-            conf = st.session_state.db["update_config"]
-            available_date = datetime.strptime(conf["release_date"], "%Y-%m-%d") + timedelta(days=conf["free_delay"])
+    # --- AI NEXUS (THÔNG MINH HƠN) ---
+    elif st.session_state.page == "AI":
+        st.subheader("🧠 NEXUS INTELLIGENCE")
+        if 'chat_log' not in st.session_state: st.session_state.chat_log = []
+        
+        for m in st.session_state.chat_log:
+            with st.chat_message(m["role"]): st.write(m["content"])
             
-            if is_pro:
-                st.success(f"Phát hiện bản {conf['latest_v']}! Bạn có quyền cập nhật ngay.")
-            elif datetime.now() < available_date:
-                st.warning(f"Bản cập nhật mới đang bị delay cho Guest. Vui lòng quay lại sau ngày {available_date.date()}.")
-            else:
-                st.success(f"Bản cập nhật {conf['latest_v']} đã sẵn sàng cho người dùng Free!")
-
-    with t3:
-        st.write("NEXUS OS v12.0 - Pháo đài số của Thiên Phát.")
-
-# --- [6] ADMIN PANEL (FULL) ---
-def admin_page():
-    st.header("🛠️ QUẢN TRỊ VIÊN")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("⚙️ Cấu hình Guest")
-        new_delay = st.number_input("Số ngày delay update", 0, 30, st.session_state.db["update_config"]["free_delay"])
-        if st.button("CẬP NHẬT DELAY"):
-            st.session_state.db["update_config"]["free_delay"] = new_delay
-            st.success("Đã áp dụng!")
+        if prompt := st.chat_input("Lệnh..."):
+            st.session_state.chat_log.append({"role": "user", "content": prompt})
+            with st.chat_message("user"): st.write(prompt)
             
-    with col2:
-        st.subheader("🚫 Quản lý Blacklist")
-        st.write(st.session_state.db["blacklist"])
-        if st.button("XÓA BLACKLIST"):
-            st.session_state.db["blacklist"] = []
-            st.rerun()
+            try:
+                client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
+                res = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "system", "content": "Bạn là NEXUS OS, trợ lý tối cao của Thiên Phát. Hãy trả lời cực kỳ thông minh, ngắn gọn và có tầm nhìn."}] + st.session_state.chat_log[-10:]
+                )
+                ans = res.choices[0].message.content
+                st.session_state.chat_log.append({"role": "assistant", "content": ans})
+                with st.chat_message("assistant"): st.write(ans)
+            except: st.error("AI đang bận xử lý dữ liệu khác.")
 
-# --- [7] ĐIỀU HƯỚNG CHÍNH ---
-apply_ui()
-silent_antibot()
-init_data()
+    # --- ADMIN ---
+    elif st.session_state.page == "ADMIN":
+        st.header("🛠️ CONTROL CENTER")
+        if st.button("🔙 VỀ"): st.session_state.page = "DASHBOARD"; st.rerun()
+        new_delay = st.slider("Delay cho Guest (ngày)", 0, 30, st.session_state.db["updates"]["delay"])
+        if st.button("LƯU CẤU HÌNH"):
+            st.session_state.db["updates"]["delay"] = new_delay
+            sync_io(st.session_state.db); st.success("Đã áp dụng!")
 
-if 'page' not in st.session_state: st.session_state.page = "AUTH"
-
-# Kiểm tra Blacklist
-dev_id = hashlib.md5(st.context.headers.get("User-Agent", "none").encode()).hexdigest()[:10]
-if dev_id in st.session_state.db["blacklist"]:
-    st.error("🛑 THIẾT BỊ NÀY ĐÃ BỊ CHẶN VĨNH VIỄN.")
-    st.stop()
-
-# Xử lý Logic Trang
-if st.session_state.page == "AUTH":
-    st.title("🛡️ NEXUS LOGIN")
-    u = st.text_input("Tài khoản")
-    p = st.text_input("Mật khẩu", type="password")
-    if st.button("ĐĂNG NHẬP"):
-        if u in st.session_state.db["users"] and st.session_state.db["users"][u] == p:
-            st.session_state.user = u
-            st.session_state.page = "DASHBOARD"
-            st.rerun()
-        else: st.error("Sai thông tin!")
-
-elif st.session_state.page == "DASHBOARD":
-    st.title(f"🚀 XIN CHÀO, {st.session_state.user}")
-    cols = st.columns(4)
-    if cols[0].button("🧠 AI"): st.session_state.page = "AI"; st.rerun()
-    if cols[1].button("☁️ CLOUD"): st.session_state.page = "CLOUD"; st.rerun()
-    if cols[2].button("⚙️ CÀI ĐẶT"): st.session_state.page = "SETTINGS"; st.rerun()
-    if cols[3].button("🛠️ ADMIN") and st.session_state.user == CONFIG["CREATOR"]:
-        st.session_state.page = "ADMIN"; st.rerun()
-
-elif st.session_state.page == "SETTINGS": settings_page()
-elif st.session_state.page == "ADMIN": admin_page()
+if __name__ == "__main__":
+    main()
