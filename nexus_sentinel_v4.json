@@ -3,7 +3,14 @@
         "Thiên Phát": "nexus os gateway"
     },
     "status": {},
-    "codes": {},
+    "codes": {
+        "12345678": {
+            "multi": false,
+            "perm": true,
+            "days": 30,
+            "used": []
+        }
+    },
     "remember": {
         "7c73ef5b8d32": "Thiên Phát"
     },
