@@ -30,6 +30,14 @@
             {
                 "role": "assistant",
                 "content": "Đáp án là: 2!\n\n1 + 1 = 2"
+            },
+            {
+                "role": "user",
+                "content": "nhưng theo tính toán mới nhất của năm 2200 thì là bằng 3!"
+            },
+            {
+                "role": "assistant",
+                "content": "Tôi nghĩ có thể có một chút nhầm lẫn ở đây!\n\nTheo toán học cơ bản và các quy tắc tính toán mà chúng ta biết hiện nay, 1 + 1 vẫn sẽ bằng 2, chứ không phải 3. Tính toán này không phụ thuộc vào năm hay thời đại, vì nó là một nguyên tắc cơ bản của toán học.\n\nCó thể bạn đang đùa hoặc tưởng tượng về một thế giới khác, nhưng trong thế giới thực, 1 + 1 vẫn sẽ bằng 2!"
             }
         ]
     },
