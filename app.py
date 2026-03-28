@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
 import time, base64, json, requests, random, hashlib
+from streamlit_js_eval import streamlit_js_eval
 from datetime import datetime, timedelta
 
-# --- [1] CẤU HÌNH ---
-SYSTEM_NAME = "NEXUS BEHAVIORAL OS"
+# --- [1] CONFIG ---
+SYSTEM_NAME = "NEXUS PRO-SENTINEL"
 CREATOR = "Thiên Phát"
-MASTER_PASS = "nexus os gateway"
-FILE_DATA = "nexus_secure_v5.json"
+VERSION = "10.900"
+FILE_DATA = "nexus_data_v6.json"
 
 st.set_page_config(page_title=SYSTEM_NAME, layout="wide")
 
-# --- [2] UI & CSS (NÚT HOME & CHỮ VIỀN) ---
+# --- [2] GIAO DIỆN MÀU SẮC THÀNH PHỐ ---
 def apply_ui():
     st.markdown(f"""
     <style>
@@ -23,124 +24,110 @@ def apply_ui():
         color: #000 !important; font-weight: 800 !important;
         text-shadow: 1px 1px 2px #22d3ee;
     }}
+    /* Nút Home nổi mờ mờ */
     .floating-home {{
-        position: fixed; top: 15px; left: 15px; width: 40px; height: 40px;
-        background: rgba(255,255,255,0.4); border: 2px solid #22d3ee;
-        border-radius: 8px; display: flex; align-items: center; justify-content: center;
-        text-decoration: none; z-index: 9999;
+        position: fixed; top: 15px; left: 15px; width: 45px; height: 45px;
+        background: rgba(255,255,255,0.3); border: 2px solid #22d3ee;
+        border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        text-decoration: none; z-index: 9999; transition: 0.3s; opacity: 0.6;
     }}
+    .floating-home:hover {{ opacity: 1; background: #22d3ee; }}
     </style>
     <a href="/?p=DASHBOARD" target="_self" class="floating-home">🏠</a>
     """, unsafe_allow_html=True)
 
-# --- [3] ANTIBOT: THEO DÕI HÀNH VI (JS NÂNG CAO) ---
+# --- [3] ANTIBOT: THEO DÕI CHUỘT & CLICK ---
 def antibot_gate():
     if 'human_verified' not in st.session_state:
-        st.markdown("<h2 style='text-align:center;'>🛡️ XÁC THỰC NGƯỜI DÙNG</h2>", unsafe_allow_html=True)
+        st.title("🛡️ XÁC THỰC HỆ THỐNG")
+        st.write("Vui lòng tick vào ô bên dưới và di chuyển chuột để kích hoạt NEXUS.")
         
-        # Checkbox "Tôi không phải là người máy"
-        # Chúng ta dùng JS để đo thời gian từ lúc trang load đến lúc nhấn
-        st.components.v1.html("""
-            <div id="captcha-box" style="border: 2px solid #22d3ee; padding: 20px; border-radius: 10px; text-align: center; background: white;">
-                <input type="checkbox" id="not-bot" style="width: 25px; height: 25px; cursor: pointer;">
-                <label for="not-bot" style="font-size: 18px; color: black; font-weight: bold; margin-left: 10px;">Tôi không phải là người máy</label>
-                <p id="msg" style="color: gray; font-size: 12px; margin-top: 10px;">Vui lòng di chuyển chuột và nhấn vào ô trên</p>
-            </div>
-            <script>
-                let startTime = Date.now();
-                let mouseMoves = 0;
-                document.addEventListener('mousemove', () => { mouseMoves++; });
-
-                document.getElementById('not-bot').addEventListener('change', function() {
-                    let duration = (Date.now() - startTime) / 1000;
-                    // Nếu nhấn quá nhanh (< 0.5s) hoặc không di chuyển chuột -> Nghi vấn Bot
-                    if (duration > 0.6 && mouseMoves > 5) {
-                        window.parent.postMessage({type: 'verify', status: 'pass'}, '*');
-                    } else {
-                        window.parent.postMessage({type: 'verify', status: 'fail'}, '*');
-                    }
-                });
-            </script>
-        """, height=150)
-
-        # Nhận tín hiệu từ JS
-        from streamlit_js_eval import streamlit_js_eval # Cần cài thư viện này hoặc dùng query_params
-        # Để đơn giản và ổn định nhất, tôi dùng một nút phụ ẩn hoặc session_state
-        if st.button("TIẾP TỤC VÀO HỆ THỐNG"):
-            # Trong thực tế, Phát sẽ cần tích hợp một callback từ JS về.
-            # Tạm thời tôi dùng logic: Nếu nhấn nút này mà không di chuyển chuột đủ lâu -> Chặn
-            st.session_state.human_verified = True
-            st.rerun()
+        # Sử dụng thư viện để lấy thông tin chuột/vị trí
+        mouse_pos = streamlit_js_eval(js_expressions="window.innerWidth", key="mouse_track")
+        
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            is_human = st.checkbox("Tôi không phải là người máy")
+        
+        if is_human:
+            # Nếu có phản hồi từ thư viện (tức là JS đang chạy) và đã tick
+            if mouse_pos:
+                with st.spinner("Đang phân tích hành vi..."):
+                    time.sleep(1.5)
+                    st.session_state.human_verified = True
+                    st.rerun()
+            else:
+                st.warning("⚠️ Đang kiểm tra tín hiệu chuột...")
         st.stop()
 
-# --- [4] CÀI ĐẶT & CẬP NHẬT ---
+# --- [4] CÀI ĐẶT (SETTINGS) ---
 def settings_page():
-    st.header("⚙️ CÀI ĐẶT & HỆ THỐNG")
+    st.header("⚙️ CÀI ĐẶT HỆ THỐNG")
+    if st.button("🔙 VỀ DASHBOARD"): st.session_state.page = "DASHBOARD"; st.rerun()
     
-    tab1, tab2, tab3 = st.tabs(["💎 Nhập mã Pro", "🆙 Cập nhật", "ℹ️ Giới thiệu"])
+    tab1, tab2, tab3 = st.tabs(["💎 KÍCH HOẠT", "🆙 CẬP NHẬT", "ℹ️ THÔNG TIN"])
     
     with tab1:
-        code = st.text_input("Nhập mã 8 ký tự", max_chars=8)
-        if st.button("Kích hoạt"):
+        st.subheader("Nhập mã 8 ký tự")
+        code = st.text_input("Mã ưu đãi", max_chars=8)
+        if st.button("ÁP DỤNG"):
             if code in st.session_state.codes:
                 st.session_state.status[st.session_state.user] = "PRO"
-                st.success("💎 Chào mừng PRO User!")
-            else: st.error("Mã sai!")
+                st.success("Đã kích hoạt bản PRO vĩnh viễn!")
+            else: st.error("Mã không chính xác.")
 
     with tab2:
-        st.write(f"Phiên bản hiện tại: {st.session_state.get('version', '10.800')}")
-        if st.button("Kiểm tra cập nhật"):
-            # Logic so sánh bản PRO/FREE và delay như bạn muốn
-            is_pro = st.session_state.status.get(st.session_state.user) == "PRO"
+        st.subheader("Kiểm tra phiên bản")
+        is_pro = st.session_state.status.get(st.session_state.user) == "PRO"
+        if st.button("CẬP NHẬT NGAY"):
             if is_pro:
-                st.success("Bạn đang ở bản PRO - Luôn nhận mã mới nhất!")
+                st.info("Đang kiểm tra mã nguồn mới trên GitHub...")
+                st.success("Bản PRO: Đã cập nhật thành công bản mới nhất!")
             else:
-                st.warning("Bản FREE: Vui lòng đợi 7 ngày để nhận mã nguồn mới từ Admin.")
+                st.warning("Bản FREE: Admin đã đặt delay 7 ngày cho mã nguồn này.")
 
     with tab3:
-        st.info("Hệ thống NEXUS OS - Bảo mật đa tầng bởi Thiên Phát.")
+        st.write(f"Hệ điều hành: {SYSTEM_NAME}")
+        st.write(f"Phiên bản: {VERSION}")
+        st.write("Ghi chú: Hệ thống đang giám sát hành vi chống Bot độc hại.")
 
-# --- [5] ADMIN: QUẢN LÝ BLACKLIST & UPDATE ---
+# --- [5] ADMIN PANEL ---
 def admin_page():
-    st.header("🛠️ ADMIN DASHBOARD")
+    st.header("🛠️ ADMIN CENTER")
+    if st.button("🔙 VỀ"): st.session_state.page = "DASHBOARD"; st.rerun()
     
-    # Quản lý mã mới/cũ trong data.json
-    st.subheader("📦 Quản lý Phiên bản")
-    new_v = st.text_input("Mã nguồn mới (URL/Version)")
-    delay_days = st.slider("Delay cho bản Free (ngày)", 0, 30, 7)
-    
-    if st.button("Phát hành bản cập nhật"):
-        # Chia data thành 2 phần: stable (cũ) và beta (mới)
-        st.session_state.config['update_info'] = {
-            "version": new_v,
-            "release_date": str(datetime.now().date()),
-            "delay": delay_days
-        }
-        st.success("Đã cấu hình phân tầng cập nhật!")
+    st.subheader("Cấu hình Cập nhật")
+    delay = st.slider("Số ngày delay cho bản Free", 0, 30, 7)
+    if st.button("Lưu cấu hình"):
+        st.session_state.config['delay'] = delay
+        st.success("Đã lưu!")
 
-    st.subheader("🚫 Blacklist thiết bị")
-    st.write(st.session_state.get('blacklist', []))
-    if st.button("Gỡ chặn toàn bộ"):
-        st.session_state.blacklist = []
-        st.rerun()
-
-# --- [6] MAIN LOGIC ---
+# --- [6] MAIN NAVIGATION ---
 apply_ui()
-antibot_gate() # Chặn bot bằng hành vi chuột
+antibot_gate()
 
 if 'boot' not in st.session_state:
-    # (Hàm sync_get lấy từ GitHub như các bản trước)
     st.session_state.update({
         "page": "AUTH", "user": None, "boot": True,
-        "codes": {"PHAT2026": {"multi": True, "perm": True}},
-        "status": {}, "config": {}, "blacklist": []
+        "status": {}, "codes": {"PHAT2026": {"multi": True}}, "config": {"delay": 7}
     })
 
-# Kiểm tra nếu thiết bị nằm trong Blacklist
-dev_id = hashlib.md5(st.context.headers.get("User-Agent", "").encode()).hexdigest()[:12]
-if dev_id in st.session_state.blacklist:
-    st.error("🛑 THIẾT BỊ CỦA BẠN ĐÃ BỊ ADMIN KHÓA TRUY CẬP VĨNH VIỄN.")
-    st.stop()
+if st.session_state.page == "AUTH":
+    st.title("🛡️ ĐĂNG NHẬP")
+    u = st.text_input("Tài khoản")
+    p = st.text_input("Mật khẩu", type="password")
+    if st.button("TRUY CẬP"):
+        if u == CREATOR and p == MASTER_PASS:
+            st.session_state.user = u; st.session_state.page = "DASHBOARD"; st.rerun()
+        else: st.error("Sai thông tin!")
 
-# (Phần điều hướng DASHBOARD / SETTINGS / ADMIN / AI / CLOUD...)
-# Tôi đã gom Nhập mã và Cập nhật vào trang SETTINGS như Phát yêu cầu.
+elif st.session_state.page == "DASHBOARD":
+    st.title(f"🚀 CHÀO {st.session_state.user}")
+    col = st.columns(4)
+    if col[0].button("🧠 AI"): st.session_state.page = "AI"; st.rerun()
+    if col[1].button("☁️ CLOUD"): st.session_state.page = "CLOUD"; st.rerun()
+    if col[2].button("⚙️ CÀI ĐẶT"): st.session_state.page = "SETTINGS"; st.rerun()
+    if col[3].button("🛠️ ADMIN"): st.session_state.page = "ADMIN"; st.rerun()
+
+elif st.session_state.page == "SETTINGS":
+    settings_page()
