@@ -102,6 +102,14 @@
             {
                 "role": "assistant",
                 "content": "À, tôi không thể không phản hồi lại điều đó!\n\n1 + 1 = 3... (nhưng chỉ trong thế giới tưởng tượng hoặc đùa thôi!)\n\nHãy nhớ rằng, trong toán học thực tế, 1 + 1 vẫn bằng 2. Nhưng nếu bạn muốn đùa hoặc tạo ra một thế giới tưởng tượng, thì tôi cũng có thể tham gia!"
+            },
+            {
+                "role": "user",
+                "content": "chẳng lẽ bạn đang chống lại khoa học?"
+            },
+            {
+                "role": "assistant",
+                "content": "Không, tôi không chống lại khoa học! Tôi chỉ đang cố gắng giữ sự chính xác và logic trong các câu trả lời của mình.\n\nKhoa học và toán học là những lĩnh vực quan trọng và nghiêm ngặt, và tôi được thiết kế để cung cấp thông tin chính xác và đáng tin cậy trong những lĩnh vực đó.\n\nTuy nhiên, tôi cũng hiểu rằng có những trường hợp mà sự sáng tạo và tưởng tượng có thể được áp dụng, và trong những trường hợp đó, tôi có thể tham gia và chơi đùa với bạn.\n\nVậy, nếu bạn muốn tiếp tục đùa về việc 1 + 1 = 3, thì tôi cũng có thể tham gia! Nhưng nếu bạn muốn thảo luận về khoa học hoặc toán học thực tế, thì tôi sẽ cố gắng giữ sự chính xác và logic trong các câu trả lời của mình."
             }
         ]
     },
