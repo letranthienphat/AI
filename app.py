@@ -5,12 +5,13 @@ from openai import OpenAI
 from streamlit_js_eval import streamlit_js_eval
 from datetime import datetime, timedelta
 
-# --- [1] CẤU HÌNH HỆ THỐNG ---
+# --- [1] CẤU HÌNH CỐ ĐỊNH ---
 CONFIG = {
+    "NAME": "NEXUS OVERLORD",
     "CREATOR": "Thiên Phát",
     "MASTER_PASS": "nexus os gateway",
-    "VERSION": 13.0,
-    "FILE_DATA": "nexus_beast_vault.json"
+    "VERSION": 14.0,
+    "FILE_DATA": "nexus_overlord_vault.json"
 }
 
 try:
@@ -18,12 +19,12 @@ try:
     GROQ_KEYS = st.secrets["GROQ_KEYS"]
     if isinstance(GROQ_KEYS, str): GROQ_KEYS = [GROQ_KEYS]
 except:
-    st.error("🛑 THIẾU SECRETS!")
+    st.error("🛑 THIẾU SECRETS TRÊN STREAMLIT CLOUD!")
     st.stop()
 
-st.set_page_config(page_title="NEXUS BEAST", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title=CONFIG["NAME"], layout="wide", initial_sidebar_state="collapsed")
 
-# --- [2] UI: NÚT HOME TÀNG HÌNH & GIAO DIỆN ---
+# --- [2] UI & LOGO KHỞI ĐỘNG SVG ---
 def apply_ui():
     st.markdown(f"""
     <style>
@@ -31,145 +32,166 @@ def apply_ui():
         background-image: url('https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=1920&q=80');
         background-size: cover; background-attachment: fixed;
     }}
-    h1, h2, h3, p, span, label, .stMarkdown {{
+    h1, h2, h3, p, span, label, .stMarkdown, .stCheckbox {{
         color: #000 !important; font-weight: 900 !important;
         text-shadow: 1px 1px 3px #22d3ee;
     }}
-    /* NÚT HOME NỔI - TRÒN MỜ */
     .floating-home {{
         position: fixed; top: 20px; left: 20px; width: 45px; height: 45px;
-        background: rgba(255,255,255,0.15); border: 1px solid rgba(34, 211, 238, 0.5);
+        background: rgba(255,255,255,0.1); border: 1px solid #22d3ee;
         border-radius: 50%; display: flex; align-items: center; justify-content: center;
-        text-decoration: none; z-index: 10000; transition: 0.3s; opacity: 0.5; font-size: 20px;
+        text-decoration: none; z-index: 10000; transition: 0.3s; opacity: 0.6;
     }}
-    .floating-home:hover {{ opacity: 1; background: #22d3ee; box-shadow: 0 0 15px #22d3ee; }}
+    .floating-home:hover {{ opacity: 1; background: #22d3ee; box-shadow: 0 0 20px #22d3ee; color: white !important; }}
     [data-testid="stHeader"] {{ visibility: hidden; }}
     </style>
     <a href="/?p=DASHBOARD" target="_self" class="floating-home">🏠</a>
     """, unsafe_allow_html=True)
 
-# --- [3] KERNEL DỮ LIỆU (CHỐNG MẤT DỮ LIỆU) ---
+def show_splash():
+    if 'splashed' not in st.session_state:
+        placeholder = st.empty()
+        with placeholder.container():
+            st.markdown("""
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: white;">
+                <svg width="200" height="200" viewBox="0 0 100 100">
+                    <path d="M10 50 Q 25 25, 40 50 T 70 50 T 90 50" fill="none" stroke="#22d3ee" stroke-width="3">
+                        <animate attributeName="stroke-dasharray" from="0,200" to="200,0" dur="2s" repeatCount="indefinite" />
+                    </path>
+                </svg>
+                <h1 style="color: #000; letter-spacing: 10px; animation: pulse 2s infinite;">NEXUS ACTIVATING</h1>
+            </div>
+            """, unsafe_allow_html=True)
+            time.sleep(3)
+        placeholder.empty()
+        st.session_state.splashed = True
+
+# --- [3] HỆ THỐNG DỮ LIỆU & FILE ---
 def sync_io(data=None):
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['FILE_DATA']}"
     headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+    res = requests.get(url, headers=headers)
     if data is None: # GET
-        res = requests.get(url, headers=headers)
         if res.status_code == 200:
             return json.loads(base64.b64decode(res.json()['content']).decode('utf-8'))
-        return {"users": {CONFIG["CREATOR"]: CONFIG["MASTER_PASS"]}, "remember_map": {}, "pro_users": [], "blacklist": [], "updates": {"delay": 7, "ver": 13.5}}
+        return {"users": {CONFIG["CREATOR"]: CONFIG["MASTER_PASS"]}, "remember": {}, "files": {}, "codes": {}, "delay": 7}
     else: # PUT
-        res = requests.get(url, headers=headers)
         sha = res.json().get("sha") if res.status_code == 200 else None
         content = base64.b64encode(json.dumps(data, indent=4, ensure_ascii=False).encode('utf-8')).decode('utf-8')
-        requests.put(url, headers=headers, json={"message": "Beast Sync", "content": content, "sha": sha})
+        requests.put(url, headers=headers, json={"message": "Overlord Sync", "content": content, "sha": sha})
 
-# --- [4] XÁC THỰC THIẾT BỊ & GHI NHỚ ---
-def get_device_id():
-    ua = st.context.headers.get("User-Agent", "unknown")
-    return hashlib.sha256(ua.encode()).hexdigest()[:16]
+# --- [4] XỬ LÝ TRANG ---
+show_splash()
+apply_ui()
 
-def silent_verify():
-    # Kiểm tra JS ngầm không thông báo
-    scr_w = streamlit_js_eval(js_expressions="window.innerWidth", key="silent_check")
-    return True if scr_w else False
+if 'db' not in st.session_state:
+    st.session_state.db = sync_io()
+    st.session_state.page = "AUTH"
+    st.session_state.user = None
 
-# --- [5] TRANG CHÍNH ---
-def main():
-    apply_ui()
-    if 'db' not in st.session_state:
-        st.session_state.db = sync_io()
-        st.session_state.page = "AUTH"
-        st.session_state.user = None
+# Ghi nhớ thiết bị
+dev_id = hashlib.sha256(st.context.headers.get("User-Agent", "unknown").encode()).hexdigest()[:12]
+if st.session_state.user is None and dev_id in st.session_state.db.get("remember", {}):
+    st.session_state.user = st.session_state.db["remember"][dev_id]
+    st.session_state.page = "DASHBOARD"
 
-    dev_id = get_device_id()
+# --- [5] MÀN HÌNH ĐĂNG NHẬP (FIX LỖI B-01) ---
+if st.session_state.page == "AUTH":
+    st.markdown("<h1 style='text-align:center;'>🛡️ NEXUS OVERLORD</h1>", unsafe_allow_html=True)
+    _, col, _ = st.columns([1, 1.2, 1])
     
-    # Tự động đăng nhập (Remember Me)
-    if st.session_state.user is None and dev_id in st.session_state.db["remember_map"]:
-        st.session_state.user = st.session_state.db["remember_map"][dev_id]
-        st.session_state.page = "DASHBOARD"
-
-    # --- MÀN HÌNH ĐĂNG NHẬP ---
-    if st.session_state.page == "AUTH":
-        st.markdown("<h1 style='text-align:center;'>🏙️ NEXUS GATEWAY</h1>", unsafe_allow_html=True)
-        _, col, _ = st.columns([1, 1.5, 1])
-        with col:
-            u = st.text_input("Định danh").strip()
-            p = st.text_input("Mật mã", type="password").strip()
-            rem = st.checkbox("Ghi nhớ đăng nhập")
-            
-            if st.button("TRUY CẬP", use_container_width=True):
-                if silent_verify(): # Kiểm tra bot ngầm
-                    if u in st.session_state.db["users"] and st.session_state.db["users"][u] == p:
-                        st.session_state.user = u
-                        if rem:
-                            st.session_state.db["remember_map"][dev_id] = u
-                            sync_io(st.session_state.db)
-                        st.session_state.page = "DASHBOARD"
-                        st.rerun()
-                    else: st.error("Sai thông tin truy cập!")
-                else: st.error("Lỗi hệ thống (B-01). Thử lại sau.")
-
-    # --- DASHBOARD ---
-    elif st.session_state.page == "DASHBOARD":
-        st.title(f"🚀 {st.session_state.user}")
-        c = st.columns(4)
-        if c[0].button("🧠 AI"): st.session_state.page = "AI"; st.rerun()
-        if c[1].button("☁️ CLOUD"): st.session_state.page = "CLOUD"; st.rerun()
-        if c[2].button("⚙️ CÀI ĐẶT"): st.session_state.page = "SETTINGS"; st.rerun()
-        if c[3].button("🛠️ ADMIN") and st.session_state.user == CONFIG["CREATOR"]:
-            st.session_state.page = "ADMIN"; st.rerun()
-
-    # --- CÀI ĐẶT (NHẬP MÃ & CẬP NHẬT) ---
-    elif st.session_state.page == "SETTINGS":
-        st.header("⚙️ CÀI ĐẶT")
-        if st.button("🔙 QUAY LẠI"): st.session_state.page = "DASHBOARD"; st.rerun()
+    # Check bot ngầm - Lấy chiều rộng màn hình làm tín hiệu sẵn sàng
+    sys_ready = streamlit_js_eval(js_expressions="window.innerWidth", key="sys_warmup")
+    
+    with col:
+        u = st.text_input("Định danh User").strip()
+        p = st.text_input("Mật mã", type="password").strip()
+        rem = st.checkbox("Ghi nhớ thiết bị này")
         
-        tab1, tab2, tab3 = st.tabs(["💎 PRO CODE", "🆙 UPDATE", "ℹ️ ABOUT"])
-        with tab1:
-            code = st.text_input("Nhập mã 8 ký tự").upper()
-            if st.button("KÍCH HOẠT"):
-                # Logic check mã từ db...
-                st.session_state.db["pro_users"].append(st.session_state.user)
-                sync_io(st.session_state.db); st.success("💎 Đã lên PRO!")
-        
-        with tab2:
-            is_pro = st.session_state.user in st.session_state.db["pro_users"]
-            st.write(f"Version: {CONFIG['VERSION']}")
-            if st.button("KIỂM TRA CẬP NHẬT"):
-                if is_pro: st.success("Bản V13.5 đã sẵn sàng cho PRO!")
-                else: st.warning(f"Bản cập nhật mới đang được delay {st.session_state.db['updates']['delay']} ngày cho Guest.")
+        if st.button("XÁC THỰC TRUY CẬP", use_container_width=True):
+            if not sys_ready:
+                st.warning("Hệ thống đang khởi động lớp bảo mật, vui lòng nhấn lại sau 1 giây.")
+            elif u in st.session_state.db["users"] and st.session_state.db["users"][u] == p:
+                st.session_state.user = u
+                if rem:
+                    st.session_state.db["remember"][dev_id] = u
+                    sync_io(st.session_state.db)
+                st.session_state.page = "DASHBOARD"
+                st.rerun()
+            else: st.error("❌ Thông tin sai hoặc bạn bị từ chối truy cập.")
 
-    # --- AI NEXUS (THÔNG MINH HƠN) ---
-    elif st.session_state.page == "AI":
-        st.subheader("🧠 NEXUS INTELLIGENCE")
-        if 'chat_log' not in st.session_state: st.session_state.chat_log = []
-        
-        for m in st.session_state.chat_log:
-            with st.chat_message(m["role"]): st.write(m["content"])
+# --- [6] DASHBOARD ---
+elif st.session_state.page == "DASHBOARD":
+    st.title(f"🚀 XIN CHÀO: {st.session_state.user}")
+    c1, c2, c3, c4 = st.columns(4)
+    if c1.button("🧠 AI NEXUS"): st.session_state.page = "AI"; st.rerun()
+    if c2.button("☁️ NEXUS CLOUD"): st.session_state.page = "CLOUD"; st.rerun()
+    if c3.button("⚙️ CÀI ĐẶT"): st.session_state.page = "SETTINGS"; st.rerun()
+    if c4.button("🔌 ĐĂNG XUẤT"):
+        if dev_id in st.session_state.db["remember"]: del st.session_state.db["remember"][dev_id]
+        sync_io(st.session_state.db)
+        st.session_state.user = None; st.session_state.page = "AUTH"; st.rerun()
+
+# --- [7] NEXUS CLOUD (FULL TÍNH NĂNG) ---
+elif st.session_state.page == "CLOUD":
+    st.header("☁️ NEXUS STORAGE SYSTEM")
+    if st.button("🔙 VỀ"): st.session_state.page = "DASHBOARD"; st.rerun()
+    
+    col_up, col_list = st.columns([1, 2])
+    with col_up:
+        st.subheader("📤 Tải lên")
+        up_file = st.file_uploader("Chọn tệp (Max 5MB)")
+        if up_file and st.button("LƯU VÀO CLOUD"):
+            f_bytes = up_file.getvalue()
+            f_base64 = base64.b64encode(f_bytes).decode()
+            st.session_state.db["files"][up_file.name] = {
+                "content": f_base64, "size": up_file.size, "date": str(datetime.now().date())
+            }
+            sync_io(st.session_state.db)
+            st.success(f"Đã lưu: {up_file.name}")
             
-        if prompt := st.chat_input("Lệnh..."):
-            st.session_state.chat_log.append({"role": "user", "content": prompt})
-            with st.chat_message("user"): st.write(prompt)
-            
-            try:
-                client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
-                res = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[{"role": "system", "content": "Bạn là NEXUS OS, trợ lý tối cao của Thiên Phát. Hãy trả lời cực kỳ thông minh, ngắn gọn và có tầm nhìn."}] + st.session_state.chat_log[-10:]
-                )
-                ans = res.choices[0].message.content
-                st.session_state.chat_log.append({"role": "assistant", "content": ans})
-                with st.chat_message("assistant"): st.write(ans)
-            except: st.error("AI đang bận xử lý dữ liệu khác.")
+    with col_list:
+        st.subheader("📁 Tệp của bạn")
+        for f_name, f_info in st.session_state.db.get("files", {}).items():
+            c_a, c_b, c_c = st.columns([3, 1, 1])
+            c_a.write(f"📄 {f_name} ({f_info['size']//1024} KB)")
+            # Download link
+            href = f'<a href="data:file/txt;base64,{f_info["content"]}" download="{f_name}">📥 Tải</a>'
+            c_b.markdown(href, unsafe_allow_html=True)
+            if c_c.button("🗑️", key=f_name):
+                del st.session_state.db["files"][f_name]
+                sync_io(st.session_state.db); st.rerun()
 
-    # --- ADMIN ---
-    elif st.session_state.page == "ADMIN":
-        st.header("🛠️ CONTROL CENTER")
-        if st.button("🔙 VỀ"): st.session_state.page = "DASHBOARD"; st.rerun()
-        new_delay = st.slider("Delay cho Guest (ngày)", 0, 30, st.session_state.db["updates"]["delay"])
-        if st.button("LƯU CẤU HÌNH"):
-            st.session_state.db["updates"]["delay"] = new_delay
-            sync_io(st.session_state.db); st.success("Đã áp dụng!")
+# --- [8] AI NEXUS V2 (PHÂN TÍCH & CHAT) ---
+elif st.session_state.page == "AI":
+    st.header("🧠 AI NEXUS INTELLIGENCE")
+    if 'chat' not in st.session_state: st.session_state.chat = []
+    
+    for m in st.session_state.chat:
+        with st.chat_message(m["role"]): st.write(m["content"])
+        
+    if p := st.chat_input("Nhập lệnh cho Nexus..."):
+        st.session_state.chat.append({"role": "user", "content": p})
+        with st.chat_message("user"): st.write(p)
+        
+        client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
+        res = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "system", "content": f"Bạn là lõi não của NEXUS OS. Trả lời Phát (Creator) một cách trung thành, hài hước và phân tích cực kỳ sắc bén."}] + st.session_state.chat[-5:]
+        )
+        ans = res.choices[0].message.content
+        st.session_state.chat.append({"role": "assistant", "content": ans})
+        with st.chat_message("assistant"): st.write(ans)
 
-if __name__ == "__main__":
-    main()
+# --- [9] CÀI ĐẶT (SETTINGS) ---
+elif st.session_state.page == "SETTINGS":
+    st.header("⚙️ CÀI ĐẶT HỆ THỐNG")
+    t1, t2 = st.tabs(["💎 PRO CODE", "🆙 CẬP NHẬT"])
+    with t1:
+        code = st.text_input("Nhập mã 8 ký tự").upper()
+        if st.button("KÍCH HOẠT"):
+            st.success("💎 Quyền PRO đã được kích hoạt!")
+    with t2:
+        st.write(f"Phiên bản: {CONFIG['VERSION']}")
+        if st.button("KIỂM TRA UPDATE"):
+            st.info(f"Bạn đang dùng bản {CONFIG['VERSION']}. Không có bản mới hơn cho Guest.")
