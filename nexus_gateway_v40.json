@@ -1,1 +1,1 @@
-{"users": {"Thiên Phát": "nexus os gateway"}, "codes": ["PHAT2026"], "pro_users": ["Thiên Phát"], "chats": [], "files": {}}
+{"users": {"Thiên Phát": "nexus os gateway"}, "codes": ["PHAT2026"], "pro_users": ["Thiên Phát"], "chats": [{"name": "Xin chào!", "msgs": [{"role": "user", "content": "chào"}, {"role": "assistant", "content": "Chào bạn. Tôi có thể giúp gì cho bạn không?"}], "owner": "Thiên Phát", "temp": false, "time": "2026-03-28 15:27:41.220222"}], "files": {}}
