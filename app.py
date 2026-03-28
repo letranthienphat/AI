@@ -16,7 +16,9 @@ import mimetypes
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
     "CREATOR": "Lê Trần Thiên Phát",
-    "FILE_DATA": "nexus_gateway_v80.json",
+    "ADMIN_USERNAME": "Thiên Phát",
+    "ADMIN_PASSWORD": "nexusosgateway",
+    "FILE_DATA": "data.json",  # Đã sửa thành data.json
     "GUEST_ENABLED": True,
     "MAX_RETRIES": 3,
     "RETRY_DELAY": 1,
@@ -110,18 +112,37 @@ def get_device_fp() -> str:
     ua = st.context.headers.get("User-Agent", "Unknown")
     return hashlib.sha256(ua.encode()).hexdigest()[:16]
 
+def get_default_db() -> Dict:
+    """Tạo database mặc định với admin"""
+    return {
+        "users": {CONFIG["ADMIN_USERNAME"]: CONFIG["ADMIN_PASSWORD"]},
+        "codes": ["PHAT2026", "VIP2024", "PRO2025"],
+        "pro_users": [],
+        "chats": [],
+        "files": {},
+        "emails": {}
+    }
+
 def safe_load_json(content: str) -> Dict:
     try:
-        return json.loads(content)
+        data = json.loads(content)
+        # Đảm bảo admin luôn tồn tại
+        if CONFIG["ADMIN_USERNAME"] not in data.get("users", {}):
+            data["users"][CONFIG["ADMIN_USERNAME"]] = CONFIG["ADMIN_PASSWORD"]
+        # Đảm bảo các key cần thiết
+        if "codes" not in data:
+            data["codes"] = ["PHAT2026", "VIP2024", "PRO2025"]
+        if "pro_users" not in data:
+            data["pro_users"] = []
+        if "chats" not in data:
+            data["chats"] = []
+        if "files" not in data:
+            data["files"] = {}
+        if "emails" not in data:
+            data["emails"] = {}
+        return data
     except json.JSONDecodeError:
-        return {
-            "users": {CONFIG["CREATOR"]: "nexusosgateway"},
-            "codes": ["PHAT2026", "VIP2024", "PRO2025"],
-            "pro_users": [],
-            "chats": [],
-            "files": {},
-            "emails": {}
-        }
+        return get_default_db()
 
 def sync_io(data: Optional[Dict] = None, retries: int = CONFIG["MAX_RETRIES"]) -> Optional[Dict]:
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['FILE_DATA']}"
@@ -135,7 +156,8 @@ def sync_io(data: Optional[Dict] = None, retries: int = CONFIG["MAX_RETRIES"]) -
                     content = base64.b64decode(res.json()['content']).decode('utf-8')
                     return safe_load_json(content)
                 elif res.status_code == 404:
-                    default_data = safe_load_json("")
+                    # File chưa tồn tại, tạo mới
+                    default_data = get_default_db()
                     sync_io(default_data, retries=1)
                     return default_data
                 else:
@@ -173,6 +195,10 @@ def load_db():
 def init_session():
     if 'db' not in st.session_state:
         st.session_state.db = load_db()
+        # Đảm bảo admin tồn tại trong database
+        if CONFIG["ADMIN_USERNAME"] not in st.session_state.db.get("users", {}):
+            st.session_state.db["users"][CONFIG["ADMIN_USERNAME"]] = CONFIG["ADMIN_PASSWORD"]
+            sync_io(st.session_state.db)
     if 'page' not in st.session_state:
         st.session_state.page = "AUTH"
     if 'user' not in st.session_state:
@@ -253,6 +279,8 @@ def validate_username(username: str) -> tuple:
         return False, "Tên đăng nhập phải có ít nhất 3 ký tự"
     if len(username) > 20:
         return False, "Tên đăng nhập không được quá 20 ký tự"
+    if username == CONFIG["ADMIN_USERNAME"]:
+        return False, "Tên đăng nhập này đã được sử dụng"
     if not re.match(r'^[a-zA-Z0-9_\u00C0-\u1EF9]+$', username):
         return False, "Tên đăng nhập chỉ được chứa chữ cái, số và dấu gạch dưới"
     if username in st.session_state.db["users"]:
@@ -315,7 +343,7 @@ with st.sidebar:
             go_to("CLOUD")
         if st.button("⚙️ Cài đặt", use_container_width=True, key="quick_settings"):
             go_to("SETTINGS")
-        if st.session_state.user == CONFIG["CREATOR"]:
+        if st.session_state.user == CONFIG["ADMIN_USERNAME"]:
             if st.button("🛠️ Admin", use_container_width=True, key="quick_admin"):
                 go_to("ADMIN")
         if st.button("🚪 Đăng xuất", use_container_width=True, key="logout"):
@@ -327,7 +355,7 @@ with st.sidebar:
 
     st.divider()
     st.caption(f"© 2025 {CONFIG['CREATOR']}")
-    st.caption("NEXUS OS GATEWAY v8.0")
+    st.caption("NEXUS OS GATEWAY")
 
 # ================== TRANG ĐĂNG NHẬP ==================
 if st.session_state.page == "AUTH":
@@ -418,7 +446,7 @@ elif st.session_state.page == "DASHBOARD":
         if st.button("⚙️ CÀI ĐẶT & VIP", use_container_width=True):
             go_to("SETTINGS")
 
-    if st.session_state.user == CONFIG["CREATOR"]:
+    if st.session_state.user == CONFIG["ADMIN_USERNAME"]:
         if st.button("🛠️ QUẢN TRỊ VIÊN", use_container_width=True):
             go_to("ADMIN")
 
@@ -668,7 +696,7 @@ elif st.session_state.page == "SETTINGS":
 
 # ================== ADMIN ==================
 elif st.session_state.page == "ADMIN":
-    if st.session_state.user != CONFIG["CREATOR"]:
+    if st.session_state.user != CONFIG["ADMIN_USERNAME"]:
         st.error("Không có quyền truy cập!")
         go_to("DASHBOARD")
     else:
@@ -694,8 +722,8 @@ elif st.session_state.page == "ADMIN":
         with tab2:
             st.subheader("Người dùng")
             for user in st.session_state.db["users"]:
-                is_pro = "PRO" if user in st.session_state.db["pro_users"] else "FREE"
-                st.write(f"- {user} ({is_pro})")
+                is_pro_user = "PRO" if user in st.session_state.db["pro_users"] else "FREE"
+                st.write(f"- {user} ({is_pro_user})")
             
             st.divider()
             st.subheader("Pro Users")
