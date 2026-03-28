@@ -10,6 +10,10 @@
             {
                 "role": "user",
                 "content": "chao2"
+            },
+            {
+                "role": "user",
+                "content": "ê"
             }
         ]
     }
