@@ -4,15 +4,17 @@ import time, base64, json, requests, random, hashlib
 from streamlit_js_eval import streamlit_js_eval
 from datetime import datetime, timedelta
 
-# --- [1] CONFIG ---
-SYSTEM_NAME = "NEXUS PRO-SENTINEL"
-CREATOR = "Thiên Phát"
-VERSION = "10.900"
-FILE_DATA = "nexus_data_v6.json"
+# --- [1] KHỞI TẠO CẤU HÌNH CỐ ĐỊNH ---
+CONFIG = {
+    "CREATOR": "Thiên Phát",
+    "MASTER_PASS": "nexus os gateway",
+    "VERSION": "11.000",
+    "FILE_DATA": "nexus_core_v11.json"
+}
 
-st.set_page_config(page_title=SYSTEM_NAME, layout="wide")
+st.set_page_config(page_title="NEXUS OS", layout="wide", initial_sidebar_state="collapsed")
 
-# --- [2] GIAO DIỆN MÀU SẮC THÀNH PHỐ ---
+# --- [2] UI & NÚT HOME TÀNG HÌNH ---
 def apply_ui():
     st.markdown(f"""
     <style>
@@ -24,110 +26,132 @@ def apply_ui():
         color: #000 !important; font-weight: 800 !important;
         text-shadow: 1px 1px 2px #22d3ee;
     }}
-    /* Nút Home nổi mờ mờ */
     .floating-home {{
-        position: fixed; top: 15px; left: 15px; width: 45px; height: 45px;
-        background: rgba(255,255,255,0.3); border: 2px solid #22d3ee;
+        position: fixed; top: 15px; left: 15px; width: 42px; height: 42px;
+        background: rgba(255,255,255,0.2); border: 1px solid rgba(34, 211, 238, 0.5);
         border-radius: 50%; display: flex; align-items: center; justify-content: center;
-        text-decoration: none; z-index: 9999; transition: 0.3s; opacity: 0.6;
+        text-decoration: none; z-index: 9999; transition: 0.5s; opacity: 0.4;
     }}
-    .floating-home:hover {{ opacity: 1; background: #22d3ee; }}
+    .floating-home:hover {{ opacity: 1; background: #22d3ee; border: 2px solid white; }}
     </style>
     <a href="/?p=DASHBOARD" target="_self" class="floating-home">🏠</a>
     """, unsafe_allow_html=True)
 
-# --- [3] ANTIBOT: THEO DÕI CHUỘT & CLICK ---
-def antibot_gate():
-    if 'human_verified' not in st.session_state:
-        st.title("🛡️ XÁC THỰC HỆ THỐNG")
-        st.write("Vui lòng tick vào ô bên dưới và di chuyển chuột để kích hoạt NEXUS.")
-        
-        # Sử dụng thư viện để lấy thông tin chuột/vị trí
-        mouse_pos = streamlit_js_eval(js_expressions="window.innerWidth", key="mouse_track")
-        
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            is_human = st.checkbox("Tôi không phải là người máy")
-        
-        if is_human:
-            # Nếu có phản hồi từ thư viện (tức là JS đang chạy) và đã tick
-            if mouse_pos:
-                with st.spinner("Đang phân tích hành vi..."):
-                    time.sleep(1.5)
-                    st.session_state.human_verified = True
-                    st.rerun()
-            else:
-                st.warning("⚠️ Đang kiểm tra tín hiệu chuột...")
+# --- [3] ANTIBOT: GIÁM SÁT NGẦM (SILENT CHECK) ---
+def silent_antibot():
+    if 'verified' not in st.session_state:
+        st.markdown("<div style='height: 20vh;'></div>", unsafe_allow_html=True)
+        _, center, _ = st.columns([1, 2, 1])
+        with center:
+            st.markdown("### 🛡️ XÁC THỰC TRUY CẬP")
+            # Chỉ hiện ô tick, không gợi ý hành vi
+            check = st.checkbox("Tôi không phải là người máy")
+            
+            # Dùng JS lấy thông số thiết bị và thời gian thực
+            screen_w = streamlit_js_eval(js_expressions="window.innerWidth", key="scr_w")
+            
+            if check:
+                if screen_w: # Nếu JS trả về giá trị (không phải bot headless)
+                    with st.spinner("Đang kiểm tra bảo mật..."):
+                        time.sleep(1.2) # Tạo khoảng nghỉ để giả lập phân tích
+                        st.session_state.verified = True
+                        st.rerun()
+                else:
+                    st.error("🛑 Không thể xác định thiết bị. Truy cập bị từ chối.")
+                    st.stop()
         st.stop()
 
-# --- [4] CÀI ĐẶT (SETTINGS) ---
+# --- [4] QUẢN LÝ DỮ LIỆU GITHUB (PHÂN TẦNG MÃ NGUỒN) ---
+def load_nexus_data():
+    # Giả lập logic lấy từ GitHub: data.json sẽ có { "stable_code": "...", "beta_code": "..." }
+    # Ở đây tôi gộp vào session_state để xử lý nội bộ
+    if 'db' not in st.session_state:
+        st.session_state.db = {
+            "users": {CONFIG["CREATOR"]: CONFIG["MASTER_PASS"]},
+            "pro_users": [],
+            "blacklist": [],
+            "codes": {"PHAT2026": {"type": "vinh-vien"}},
+            "updates": {
+                "stable": "V10.900",
+                "beta": "V11.000",
+                "delay_days": 7,
+                "release_date": "2026-03-25"
+            }
+        }
+
+# --- [5] TRANG CÀI ĐẶT (SETTINGS) ---
 def settings_page():
-    st.header("⚙️ CÀI ĐẶT HỆ THỐNG")
-    if st.button("🔙 VỀ DASHBOARD"): st.session_state.page = "DASHBOARD"; st.rerun()
+    st.header("⚙️ CÀI ĐẶT & HỆ THỐNG")
+    if st.button("🔙 QUAY LẠI DASHBOARD"): st.session_state.page = "DASHBOARD"; st.rerun()
     
-    tab1, tab2, tab3 = st.tabs(["💎 KÍCH HOẠT", "🆙 CẬP NHẬT", "ℹ️ THÔNG TIN"])
+    t1, t2, t3 = st.tabs(["💎 KÍCH HOẠT", "🆙 CẬP NHẬT", "ℹ️ GIỚI THIỆU"])
     
-    with tab1:
-        st.subheader("Nhập mã 8 ký tự")
-        code = st.text_input("Mã ưu đãi", max_chars=8)
-        if st.button("ÁP DỤNG"):
-            if code in st.session_state.codes:
-                st.session_state.status[st.session_state.user] = "PRO"
-                st.success("Đã kích hoạt bản PRO vĩnh viễn!")
-            else: st.error("Mã không chính xác.")
+    with t1:
+        code_in = st.text_input("Nhập mã 8 ký tự", max_chars=8).upper()
+        if st.button("XÁC NHẬN"):
+            if code_in in st.session_state.db["codes"]:
+                st.session_state.db["pro_users"].append(st.session_state.user)
+                st.success("💎 Đã kích hoạt quyền lợi PRO!")
+            else: st.error("Mã không hợp lệ!")
 
-    with tab2:
-        st.subheader("Kiểm tra phiên bản")
-        is_pro = st.session_state.status.get(st.session_state.user) == "PRO"
-        if st.button("CẬP NHẬT NGAY"):
+    with t2:
+        is_pro = st.session_state.user in st.session_state.db["pro_users"]
+        st.write(f"Phiên bản hiện tại: **{CONFIG['VERSION']}**")
+        
+        if st.button("KIỂM TRA CẬP NHẬT"):
+            target_v = st.session_state.db["updates"]["beta"]
             if is_pro:
-                st.info("Đang kiểm tra mã nguồn mới trên GitHub...")
-                st.success("Bản PRO: Đã cập nhật thành công bản mới nhất!")
+                st.success(f"Phát hiện bản {target_v}! Nhấn để tải về ngay.")
             else:
-                st.warning("Bản FREE: Admin đã đặt delay 7 ngày cho mã nguồn này.")
+                st.warning(f"Bản {target_v} đang trong giai đoạn ưu tiên cho PRO. Người dùng FREE sẽ nhận được sau 7 ngày.")
 
-    with tab3:
-        st.write(f"Hệ điều hành: {SYSTEM_NAME}")
-        st.write(f"Phiên bản: {VERSION}")
-        st.write("Ghi chú: Hệ thống đang giám sát hành vi chống Bot độc hại.")
-
-# --- [5] ADMIN PANEL ---
-def admin_page():
-    st.header("🛠️ ADMIN CENTER")
-    if st.button("🔙 VỀ"): st.session_state.page = "DASHBOARD"; st.rerun()
-    
-    st.subheader("Cấu hình Cập nhật")
-    delay = st.slider("Số ngày delay cho bản Free", 0, 30, 7)
-    if st.button("Lưu cấu hình"):
-        st.session_state.config['delay'] = delay
-        st.success("Đã lưu!")
+    with t3:
+        st.markdown(f"""
+        **NEXUS OS** là hệ thống bảo mật cá nhân được phát triển bởi **{CONFIG['CREATOR']}**.
+        - Trạng thái: Hoạt động bình thường
+        - Bảo mật: Cấp độ 5 (Sentinel)
+        """)
 
 # --- [6] MAIN NAVIGATION ---
 apply_ui()
-antibot_gate()
+silent_antibot() # Bước 1: Qua cửa bảo mật ngầm
+load_nexus_data() # Bước 2: Tải dữ liệu
 
-if 'boot' not in st.session_state:
-    st.session_state.update({
-        "page": "AUTH", "user": None, "boot": True,
-        "status": {}, "codes": {"PHAT2026": {"multi": True}}, "config": {"delay": 7}
-    })
+if 'page' not in st.session_state:
+    st.session_state.page = "AUTH"
 
+# Kiểm tra Blacklist thiết bị (Fingerprint)
+dev_id = hashlib.md5(st.context.headers.get("User-Agent", "none").encode()).hexdigest()[:10]
+if dev_id in st.session_state.db["blacklist"]:
+    st.error("🛑 THIẾT BỊ NÀY ĐÃ BỊ CHẶN TRUY CẬP.")
+    st.stop()
+
+# --- XỬ LÝ TRANG ---
 if st.session_state.page == "AUTH":
     st.title("🛡️ ĐĂNG NHẬP")
-    u = st.text_input("Tài khoản")
-    p = st.text_input("Mật khẩu", type="password")
-    if st.button("TRUY CẬP"):
-        if u == CREATOR and p == MASTER_PASS:
-            st.session_state.user = u; st.session_state.page = "DASHBOARD"; st.rerun()
-        else: st.error("Sai thông tin!")
+    u = st.text_input("Username").strip()
+    p = st.text_input("Password", type="password").strip()
+    if st.button("XÁC THỰC"):
+        # Sửa lỗi MASTER_PASS bằng cách gọi từ CONFIG
+        if u in st.session_state.db["users"] and st.session_state.db["users"][u] == p:
+            st.session_state.user = u
+            st.session_state.page = "DASHBOARD"
+            st.rerun()
+        else:
+            st.error("Sai thông tin!")
 
 elif st.session_state.page == "DASHBOARD":
-    st.title(f"🚀 CHÀO {st.session_state.user}")
-    col = st.columns(4)
-    if col[0].button("🧠 AI"): st.session_state.page = "AI"; st.rerun()
-    if col[1].button("☁️ CLOUD"): st.session_state.page = "CLOUD"; st.rerun()
-    if col[2].button("⚙️ CÀI ĐẶT"): st.session_state.page = "SETTINGS"; st.rerun()
-    if col[3].button("🛠️ ADMIN"): st.session_state.page = "ADMIN"; st.rerun()
+    st.title(f"🚀 XIN CHÀO, {st.session_state.user}")
+    c = st.columns(4)
+    if c[0].button("🧠 AI"): st.session_state.page = "AI"; st.rerun()
+    if c[1].button("☁️ CLOUD"): st.session_state.page = "CLOUD"; st.rerun()
+    if c[2].button("⚙️ CÀI ĐẶT"): st.session_state.page = "SETTINGS"; st.rerun()
+    if c[3].button("🛠️ ADMIN"): 
+        if st.session_state.user == CONFIG["CREATOR"]:
+            st.session_state.page = "ADMIN"
+            st.rerun()
 
 elif st.session_state.page == "SETTINGS":
     settings_page()
+
+# Các mục AI, Cloud, Admin sẽ tiếp tục logic ở đây...
