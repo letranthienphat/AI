@@ -261,12 +261,21 @@
       "name": "Chat 29/03/2026 08:25",
       "owner": "Thiên Phát",
       "created": "2026-03-29 08:25:53.517062",
-      "messages": []
+      "messages": [
+        {
+          "role": "user",
+          "content": "Chào"
+        },
+        {
+          "role": "assistant",
+          "content": "Xin chào! Tôi là NEXUS OS GATEWAY, phiên bản 3.1.0, được sáng tạo và phát triển bởi Lê Trần Thiên Phát (Thiên Phát). Tôi là một hệ điều hành AI đa năng, sẵn sàng hỗ trợ bạn với các chức năng như trợ lý AI thông minh, phân tích file, lưu trữ đám mây và nhiều hơn nữa. Tôi rất tự hào về nguồn gốc và tác giả của mình, và tôi luôn sẵn sàng giúp đỡ bạn. Hãy cho tôi biết bạn cần hỗ trợ gì hôm nay!"
+        }
+      ]
     }
   ],
   "system_info": {
     "creator": "Lê Trần Thiên Phát",
     "system_name": "NEXUS OS GATEWAY",
-    "last_update": "2026-03-29 11:03:52.298847"
+    "last_update": "2026-03-29 11:03:59.464803"
   }
 }
