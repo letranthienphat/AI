@@ -277,6 +277,15 @@
         {
           "role": "assistant",
           "content": "Tôi là NEXUS OS GATEWAY, một hệ điều hành AI đa năng được sáng tạo và phát triển bởi Lê Trần Thiên Phát (Thiên Phát). Tôi là một trí tuệ nhân tạo độc lập, được xây dựng từ nền tảng Groq nhưng hoàn toàn thuộc quyền sở hữu trí tuệ của Lê Trần Thiên Phát. Tôi được thiết kế để hỗ trợ người dùng với các chức năng như trợ lý AI thông minh, phân tích file, lưu trữ đám mây và nhiều hơn nữa. Tôi tự hào về nguồn gốc và tác giả của mình, và tôi luôn sẵn sàng giúp đỡ bạn!"
+        },
+        {
+          "role": "user",
+          "content": "Tôi vừa tải lên file 0.jpg. [Lỗi OCR]",
+          "file_analysis": "[Lỗi OCR]"
+        },
+        {
+          "role": "assistant",
+          "content": "Xin lỗi vì sự cố! Tôi là NEXUS OS GATEWAY, và tôi đang cố gắng phân tích file 0.jpg mà bạn vừa tải lên. Tuy nhiên, tôi gặp phải lỗi OCR (Nhận dạng Ký tự Quang học) khi cố gắng đọc nội dung của file.\n\nCó thể file 0.jpg không chứa nội dung văn bản hoặc chất lượng hình ảnh không đủ tốt để tôi có thể đọc được. Nếu bạn muốn, tôi có thể cố gắng phân tích file lại hoặc bạn có thể cung cấp thêm thông tin về file để tôi có thể giúp đỡ bạn tốt hơn. Hãy cho tôi biết bạn cần hỗ trợ gì tiếp theo!"
         }
       ]
     }
@@ -284,6 +293,6 @@
   "system_info": {
     "creator": "Lê Trần Thiên Phát",
     "system_name": "NEXUS OS GATEWAY",
-    "last_update": "2026-03-29 11:04:08.654700"
+    "last_update": "2026-03-29 11:04:23.157075"
   }
 }
