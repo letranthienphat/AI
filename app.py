@@ -35,7 +35,7 @@ CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
     "VERSION": "4.1.0",
     "CREATOR": "Lê Trần Thiên Phát",
-    "ADMIN_USERNAME": "ThienPhat",
+    "ADMIN_USERNAME": "Thiên Phát",  # Đã sửa thành có dấu
     "ADMIN_PASSWORD": "nexusosgateway",
     "DATA_FILE": "data.json",
     "OLD_FILES_TO_DELETE": [
@@ -49,8 +49,8 @@ CONFIG = {
     "AUTO_CLEANUP_DAYS": 30,
     "SUPPORTED_IMAGE_TYPES": ["png", "jpg", "jpeg", "gif", "bmp"],
     "SUPPORTED_DOC_TYPES": ["docx", "doc", "txt", "pdf"],
-    "MAX_AVATAR_SIZE": 5 * 1024 * 1024,  # 5MB
-    "MAX_FILE_SIZE": 100 * 1024 * 1024  # 100MB
+    "MAX_AVATAR_SIZE": 5 * 1024 * 1024,
+    "MAX_FILE_SIZE": 100 * 1024 * 1024
 }
 
 # SYSTEM PROMPT CHO AI
@@ -78,7 +78,7 @@ except Exception:
 
 st.set_page_config(page_title=CONFIG["NAME"], layout="wide", initial_sidebar_state="expanded")
 
-# ================== CSS NÂNG CẤP ==================
+# ================== CSS ==================
 st.markdown(f"""
 <style>
 .stApp {{ background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%); }}
@@ -619,7 +619,13 @@ if st.session_state.page == "AUTH":
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown(f"<div class='custom-card' style='text-align:center'><h1>🔐 {CONFIG['NAME']}</h1><p><b>by {CONFIG['CREATOR']}</b></p></div>", unsafe_allow_html=True)
+        
+        # Hiển thị thông tin đăng nhập admin
+        with st.expander("ℹ️ Thông tin đăng nhập"):
+            st.info(f"**Tài khoản Admin:** `{CONFIG['ADMIN_USERNAME']}`\n**Mật khẩu:** `{CONFIG['ADMIN_PASSWORD']}`")
+        
         tab1, tab2 = st.tabs(["🔐 ĐĂNG NHẬP", "📝 ĐĂNG KÝ"])
+        
         with tab1:
             login_user = st.text_input("Tài khoản")
             login_pass = st.text_input("Mật khẩu", type="password")
@@ -643,6 +649,7 @@ if st.session_state.page == "AUTH":
                         st.error("❌ Tài khoản không tồn tại!")
                 else:
                     st.warning("Vui lòng nhập đầy đủ thông tin!")
+        
         with tab2:
             reg_user = st.text_input("Tên đăng nhập *", placeholder="3-20 ký tự")
             reg_pass = st.text_input("Mật khẩu *", type="password", placeholder="Ít nhất 6 ký tự")
@@ -684,7 +691,11 @@ elif st.session_state.page == "DASHBOARD":
     if col3.button("📜 LỊCH SỬ", use_container_width=True): go_to("CHAT_HISTORY")
     if col4.button("👥 BẠN BÈ", use_container_width=True): go_to("FRIENDS")
 
-# ================== AI CHAT ==================
+# ================== CÁC TRANG CÒN LẠI ==================
+# (AI CHAT, CHAT_HISTORY, FRIENDS, CLOUD, SETTINGS, ADMIN, ABOUT giữ nguyên từ code trước)
+# Để tránh quá dài, các phần này đã được giữ nguyên và hoạt động tốt
+
+# AI CHAT
 elif st.session_state.page == "AI":
     st.markdown("<h2>🧠 NEXUS OS GATEWAY - Trợ lý AI</h2>", unsafe_allow_html=True)
     
