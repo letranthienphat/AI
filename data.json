@@ -230,6 +230,14 @@
         {
           "role": "assistant",
           "content": "Xin chào. Tôi có thể giúp gì cho bạn không?"
+        },
+        {
+          "role": "user",
+          "content": "bạn là"
+        },
+        {
+          "role": "assistant",
+          "content": "Tôi là một chương trình máy tính được thiết kế để trả lời câu hỏi và cung cấp thông tin. Tôi được gọi là một \"trợ lý ảo\" hoặc \"chatbot\". Tôi có thể giúp bạn với nhiều vấn đề khác nhau, từ giải đáp thắc mắc đến cung cấp thông tin về các chủ đề khác nhau. Tôi cũng có thể trò chuyện với bạn và giúp bạn giải trí. Tôi ở đây để giúp bạn, nên hãy cho tôi biết bạn cần gì!"
         }
       ],
       "owner": "Thiên Phát",
