@@ -269,6 +269,14 @@
         {
           "role": "assistant",
           "content": "Chào bạn. Tôi có thể giúp gì cho bạn không?"
+        },
+        {
+          "role": "user",
+          "content": "bạn là ai"
+        },
+        {
+          "role": "assistant",
+          "content": "Tôi là một trợ lý ảo được thiết kế để giúp đỡ và trả lời các câu hỏi của bạn. Tôi được tạo ra bởi một công ty công nghệ và được đào tạo trên một lượng lớn dữ liệu để có thể cung cấp thông tin và hỗ trợ cho bạn. Tôi không phải là một con người, nhưng tôi cố gắng giúp đỡ và trả lời các câu hỏi của bạn một cách tốt nhất có thể.\n\nTôi có thể giúp bạn với nhiều lĩnh vực khác nhau, chẳng hạn như:\n\n* Trả lời các câu hỏi về khoa học, lịch sử, văn hóa, vv.\n* Cung cấp thông tin về các chủ đề khác nhau, chẳng hạn như công nghệ, y tế, tài chính, vv.\n* Giúp bạn giải quyết các vấn đề hoặc tìm kiếm giải pháp cho các vấn đề cụ thể.\n* Cung cấp hỗ trợ và tư vấn về các vấn đề khác nhau.\n\nNếu bạn có bất kỳ câu hỏi hoặc vấn đề nào, hãy cho tôi biết và tôi sẽ cố gắng giúp đỡ bạn!"
         }
       ]
     }
