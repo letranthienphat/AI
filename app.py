@@ -12,17 +12,15 @@ from datetime import datetime
 from typing import Dict, Optional, List
 import mimetypes
 
-# ================== CẤU HÌNH ==================
+# ================== CẤU HÌNH DUY NHẤT ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
     "CREATOR": "Lê Trần Thiên Phát",
-    "ADMIN_USERNAME": "Thiên Phát",
+    "ADMIN_USERNAME": "ThienPhat",  # Đổi thành không dấu để tránh lỗi
     "ADMIN_PASSWORD": "nexusosgateway",
-    "FILE_DATA": "data.json",
+    "DATA_FILE": "data.json",  # CHỈ MỘT FILE DUY NHẤT
     "GUEST_ENABLED": True,
-    "MAX_RETRIES": 3,
-    "RETRY_DELAY": 1,
-    "FREE_STORAGE_LIMIT": 30 * 1024 * 1024 * 1024
+    "FREE_STORAGE_LIMIT": 30 * 1024 * 1024 * 1024  # 30 GB
 }
 
 # Load secrets
@@ -107,13 +105,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================== HÀM TIỆN ÍCH ==================
-def get_device_fp() -> str:
-    ua = st.context.headers.get("User-Agent", "Unknown")
-    return hashlib.sha256(ua.encode()).hexdigest()[:16]
-
-def get_default_db() -> Dict:
-    """Tạo database mặc định với admin"""
+# ================== HÀM XỬ LÝ DATA.JSON ==================
+def get_default_data() -> Dict:
+    """Tạo dữ liệu mặc định"""
     return {
         "users": {
             CONFIG["ADMIN_USERNAME"]: CONFIG["ADMIN_PASSWORD"]
@@ -122,90 +116,96 @@ def get_default_db() -> Dict:
         "pro_users": [],
         "chats": [],
         "files": {},
-        "emails": {}
+        "emails": {},
+        "version": "1.0"
     }
 
-def force_admin(data: Dict) -> Dict:
-    """LUÔN LUÔN đảm bảo admin tồn tại trong database"""
-    if "users" not in data:
-        data["users"] = {}
-    
-    # LUÔN tạo/ghi đè tài khoản admin
-    data["users"][CONFIG["ADMIN_USERNAME"]] = CONFIG["ADMIN_PASSWORD"]
-    
-    # Đảm bảo các key khác
-    if "codes" not in data:
-        data["codes"] = ["PHAT2026", "VIP2024", "PRO2025"]
-    if "pro_users" not in data:
-        data["pro_users"] = []
-    if "chats" not in data:
-        data["chats"] = []
-    if "files" not in data:
-        data["files"] = {}
-    if "emails" not in data:
-        data["emails"] = {}
-    
-    return data
-
-def safe_load_json(content: str) -> Dict:
-    try:
-        data = json.loads(content)
-        return force_admin(data)
-    except json.JSONDecodeError:
-        return get_default_db()
-
-def sync_io(data: Optional[Dict] = None, retries: int = CONFIG["MAX_RETRIES"]) -> Optional[Dict]:
-    url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['FILE_DATA']}"
+def load_data() -> Dict:
+    """Load dữ liệu từ GitHub - CHỈ DÙNG data.json"""
+    url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['DATA_FILE']}"
     headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     
-    for attempt in range(retries):
-        try:
-            res = requests.get(url, headers=headers, timeout=10)
-            if data is None:
-                if res.status_code == 200:
-                    content = base64.b64decode(res.json()['content']).decode('utf-8')
-                    return safe_load_json(content)
-                elif res.status_code == 404:
-                    default_data = get_default_db()
-                    sync_io(default_data, retries=1)
-                    return default_data
-                else:
-                    return get_default_db()
-            else:
-                # Force admin trước khi ghi
-                data = force_admin(data)
-                if res.status_code in (200, 404):
-                    sha = res.json().get("sha") if res.status_code == 200 else None
-                    content = base64.b64encode(json.dumps(data, ensure_ascii=False).encode('utf-8')).decode('utf-8')
-                    put_res = requests.put(url, headers=headers,
-                                           json={"message": "Nexus Sync", "content": content, "sha": sha},
-                                           timeout=10)
-                    if put_res.status_code in (200, 201):
-                        return data
-                    elif put_res.status_code == 409 and attempt < retries - 1:
-                        time.sleep(CONFIG["RETRY_DELAY"])
-                        continue
-                    else:
-                        return data
-                else:
-                    return data
-        except Exception as e:
-            if attempt < retries - 1:
-                time.sleep(CONFIG["RETRY_DELAY"])
-            else:
-                return get_default_db()
-    return None
+    try:
+        res = requests.get(url, headers=headers, timeout=10)
+        
+        if res.status_code == 200:
+            # File tồn tại, đọc nội dung
+            content = base64.b64decode(res.json()['content']).decode('utf-8')
+            data = json.loads(content)
+            
+            # Đảm bảo admin luôn tồn tại
+            if CONFIG["ADMIN_USERNAME"] not in data.get("users", {}):
+                data["users"][CONFIG["ADMIN_USERNAME"]] = CONFIG["ADMIN_PASSWORD"]
+            
+            # Đảm bảo các key cần thiết
+            if "codes" not in data:
+                data["codes"] = ["PHAT2026", "VIP2024", "PRO2025"]
+            if "pro_users" not in data:
+                data["pro_users"] = []
+            if "chats" not in data:
+                data["chats"] = []
+            if "files" not in data:
+                data["files"] = {}
+            if "emails" not in data:
+                data["emails"] = {}
+            
+            return data
+            
+        elif res.status_code == 404:
+            # File chưa tồn tại, tạo mới và upload
+            default_data = get_default_data()
+            save_data(default_data)
+            return default_data
+        else:
+            st.error(f"Lỗi đọc dữ liệu: {res.status_code}")
+            return get_default_data()
+            
+    except Exception as e:
+        st.error(f"Lỗi kết nối: {str(e)}")
+        return get_default_data()
 
-@st.cache_data(ttl=60)
-def load_db():
-    return sync_io()
+def save_data(data: Dict) -> bool:
+    """Lưu dữ liệu lên GitHub - CHỈ DÙNG data.json"""
+    url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['DATA_FILE']}"
+    headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+    
+    try:
+        # Lấy sha nếu file đã tồn tại
+        res = requests.get(url, headers=headers, timeout=10)
+        sha = res.json().get("sha") if res.status_code == 200 else None
+        
+        # Đảm bảo admin tồn tại trước khi lưu
+        if CONFIG["ADMIN_USERNAME"] not in data.get("users", {}):
+            data["users"][CONFIG["ADMIN_USERNAME"]] = CONFIG["ADMIN_PASSWORD"]
+        
+        # Mã hóa nội dung
+        content = base64.b64encode(json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8')).decode('utf-8')
+        
+        # Upload lên GitHub
+        put_data = {
+            "message": f"Update {CONFIG['DATA_FILE']}",
+            "content": content,
+            "branch": "main"
+        }
+        if sha:
+            put_data["sha"] = sha
+        
+        put_res = requests.put(url, headers=headers, json=put_data, timeout=10)
+        
+        if put_res.status_code in [200, 201]:
+            return True
+        else:
+            st.error(f"Lỗi lưu dữ liệu: {put_res.status_code}")
+            return False
+            
+    except Exception as e:
+        st.error(f"Lỗi lưu: {str(e)}")
+        return False
 
+# ================== KHỞI TẠO SESSION ==================
 def init_session():
-    if 'db' not in st.session_state:
-        st.session_state.db = load_db()
-        # Force admin một lần nữa
-        st.session_state.db = force_admin(st.session_state.db)
-        sync_io(st.session_state.db)
+    if 'data' not in st.session_state:
+        st.session_state.data = load_data()
     if 'page' not in st.session_state:
         st.session_state.page = "AUTH"
     if 'user' not in st.session_state:
@@ -224,15 +224,16 @@ def init_session():
         st.session_state.register_success = False
 
 init_session()
-is_pro = (st.session_state.user in st.session_state.db.get("pro_users", [])) if st.session_state.user else False
+is_pro = (st.session_state.user in st.session_state.data.get("pro_users", [])) if st.session_state.user else False
 
 def go_to(page):
     st.session_state.page = page
     st.rerun()
 
+# ================== HÀM TIỆN ÍCH ==================
 def get_used_storage(user: str) -> int:
     total = 0
-    for path, info in st.session_state.db.get("files", {}).items():
+    for path, info in st.session_state.data.get("files", {}).items():
         if info.get("owner") == user:
             total += info.get("size", 0)
     return total
@@ -241,7 +242,7 @@ def list_dir(path: str) -> Dict[str, List]:
     folders = set()
     files = []
     prefix = path + "/" if path else ""
-    for full_path, info in st.session_state.db.get("files", {}).items():
+    for full_path, info in st.session_state.data.get("files", {}).items():
         if info.get("owner") != st.session_state.user:
             continue
         if full_path.startswith(prefix):
@@ -257,26 +258,26 @@ def create_folder(path: str):
     if path and not path.endswith("/"):
         path += "/"
     marker = path + ".folder"
-    if marker not in st.session_state.db["files"]:
-        st.session_state.db["files"][marker] = {
+    if marker not in st.session_state.data["files"]:
+        st.session_state.data["files"][marker] = {
             "owner": st.session_state.user,
             "data": "",
             "size": 0,
             "type": "inode/directory",
             "upload_time": str(datetime.now())
         }
-        sync_io(st.session_state.db)
+        save_data(st.session_state.data)
         return True
     return False
 
 def delete_path(path: str):
     to_delete = []
-    for full_path in list(st.session_state.db["files"].keys()):
+    for full_path in list(st.session_state.data["files"].keys()):
         if full_path == path or full_path.startswith(path + "/"):
             to_delete.append(full_path)
     for p in to_delete:
-        del st.session_state.db["files"][p]
-    sync_io(st.session_state.db)
+        del st.session_state.data["files"][p]
+    save_data(st.session_state.data)
 
 def validate_username(username: str) -> tuple:
     if not username:
@@ -287,9 +288,9 @@ def validate_username(username: str) -> tuple:
         return False, "Tên đăng nhập không được quá 20 ký tự"
     if username == CONFIG["ADMIN_USERNAME"]:
         return False, "Tên đăng nhập không hợp lệ"
-    if not re.match(r'^[a-zA-Z0-9_\u00C0-\u1EF9]+$', username):
+    if not re.match(r'^[a-zA-Z0-9_]+$', username):
         return False, "Tên đăng nhập chỉ được chứa chữ cái, số và dấu gạch dưới"
-    if username in st.session_state.db["users"]:
+    if username in st.session_state.data["users"]:
         return False, "Tên đăng nhập đã tồn tại"
     return True, "OK"
 
@@ -318,10 +319,10 @@ def register_user(username: str, password: str, email: str = "") -> tuple:
     valid, msg = validate_email(email)
     if not valid:
         return False, msg
-    st.session_state.db["users"][username] = password
+    st.session_state.data["users"][username] = password
     if email:
-        st.session_state.db["emails"][username] = email
-    sync_io(st.session_state.db)
+        st.session_state.data["emails"][username] = email
+    save_data(st.session_state.data)
     return True, "Đăng ký thành công! Vui lòng đăng nhập."
 
 # ================== SIDEBAR ==================
@@ -380,40 +381,16 @@ if st.session_state.page == "AUTH":
             with col_btn1:
                 if st.button("ĐĂNG NHẬP", use_container_width=True, key="login_btn"):
                     if login_username and login_password:
-                        username_clean = login_username.strip()
-                        # Debug cho admin (chỉ hiển thị khi đăng nhập sai)
-                        if username_clean == CONFIG["ADMIN_USERNAME"]:
-                            if CONFIG["ADMIN_USERNAME"] in st.session_state.db["users"]:
-                                stored = st.session_state.db["users"][CONFIG["ADMIN_USERNAME"]]
-                                if stored == login_password:
-                                    st.session_state.user = username_clean
-                                    st.session_state.guest_mode = False
-                                    st.toast(f"✅ Đăng nhập thành công!", icon="🎉")
-                                    go_to("DASHBOARD")
-                                else:
-                                    st.error("❌ Sai mật khẩu!")
-                                    # Debug ẩn - chỉ hiện khi sai
-                                    with st.expander("🔧 Chi tiết lỗi"):
-                                        st.write(f"Mật khẩu bạn nhập: `{login_password}`")
-                                        st.write(f"Mật khẩu đúng: `{stored}`")
+                        if login_username in st.session_state.data["users"]:
+                            if st.session_state.data["users"][login_username] == login_password:
+                                st.session_state.user = login_username
+                                st.session_state.guest_mode = False
+                                st.toast(f"✅ Đăng nhập thành công!", icon="🎉")
+                                go_to("DASHBOARD")
                             else:
-                                st.error("❌ Lỗi: Tài khoản admin chưa được khởi tạo!")
-                                # Tạo lại admin ngay lập tức
-                                st.session_state.db = force_admin(st.session_state.db)
-                                sync_io(st.session_state.db)
-                                st.rerun()
+                                st.error("❌ Sai mật khẩu!")
                         else:
-                            # Đăng nhập thường
-                            if username_clean in st.session_state.db["users"]:
-                                if st.session_state.db["users"][username_clean] == login_password:
-                                    st.session_state.user = username_clean
-                                    st.session_state.guest_mode = False
-                                    st.toast(f"✅ Đăng nhập thành công!", icon="🎉")
-                                    go_to("DASHBOARD")
-                                else:
-                                    st.error("❌ Sai mật khẩu!")
-                            else:
-                                st.error("❌ Tài khoản không tồn tại!")
+                            st.error("❌ Tài khoản không tồn tại!")
                     else:
                         st.warning("Vui lòng nhập đầy đủ thông tin!")
             
@@ -432,7 +409,7 @@ if st.session_state.page == "AUTH":
                 st.markdown('<div class="success-message">✅ Đăng ký thành công! Vui lòng đăng nhập.</div>', unsafe_allow_html=True)
                 st.session_state.register_success = False
             
-            reg_username = st.text_input("Tên đăng nhập *", placeholder="3-20 ký tự", key="reg_username")
+            reg_username = st.text_input("Tên đăng nhập *", placeholder="3-20 ký tự, chỉ chữ cái, số, _", key="reg_username")
             reg_password = st.text_input("Mật khẩu *", type="password", placeholder="Ít nhất 6 ký tự", key="reg_password")
             reg_confirm = st.text_input("Xác nhận mật khẩu *", type="password", key="reg_confirm")
             reg_email = st.text_input("Email (tùy chọn)", placeholder="example@email.com", key="reg_email")
@@ -453,10 +430,6 @@ if st.session_state.page == "AUTH":
                         st.error(f"❌ {message}")
         
         st.markdown('</div>', unsafe_allow_html=True)
-
-# ================== CÁC TRANG KHÁC ==================
-# (Giữ nguyên các phần DASHBOARD, AI, CLOUD, SETTINGS, ADMIN từ code trước)
-# Để tránh quá dài, tôi sẽ giữ nguyên các phần này
 
 # ================== DASHBOARD ==================
 elif st.session_state.page == "DASHBOARD":
@@ -494,7 +467,7 @@ elif st.session_state.page == "AI":
                 st.session_state.chat_id = None
                 st.rerun()
             
-            chats_to_show = [(i, c) for i, c in enumerate(st.session_state.db["chats"]) if c["owner"] == st.session_state.user]
+            chats_to_show = [(i, c) for i, c in enumerate(st.session_state.data["chats"]) if c["owner"] == st.session_state.user]
             if chats_to_show:
                 for i, c in chats_to_show:
                     col_t, col_d = st.columns([4, 1])
@@ -505,10 +478,10 @@ elif st.session_state.page == "AI":
                     with col_d:
                         if st.button("🗑️", key=f"del_{i}"):
                             if st.session_state.get(f"confirm_del_{i}", False):
-                                st.session_state.db["chats"].pop(i)
+                                st.session_state.data["chats"].pop(i)
                                 if st.session_state.chat_id == i:
                                     st.session_state.chat_id = None
-                                sync_io(st.session_state.db)
+                                save_data(st.session_state.data)
                                 st.toast("Đã xóa", icon="🗑️")
                                 st.rerun()
                             else:
@@ -526,13 +499,13 @@ elif st.session_state.page == "AI":
             chat["msgs"] = []
     else:
         idx = st.session_state.chat_id
-        if idx is None or idx >= len(st.session_state.db["chats"]):
+        if idx is None or idx >= len(st.session_state.data["chats"]):
             new_chat = {"name": "Hội thoại mới", "msgs": [], "owner": st.session_state.user,
                         "temp": False, "time": str(datetime.now())}
-            st.session_state.db["chats"].append(new_chat)
-            st.session_state.chat_id = len(st.session_state.db["chats"]) - 1
+            st.session_state.data["chats"].append(new_chat)
+            st.session_state.chat_id = len(st.session_state.data["chats"]) - 1
             idx = st.session_state.chat_id
-        chat = st.session_state.db["chats"][idx]
+        chat = st.session_state.data["chats"][idx]
         temp_mode = st.toggle("🧹 Chế độ tạm thời", value=chat.get("temp", False))
         chat["temp"] = temp_mode
 
@@ -574,7 +547,7 @@ elif st.session_state.page == "AI":
                 pass
 
         if not st.session_state.guest_mode:
-            sync_io(st.session_state.db)
+            save_data(st.session_state.data)
         st.rerun()
 
 # ================== CLOUD ==================
@@ -663,18 +636,18 @@ elif st.session_state.page == "CLOUD":
                 else:
                     if st.button("Tải lên"):
                         full_path = (st.session_state.current_dir + "/" + uploaded_file.name) if st.session_state.current_dir else uploaded_file.name
-                        if full_path in st.session_state.db["files"]:
+                        if full_path in st.session_state.data["files"]:
                             st.warning("File đã tồn tại")
                         else:
                             mime_type = mimetypes.guess_type(uploaded_file.name)[0] or "application/octet-stream"
-                            st.session_state.db["files"][full_path] = {
+                            st.session_state.data["files"][full_path] = {
                                 "owner": st.session_state.user,
                                 "data": base64.b64encode(uploaded_file.getvalue()).decode(),
                                 "size": file_size,
                                 "type": mime_type,
                                 "upload_time": str(datetime.now())
                             }
-                            sync_io(st.session_state.db)
+                            save_data(st.session_state.data)
                             st.toast(f"Đã tải lên {uploaded_file.name}", icon="✅")
                             st.rerun()
 
@@ -707,11 +680,11 @@ elif st.session_state.page == "SETTINGS":
             st.subheader("Kích hoạt Pro")
             code = st.text_input("Mã kích hoạt", placeholder="Nhập mã Pro").upper()
             if st.button("KÍCH HOẠT", use_container_width=True):
-                if code in st.session_state.db["codes"]:
-                    if st.session_state.user not in st.session_state.db["pro_users"]:
-                        st.session_state.db["pro_users"].append(st.session_state.user)
-                        st.session_state.db["codes"].remove(code)
-                        sync_io(st.session_state.db)
+                if code in st.session_state.data["codes"]:
+                    if st.session_state.user not in st.session_state.data["pro_users"]:
+                        st.session_state.data["pro_users"].append(st.session_state.user)
+                        st.session_state.data["codes"].remove(code)
+                        save_data(st.session_state.data)
                         st.balloons()
                         st.toast("🎉 Chúc mừng! Bạn đã là Pro!", icon="💎")
                         st.rerun()
@@ -724,8 +697,8 @@ elif st.session_state.page == "SETTINGS":
         st.subheader("Thông tin")
         st.write(f"**Tên:** {st.session_state.user}")
         st.write(f"**Hạng:** {'Pro' if is_pro else 'Miễn phí'}")
-        if st.session_state.user in st.session_state.db.get("emails", {}):
-            st.write(f"**Email:** {st.session_state.db['emails'][st.session_state.user]}")
+        if st.session_state.user in st.session_state.data.get("emails", {}):
+            st.write(f"**Email:** {st.session_state.data['emails'][st.session_state.user]}")
 
 # ================== ADMIN ==================
 elif st.session_state.page == "ADMIN":
@@ -741,41 +714,41 @@ elif st.session_state.page == "ADMIN":
             st.subheader("Tạo mã Pro")
             new_code = st.text_input("Mã mới").upper()
             if st.button("TẠO"):
-                if new_code and new_code not in st.session_state.db["codes"]:
-                    st.session_state.db["codes"].append(new_code)
-                    sync_io(st.session_state.db)
+                if new_code and new_code not in st.session_state.data["codes"]:
+                    st.session_state.data["codes"].append(new_code)
+                    save_data(st.session_state.data)
                     st.toast(f"Đã tạo mã {new_code}", icon="✅")
                     st.rerun()
                 else:
                     st.error("Mã đã tồn tại!")
             st.subheader("Danh sách mã")
-            for code in st.session_state.db["codes"]:
+            for code in st.session_state.data["codes"]:
                 st.write(f"- {code}")
         
         with tab2:
             st.subheader("Người dùng")
-            for user in st.session_state.db["users"]:
-                is_pro_user = "PRO" if user in st.session_state.db["pro_users"] else "FREE"
+            for user in st.session_state.data["users"]:
+                is_pro_user = "PRO" if user in st.session_state.data["pro_users"] else "FREE"
                 st.write(f"- {user} ({is_pro_user})")
             
             st.divider()
             st.subheader("Pro Users")
-            for u in st.session_state.db["pro_users"]:
+            for u in st.session_state.data["pro_users"]:
                 col1, col2 = st.columns([3, 1])
                 col1.write(f"- {u}")
                 if col2.button("Xóa", key=f"remove_{u}"):
-                    st.session_state.db["pro_users"].remove(u)
-                    sync_io(st.session_state.db)
+                    st.session_state.data["pro_users"].remove(u)
+                    save_data(st.session_state.data)
                     st.toast(f"Đã xóa {u}", icon="🗑️")
                     st.rerun()
         
         with tab3:
-            if st.button("Đồng bộ từ GitHub"):
+            if st.button("🔄 Đồng bộ dữ liệu từ GitHub", use_container_width=True):
                 with st.spinner("Đang đồng bộ..."):
-                    st.session_state.db = sync_io()
-                    st.toast("Đã đồng bộ!", icon="🔄")
+                    st.session_state.data = load_data()
+                    st.toast("Đã đồng bộ dữ liệu từ GitHub!", icon="🔄")
                     st.rerun()
-            if st.button("Lưu lên GitHub"):
+            if st.button("💾 Lưu dữ liệu lên GitHub", use_container_width=True):
                 with st.spinner("Đang lưu..."):
-                    sync_io(st.session_state.db)
-                    st.toast("Đã lưu!", icon="💾")
+                    save_data(st.session_state.data)
+                    st.toast("Đã lưu dữ liệu lên GitHub!", icon="💾")
