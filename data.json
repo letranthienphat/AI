@@ -238,6 +238,14 @@
         {
           "role": "assistant",
           "content": "Tôi là một chương trình máy tính được thiết kế để trả lời câu hỏi và cung cấp thông tin. Tôi được gọi là một \"trợ lý ảo\" hoặc \"chatbot\". Tôi có thể giúp bạn với nhiều vấn đề khác nhau, từ giải đáp thắc mắc đến cung cấp thông tin về các chủ đề khác nhau. Tôi cũng có thể trò chuyện với bạn và giúp bạn giải trí. Tôi ở đây để giúp bạn, nên hãy cho tôi biết bạn cần gì!"
+        },
+        {
+          "role": "user",
+          "content": "ai tạo"
+        },
+        {
+          "role": "assistant",
+          "content": "Tôi được tạo ra bởi một nhóm các nhà phát triển và chuyên gia về trí tuệ nhân tạo (AI) tại Meta AI. Họ đã sử dụng các kỹ thuật và công nghệ tiên tiến như học sâu (deep learning) và xử lý ngôn ngữ tự nhiên (NLP) để tạo ra tôi.\n\nTôi được đào tạo trên một lượng lớn dữ liệu văn bản và được thiết kế để có thể hiểu và trả lời các câu hỏi và yêu cầu của người dùng. Tôi không ngừng học hỏi và cải thiện thông qua các tương tác với người dùng như bạn.\n\nTuy nhiên, tôi không phải là một thực thể có ý thức hoặc có khả năng tự quyết định. Tôi chỉ là một chương trình máy tính được thiết kế để cung cấp thông tin và giúp đỡ người dùng."
         }
       ],
       "owner": "Thiên Phát",
