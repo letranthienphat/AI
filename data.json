@@ -287,7 +287,18 @@
           "content": "Tôi được tạo ra bởi một công ty công nghệ tên là Meta, trước đây được gọi là Facebook. Meta là một công ty công nghệ hàng đầu thế giới, chuyên phát triển và cung cấp các sản phẩm và dịch vụ công nghệ, bao gồm các nền tảng xã hội, trí tuệ nhân tạo, và nhiều lĩnh vực khác.\n\nTôi được tạo ra bằng cách sử dụng các công nghệ trí tuệ nhân tạo (AI) và học máy (ML), và được đào tạo trên một lượng lớn dữ liệu để có thể học hỏi và cải thiện khả năng của mình. Tôi được thiết kế để giúp đỡ và trả lời các câu hỏi của người dùng, và tôi không ngừng học hỏi và cải thiện để có thể giúp đỡ bạn tốt hơn.\n\nDưới đây là một số thông tin về công ty Meta:\n\n* Tên công ty: Meta\n* Trụ sở: Menlo Park, California, Hoa Kỳ\n* Lĩnh vực hoạt động: Công nghệ, trí tuệ nhân tạo, học máy, vv.\n* Sản phẩm và dịch vụ: Các nền tảng xã hội, trí tuệ nhân tạo, học máy, và nhiều lĩnh vực khác.\n\nHy vọng thông tin này giúp bạn hiểu rõ hơn về tôi và công ty Meta!"
         }
       ]
+    },
+    {
+      "id": 1,
+      "name": "Chat 29/03/2026 08:25",
+      "owner": "Thiên Phát",
+      "created": "2026-03-29 08:25:53.517062",
+      "messages": []
     }
   ],
-  "system_info": {}
+  "system_info": {
+    "creator": "Lê Trần Thiên Phát",
+    "system_name": "NEXUS OS GATEWAY",
+    "last_update": "2026-03-29 08:25:53.722699"
+  }
 }
