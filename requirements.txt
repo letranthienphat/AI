@@ -2,3 +2,5 @@ streamlit
 openai
 requests
 streamlit-js-eval
+pillow
+pytesseract
