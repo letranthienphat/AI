@@ -4,3 +4,4 @@ requests
 streamlit-js-eval
 pillow
 pytesseract
+python-docx
