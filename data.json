@@ -261,7 +261,16 @@
       "name": "Chat 29/03/2026 06:02",
       "owner": "Thiên Phát",
       "created": "2026-03-29 06:02:21.142389",
-      "messages": []
+      "messages": [
+        {
+          "role": "user",
+          "content": "chào"
+        },
+        {
+          "role": "assistant",
+          "content": "Chào bạn. Tôi có thể giúp gì cho bạn không?"
+        }
+      ]
     }
   ],
   "system_info": {}
