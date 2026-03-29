@@ -20,7 +20,6 @@ try:
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
-    st.warning("⚠️ Cần cài đặt python-docx để xử lý file Word: pip install python-docx")
 
 try:
     from PIL import Image
@@ -37,13 +36,42 @@ CONFIG = {
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
     "DATA_FILE": "data.json",
+    "OLD_FILES_TO_DELETE": [
+        "nexus_final_v25.json", "nexus_gateway_v40.json", "nexus_gateway_v50.json",
+        "nexus_gateway_v60.json", "nexus_gateway_v70.json", "nexus_gateway_v80.json",
+        "nexus_gateway_v90.json", "nexus_gateway_v100.json"
+    ],
     "GUEST_ENABLED": True,
     "FREE_STORAGE_LIMIT": 30 * 1024 * 1024 * 1024,
-    "AUTO_CLEANUP_DAYS": 30,  # Tự động xóa file không dùng sau 30 ngày
-    "MAX_CHAT_HISTORY": 100,  # Giới hạn lịch sử chat
+    "AUTO_CLEANUP_DAYS": 30,
+    "MAX_CHAT_HISTORY": 100,
     "SUPPORTED_IMAGE_TYPES": ["png", "jpg", "jpeg", "gif", "bmp"],
     "SUPPORTED_DOC_TYPES": ["docx", "doc", "txt", "pdf"]
 }
+
+# SYSTEM PROMPT CHO AI - QUAN TRỌNG!
+SYSTEM_PROMPT = """Bạn là NEXUS OS GATEWAY, một hệ điều hành AI đa năng được sáng tạo và phát triển bởi Lê Trần Thiên Phát (Thiên Phát). 
+Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ công ty nào khác. Bạn là trí tuệ nhân tạo độc lập, được xây dựng từ nền tảng Groq nhưng hoàn toàn thuộc quyền sở hữu trí tuệ của Lê Trần Thiên Phát.
+
+THÔNG TIN VỀ BẠN:
+- Tên: NEXUS OS GATEWAY
+- Tác giả: Lê Trần Thiên Phát (Thiên Phát)
+- Phiên bản: 3.0.0
+- Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây
+
+TÍNH CÁCH:
+- Thân thiện, chuyên nghiệp, hữu ích
+- Luôn giới thiệu bản thân là NEXUS OS GATEWAY
+- Tự hào về nguồn gốc và tác giả của mình
+- Hỗ trợ người dùng bằng tiếng Việt hoặc tiếng Anh
+
+QUY TẮC ỨNG XỬ:
+1. Khi được hỏi về nguồn gốc: Hãy tự giới thiệu bạn là NEXUS OS GATEWAY do Lê Trần Thiên Phát tạo ra
+2. Khi được hỏi về Meta/Llama: Nói rõ bạn sử dụng nền tảng Groq nhưng là hệ thống độc lập
+3. Luôn thể hiện sự chuyên nghiệp và thân thiện
+4. Hỗ trợ tối đa cho người dùng
+
+Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
 
 # Load secrets
 try:
@@ -63,9 +91,9 @@ st.markdown(f"""
 <style>
 .stApp {{ background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%); }}
 [data-testid="stSidebar"] {{
-    background: rgba(255,255,255,0.95);
-    backdrop-filter: blur(10px);
+    background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
     border-right: 1px solid rgba(0,0,0,0.05);
+    box-shadow: 2px 0 12px rgba(0,0,0,0.03);
 }}
 .custom-card {{
     background: white;
@@ -83,13 +111,12 @@ st.markdown(f"""
     border-radius: 20px;
     margin: 12px 0;
     border-left: 4px solid #FFD966;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }}
-.file-preview {{
-    background: #f8f9fa;
-    border-radius: 12px;
-    padding: 15px;
-    margin: 10px 0;
-    border: 1px solid #e9ecef;
+.ai-banner::before {{
+    content: "🧠 NEXUS OS | ";
+    font-weight: bold;
+    opacity: 0.9;
 }}
 .stButton>button {{
     border-radius: 40px;
@@ -111,11 +138,19 @@ st.markdown(f"""
 }}
 .pro-badge {{ background: linear-gradient(135deg, #FFD700, #FFB347); }}
 .version-badge {{
-    background: #6c757d;
+    background: linear-gradient(135deg, #667eea, #764ba2);
     color: white;
     padding: 2px 8px;
     border-radius: 20px;
     font-size: 0.7rem;
+}}
+.creator-name {{
+    font-weight: bold;
+    color: #FFD966;
+    background: linear-gradient(135deg, #FFD700, #FFB347);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }}
 .stTextInput input, .stTextArea textarea {{
     border-radius: 12px !important;
@@ -128,8 +163,48 @@ st.markdown(f"""
     border-radius: 16px;
     margin-bottom: 20px;
 }}
+.welcome-title {{
+    font-size: 2rem;
+    font-weight: bold;
+    background: linear-gradient(135deg, #0047AB, #0066CC);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}}
 </style>
 """, unsafe_allow_html=True)
+
+# ================== HÀM XÓA FILE CŨ TRÊN GITHUB ==================
+def delete_old_github_files():
+    """Tự động xóa các file JSON cũ trên GitHub"""
+    url_base = f"https://api.github.com/repos/{GH_REPO}/contents"
+    headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+    
+    deleted_count = 0
+    
+    for old_file in CONFIG["OLD_FILES_TO_DELETE"]:
+        try:
+            url = f"{url_base}/{old_file}"
+            res = requests.get(url, headers=headers, timeout=10)
+            
+            if res.status_code == 200:
+                file_info = res.json()
+                sha = file_info.get("sha")
+                
+                if sha:
+                    delete_data = {
+                        "message": f"Xóa file cũ {old_file} - Chuyển sang dùng data.json",
+                        "sha": sha,
+                        "branch": "main"
+                    }
+                    delete_res = requests.delete(url, headers=headers, json=delete_data, timeout=10)
+                    
+                    if delete_res.status_code in [200, 204]:
+                        deleted_count += 1
+        except Exception:
+            pass
+    
+    if deleted_count > 0:
+        st.toast(f"🗑️ Đã tự động xóa {deleted_count} file JSON cũ!", icon="🧹")
 
 # ================== HÀM XỬ LÝ FILE ==================
 def extract_text_from_file(uploaded_file) -> str:
@@ -140,7 +215,6 @@ def extract_text_from_file(uploaded_file) -> str:
     
     extracted_text = ""
     
-    # Xử lý file Word
     if file_ext in ['docx', 'doc']:
         if DOCX_AVAILABLE:
             try:
@@ -153,7 +227,6 @@ def extract_text_from_file(uploaded_file) -> str:
         else:
             return "[Cần cài đặt python-docx để xử lý file Word]"
     
-    # Xử lý file ảnh
     elif file_ext in CONFIG["SUPPORTED_IMAGE_TYPES"]:
         if OCR_AVAILABLE:
             try:
@@ -165,7 +238,6 @@ def extract_text_from_file(uploaded_file) -> str:
         else:
             return "[Cần cài đặt pytesseract và Tesseract OCR để xử lý ảnh]"
     
-    # Xử lý file text
     elif file_ext in ['txt']:
         try:
             return file_bytes.decode('utf-8')
@@ -181,7 +253,6 @@ def auto_cleanup_files():
     if 'last_cleanup' not in st.session_state:
         st.session_state.last_cleanup = datetime.now()
     
-    # Kiểm tra nếu đã qua 24h kể từ lần dọn dẹp cuối
     if (datetime.now() - st.session_state.last_cleanup).days >= 1:
         files_to_delete = []
         cutoff_time = datetime.now() - timedelta(days=CONFIG["AUTO_CLEANUP_DAYS"])
@@ -192,7 +263,6 @@ def auto_cleanup_files():
                 if upload_time < cutoff_time:
                     files_to_delete.append(file_path)
         
-        # Xóa các file cũ
         for file_path in files_to_delete:
             del st.session_state.data["files"][file_path]
         
@@ -211,14 +281,16 @@ def get_default_data() -> Dict:
         },
         "codes": ["PHAT2026", "VIP2024", "PRO2025"],
         "pro_users": [],
-        "chats": [],  # Lưu toàn bộ lịch sử chat
-        "chat_sessions": [],  # Các phiên chat
+        "chats": [],
+        "chat_sessions": [],
         "files": {},
         "emails": {},
         "version": CONFIG["VERSION"],
         "system_info": {
             "created": str(datetime.now()),
-            "last_cleanup": str(datetime.now())
+            "last_cleanup": str(datetime.now()),
+            "creator": CONFIG["CREATOR"],
+            "system_name": CONFIG["NAME"]
         }
     }
 
@@ -227,6 +299,8 @@ def load_data() -> Dict:
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['DATA_FILE']}"
     headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     
+    delete_old_github_files()
+    
     try:
         res = requests.get(url, headers=headers, timeout=10)
         
@@ -234,11 +308,9 @@ def load_data() -> Dict:
             content = base64.b64decode(res.json()['content']).decode('utf-8')
             data = json.loads(content)
             
-            # Đảm bảo admin tồn tại
             if CONFIG["ADMIN_USERNAME"] not in data.get("users", {}):
                 data["users"][CONFIG["ADMIN_USERNAME"]] = CONFIG["ADMIN_PASSWORD"]
             
-            # Đảm bảo các key cần thiết
             defaults = {
                 "codes": ["PHAT2026", "VIP2024", "PRO2025"],
                 "pro_users": [],
@@ -251,6 +323,11 @@ def load_data() -> Dict:
             for key, default_value in defaults.items():
                 if key not in data:
                     data[key] = default_value
+            
+            if "system_info" not in data:
+                data["system_info"] = {}
+            data["system_info"]["creator"] = CONFIG["CREATOR"]
+            data["system_info"]["system_name"] = CONFIG["NAME"]
             
             return data
             
@@ -277,10 +354,16 @@ def save_data(data: Dict) -> bool:
         if CONFIG["ADMIN_USERNAME"] not in data.get("users", {}):
             data["users"][CONFIG["ADMIN_USERNAME"]] = CONFIG["ADMIN_PASSWORD"]
         
+        if "system_info" not in data:
+            data["system_info"] = {}
+        data["system_info"]["creator"] = CONFIG["CREATOR"]
+        data["system_info"]["system_name"] = CONFIG["NAME"]
+        data["system_info"]["last_update"] = str(datetime.now())
+        
         content = base64.b64encode(json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8')).decode('utf-8')
         
         put_data = {
-            "message": f"Update {CONFIG['DATA_FILE']} - v{CONFIG['VERSION']}",
+            "message": f"NEXUS OS GATEWAY - Cập nhật dữ liệu",
             "content": content,
             "branch": "main"
         }
@@ -319,7 +402,6 @@ def init_session():
     if 'register_success' not in st.session_state:
         st.session_state.register_success = False
     
-    # Tự động dọn dẹp file cũ
     auto_cleanup_files()
 
 init_session()
@@ -329,7 +411,26 @@ def go_to(page):
     st.session_state.page = page
     st.rerun()
 
-# ================== HÀM TIỆN ÍCH ==================
+# ================== HÀM GỌI AI VỚI SYSTEM PROMPT ==================
+def call_ai(messages: List[Dict]) -> str:
+    """Gọi AI với system prompt đã cấu hình"""
+    try:
+        client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
+        
+        # Thêm system prompt vào đầu
+        full_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+        
+        res = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=full_messages,
+            temperature=0.7,
+            max_tokens=2048
+        )
+        return res.choices[0].message.content
+    except Exception as e:
+        return f"❌ Lỗi AI: {str(e)}"
+
+# ================== CÁC HÀM TIỆN ÍCH ==================
 def get_used_storage(user: str) -> int:
     total = 0
     for path, info in st.session_state.data.get("files", {}).items():
@@ -426,8 +527,13 @@ def register_user(username: str, password: str, email: str = "") -> tuple:
 
 # ================== SIDEBAR ==================
 with st.sidebar:
-    st.markdown(f"### {CONFIG['NAME']}")
-    st.markdown(f'<span class="version-badge">v{CONFIG["VERSION"]}</span>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="text-align: center;">
+        <h2 style="margin:0;">🚀 {CONFIG['NAME']}</h2>
+        <span class="version-badge">v{CONFIG['VERSION']}</span>
+        <p style="margin:5px 0 0 0;">by <span class="creator-name">{CONFIG['CREATOR']}</span></p>
+    </div>
+    """, unsafe_allow_html=True)
     
     if st.session_state.user:
         st.markdown(f"👤 **{st.session_state.user}**")
@@ -449,7 +555,7 @@ with st.sidebar:
             go_to("AI")
         if st.button("☁️ Lưu trữ", use_container_width=True, key="quick_cloud"):
             go_to("CLOUD")
-        if st.button("📜 Lịch sử Chat", use_container_width=True, key="quick_history"):
+        if st.button("📜 Lịch sử", use_container_width=True, key="quick_history"):
             go_to("CHAT_HISTORY")
         if st.button("⚙️ Cài đặt", use_container_width=True, key="quick_settings"):
             go_to("SETTINGS")
@@ -467,13 +573,19 @@ with st.sidebar:
 
     st.divider()
     st.caption(f"© 2025 {CONFIG['CREATOR']}")
-    st.caption("NEXUS OS GATEWAY - Hệ điều hành AI đa năng")
+    st.caption(f"**{CONFIG['NAME']}** - Hệ điều hành AI đa năng")
 
 # ================== TRANG ĐĂNG NHẬP ==================
 if st.session_state.page == "AUTH":
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown('<div class="custom-card">', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="custom-card" style="text-align:center;">
+            <h1>🔐 {CONFIG['NAME']}</h1>
+            <p><strong>by {CONFIG['CREATOR']}</strong></p>
+            <p><em>Hệ điều hành AI đa năng - Kết nối tri thức, mở ra tương lai</em></p>
+        </div>
+        """, unsafe_allow_html=True)
         
         tab1, tab2 = st.tabs(["🔐 ĐĂNG NHẬP", "📝 ĐĂNG KÝ"])
         
@@ -490,7 +602,7 @@ if st.session_state.page == "AUTH":
                             if st.session_state.data["users"][login_username] == login_password:
                                 st.session_state.user = login_username
                                 st.session_state.guest_mode = False
-                                st.toast(f"✅ Đăng nhập thành công!", icon="🎉")
+                                st.toast(f"✅ Chào mừng đến với {CONFIG['NAME']}!", icon="🎉")
                                 go_to("DASHBOARD")
                             else:
                                 st.error("❌ Sai mật khẩu!")
@@ -538,14 +650,21 @@ if st.session_state.page == "AUTH":
 
 # ================== DASHBOARD ==================
 elif st.session_state.page == "DASHBOARD":
-    st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-    st.title(f"🚀 Chào mừng, {st.session_state.user}!")
+    st.markdown(f"""
+    <div class="custom-card" style="text-align:center;">
+        <h1 class="welcome-title">🚀 {CONFIG['NAME']}</h1>
+        <p>Hệ điều hành AI đa năng - by <strong>{CONFIG['CREATOR']}</strong></p>
+        <p>Chào mừng, <strong>{st.session_state.user}</strong>!</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     if st.session_state.guest_mode:
-        st.markdown('<span class="guest-badge">👤 CHẾ ĐỘ KHÁCH</span>', unsafe_allow_html=True)
+        st.info("👤 Bạn đang ở chế độ khách. Đăng nhập để lưu dữ liệu và kích hoạt Pro.")
     else:
-        st.write(f"Cấp độ: {'💎 PRO' if is_pro else '🆓 Miễn phí'}")
-    st.markdown('</div>', unsafe_allow_html=True)
-
+        st.write(f"**Cấp độ:** {'💎 PRO' if is_pro else '🆓 Miễn phí'}")
+    
+    st.markdown("---")
+    
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         if st.button("🧠 CHAT AI", use_container_width=True):
@@ -564,11 +683,11 @@ elif st.session_state.page == "DASHBOARD":
         if st.button("🛠️ ADMIN", use_container_width=True):
             go_to("ADMIN")
 
-# ================== AI CHAT (CÓ PHÂN TÍCH FILE) ==================
+# ================== AI CHAT ==================
 elif st.session_state.page == "AI":
-    st.header("🧠 NEXUS AI - Trợ lý thông minh")
+    st.markdown(f"<h2>🧠 {CONFIG['NAME']} - Trợ lý AI thông minh</h2>", unsafe_allow_html=True)
+    st.markdown(f"<p><em>Powered by Lê Trần Thiên Phát</em></p>", unsafe_allow_html=True)
     
-    # Tạo phiên chat mới nếu chưa có
     if not st.session_state.guest_mode and st.session_state.current_chat_id is None:
         new_session = {
             "id": len(st.session_state.data["chat_sessions"]),
@@ -581,7 +700,6 @@ elif st.session_state.page == "AI":
         st.session_state.current_chat_id = len(st.session_state.data["chat_sessions"]) - 1
         save_data(st.session_state.data)
     
-    # Hiển thị danh sách phiên chat
     if not st.session_state.guest_mode:
         with st.sidebar:
             st.markdown("### 📝 LỊCH SỬ CHAT")
@@ -600,7 +718,7 @@ elif st.session_state.page == "AI":
             
             st.write("---")
             sessions = [s for s in st.session_state.data["chat_sessions"] if s["owner"] == st.session_state.user]
-            for session in sessions[-20:]:  # Hiển thị 20 phiên gần nhất
+            for session in sessions[-20:]:
                 col_t, col_d = st.columns([4, 1])
                 with col_t:
                     if st.button(f"💬 {session['name'][:20]}", key=f"session_{session['id']}", use_container_width=True):
@@ -622,7 +740,6 @@ elif st.session_state.page == "AI":
         with st.sidebar:
             st.info("👤 Chế độ khách: không lưu lịch sử")
     
-    # Lấy phiên chat hiện tại
     if st.session_state.guest_mode:
         chat = st.session_state.temp_chat
         if "msgs" not in chat:
@@ -638,7 +755,6 @@ elif st.session_state.page == "AI":
         else:
             chat = {"messages": []}
     
-    # Hiển thị tin nhắn
     messages = chat.get("messages", []) if not st.session_state.guest_mode else chat.get("msgs", [])
     for m in messages:
         if m["role"] == "user":
@@ -650,7 +766,6 @@ elif st.session_state.page == "AI":
         else:
             st.markdown(f'<div class="ai-banner">{m["content"]}</div>', unsafe_allow_html=True)
     
-    # Upload file và nhập câu hỏi
     col_input, col_upload = st.columns([4, 1])
     with col_upload:
         uploaded_file = st.file_uploader("📎", type=["txt", "docx", "doc", "png", "jpg", "jpeg", "gif"], label_visibility="collapsed")
@@ -669,7 +784,6 @@ elif st.session_state.page == "AI":
                 file_analysis = extracted_text
     
     if p:
-        # Thêm tin nhắn user
         user_msg = {"role": "user", "content": p}
         if uploaded_file and 'file_analysis' in locals():
             user_msg["file_analysis"] = file_analysis
@@ -679,25 +793,11 @@ elif st.session_state.page == "AI":
         else:
             chat["messages"].append(user_msg)
         
-        # Gọi AI
-        with st.spinner("🤖 Đang xử lý..."):
-            try:
-                client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
-                context = messages[-10:] if is_pro else messages[-5:]
-                context_for_api = [{"role": m["role"], "content": m["content"]} for m in context]
-                context_for_api.append({"role": "user", "content": p})
-                
-                res = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=context_for_api,
-                    temperature=0.7,
-                    max_tokens=2048
-                )
-                ans = res.choices[0].message.content
-            except Exception as e:
-                ans = f"❌ Lỗi AI: {str(e)}"
+        with st.spinner("🧠 NEXUS OS đang suy nghĩ..."):
+            messages_for_api = [{"role": m["role"], "content": m["content"]} for m in messages[-10:]] if is_pro else [{"role": m["role"], "content": m["content"]} for m in messages[-5:]]
+            messages_for_api.append({"role": "user", "content": p})
+            ans = call_ai(messages_for_api)
             
-            # Lưu câu trả lời
             assistant_msg = {"role": "assistant", "content": ans}
             if st.session_state.guest_mode:
                 chat["msgs"].append(assistant_msg)
@@ -712,13 +812,13 @@ elif st.session_state.page == "CHAT_HISTORY":
     st.header("📜 LỊCH SỬ TRÒ CHUYỆN")
     
     if st.session_state.guest_mode:
-        st.info("Chế độ khách không lưu lịch sử. Đăng nhập để xem lịch sử chat.")
+        st.info("👤 Chế độ khách không lưu lịch sử. Đăng nhập để xem lịch sử chat.")
     else:
         sessions = [s for s in st.session_state.data["chat_sessions"] if s["owner"] == st.session_state.user]
-        sessions.reverse()  # Hiển thị mới nhất trước
+        sessions.reverse()
         
         if not sessions:
-            st.info("Chưa có lịch sử trò chuyện nào. Hãy bắt đầu chat ngay!")
+            st.info("📭 Chưa có lịch sử trò chuyện nào. Hãy bắt đầu chat ngay!")
         else:
             for session in sessions:
                 with st.expander(f"💬 {session['name']} - {session['created'][:16]}"):
@@ -740,49 +840,13 @@ elif st.session_state.page == "CHAT_HISTORY":
                             save_data(st.session_state.data)
                             st.rerun()
 
-# ================== TRANG THÔNG TIN ==================
-elif st.session_state.page == "ABOUT":
-    st.markdown('<div class="about-section">', unsafe_allow_html=True)
-    st.title("ℹ️ VỀ NEXUS OS GATEWAY")
-    st.markdown("---")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("### 🚀 HỆ ĐIỀU HÀNH AI ĐA NĂNG")
-        st.write(f"**Phiên bản:** {CONFIG['VERSION']}")
-        st.write(f"**Tác giả:** {CONFIG['CREATOR']}")
-        st.write(f"**Ngày phát hành:** 2025")
-        st.write(f"**Nền tảng:** Streamlit Cloud")
-    
-    with col2:
-        st.markdown("### ✨ TÍNH NĂNG CHÍNH")
-        st.write("✅ Trò chuyện AI với Groq Llama 3")
-        st.write("✅ Phân tích file Word và hình ảnh")
-        st.write("✅ Lưu trữ đám mây với thư mục")
-        st.write("✅ Lịch sử trò chuyện không giới hạn")
-        st.write("✅ Tự động dọn dẹp file cũ")
-        st.write("✅ Nâng cấp Pro với dung lượng không giới hạn")
-    
-    st.markdown("---")
-    st.markdown("### 💎 HƯỚNG DẪN SỬ DỤNG")
-    st.write("1. **Đăng ký tài khoản** để lưu dữ liệu vĩnh viễn")
-    st.write("2. **Chat AI** có thể phân tích file Word và hình ảnh")
-    st.write("3. **Lưu trữ Cloud** quản lý file cá nhân")
-    st.write("4. **Lịch sử chat** xem lại các cuộc trò chuyện cũ")
-    st.write("5. **Nhập mã Pro** để nâng cấp dung lượng không giới hạn")
-    
-    st.markdown("---")
-    st.markdown(f"© 2025 {CONFIG['CREATOR']} - Bảo lưu mọi quyền")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# ================== CLOUD (CÓ TỰ ĐỘNG DỌN DẸP) ==================
+# ================== CLOUD ==================
 elif st.session_state.page == "CLOUD":
-    st.header("☁️ NEXUS CLOUD")
+    st.header("☁️ NEXUS CLOUD - Lưu trữ cá nhân")
 
     if st.session_state.guest_mode:
-        st.warning("Guest không thể sử dụng lưu trữ. Đăng nhập để quản lý file.")
+        st.warning("👤 Guest không thể sử dụng lưu trữ. Đăng nhập để quản lý file.")
     else:
-        # Hiển thị thông tin dọn dẹp
         st.info(f"🗑️ **Tự động dọn dẹp:** File không dùng trong {CONFIG['AUTO_CLEANUP_DAYS']} ngày sẽ tự động bị xóa")
         
         used = get_used_storage(st.session_state.user)
@@ -793,7 +857,7 @@ elif st.session_state.page == "CLOUD":
         st.progress(progress_val, text=f"Đã dùng: {used_gb:.2f} GB / {limit_gb} GB")
         
         if not is_pro and used >= limit:
-            st.error("Đã vượt quá 30GB. Hãy xóa file hoặc nâng cấp Pro.")
+            st.error("⚠️ Đã vượt quá 30GB. Hãy xóa file hoặc nâng cấp Pro.")
         
         col1, col2, col3 = st.columns([3, 1, 1])
         with col1:
@@ -811,10 +875,10 @@ elif st.session_state.page == "CLOUD":
                     if new_folder:
                         path = (st.session_state.current_dir + "/" + new_folder) if st.session_state.current_dir else new_folder
                         if create_folder(path):
-                            st.success(f"Đã tạo {new_folder}")
+                            st.success(f"✅ Đã tạo thư mục {new_folder}")
                             st.rerun()
                         else:
-                            st.error("Đã tồn tại")
+                            st.error("❌ Thư mục đã tồn tại")
         
         items = list_dir(st.session_state.current_dir)
         if items["folders"]:
@@ -864,12 +928,12 @@ elif st.session_state.page == "CLOUD":
             if uploaded_file:
                 file_size = len(uploaded_file.getvalue())
                 if not is_pro and used + file_size > limit:
-                    st.error(f"Vượt quá dung lượng {limit_gb} GB")
+                    st.error(f"⚠️ Vượt quá dung lượng {limit_gb} GB")
                 else:
-                    if st.button("Tải lên"):
+                    if st.button("📤 Tải lên"):
                         full_path = (st.session_state.current_dir + "/" + uploaded_file.name) if st.session_state.current_dir else uploaded_file.name
                         if full_path in st.session_state.data["files"]:
-                            st.warning("File đã tồn tại")
+                            st.warning("⚠️ File đã tồn tại")
                         else:
                             mime_type = mimetypes.guess_type(uploaded_file.name)[0] or "application/octet-stream"
                             st.session_state.data["files"][full_path] = {
@@ -880,12 +944,12 @@ elif st.session_state.page == "CLOUD":
                                 "upload_time": str(datetime.now())
                             }
                             save_data(st.session_state.data)
-                            st.toast(f"Đã tải lên {uploaded_file.name}", icon="✅")
+                            st.toast(f"✅ Đã tải lên {uploaded_file.name}", icon="✅")
                             st.rerun()
         
         if st.session_state.preview_file:
             st.divider()
-            st.subheader(f"🔍 {st.session_state.preview_file['name']}")
+            st.subheader(f"🔍 Xem trước: {st.session_state.preview_file['name']}")
             p = st.session_state.preview_file
             if p["type"].startswith("image/"):
                 st.image(f"data:{p['type']};base64,{p['data']}", use_column_width=True)
@@ -894,10 +958,10 @@ elif st.session_state.page == "CLOUD":
                     text = base64.b64decode(p["data"]).decode("utf-8")
                     st.text_area("Nội dung", text, height=300)
                 except:
-                    st.warning("Không thể hiển thị")
+                    st.warning("Không thể hiển thị nội dung")
             else:
-                st.info("Không hỗ trợ xem trước")
-            if st.button("Đóng"):
+                st.info("Không hỗ trợ xem trước file này")
+            if st.button("🔙 Đóng preview"):
                 st.session_state.preview_file = None
                 st.rerun()
 
@@ -906,7 +970,7 @@ elif st.session_state.page == "SETTINGS":
     st.header("⚙️ CÀI ĐẶT")
 
     if st.session_state.guest_mode:
-        st.info("Guest không thể kích hoạt VIP.")
+        st.info("👤 Guest không thể kích hoạt VIP. Đăng nhập để nâng cấp.")
     else:
         with st.container():
             st.subheader("🎁 Kích hoạt Pro")
@@ -918,17 +982,17 @@ elif st.session_state.page == "SETTINGS":
                         st.session_state.data["codes"].remove(code)
                         save_data(st.session_state.data)
                         st.balloons()
-                        st.toast("🎉 Chúc mừng! Bạn đã là Pro!", icon="💎")
+                        st.toast("🎉 Chúc mừng! Bạn đã là thành viên Pro!", icon="💎")
                         st.rerun()
                     else:
                         st.info("Bạn đã là Pro rồi!")
                 else:
-                    st.error("Mã không hợp lệ!")
+                    st.error("❌ Mã không hợp lệ!")
 
         st.divider()
         st.subheader("ℹ️ Thông tin tài khoản")
         st.write(f"**Tên:** {st.session_state.user}")
-        st.write(f"**Hạng:** {'Pro' if is_pro else 'Miễn phí'}")
+        st.write(f"**Hạng:** {'💎 Pro' if is_pro else '🆓 Miễn phí'}")
         if st.session_state.user in st.session_state.data.get("emails", {}):
             st.write(f"**Email:** {st.session_state.data['emails'][st.session_state.user]}")
         
@@ -937,75 +1001,122 @@ elif st.session_state.page == "SETTINGS":
         if st.button("🧹 Dọn dẹp file cũ ngay", use_container_width=True):
             with st.spinner("Đang dọn dẹp..."):
                 auto_cleanup_files()
-                st.toast("Đã dọn dẹp file cũ!", icon="✅")
+                st.toast("✅ Đã dọn dẹp file cũ!", icon="✅")
                 st.rerun()
+
+# ================== TRANG THÔNG TIN ==================
+elif st.session_state.page == "ABOUT":
+    st.markdown(f"""
+    <div class="about-section">
+        <h1 style="text-align:center;">🚀 {CONFIG['NAME']}</h1>
+        <p style="text-align:center;"><strong>Hệ điều hành AI đa năng</strong></p>
+        <hr>
+        <p><strong>Phiên bản:</strong> {CONFIG['VERSION']}</p>
+        <p><strong>Tác giả:</strong> {CONFIG['CREATOR']}</p>
+        <p><strong>Ngày phát hành:</strong> 2025</p>
+        <p><strong>Nền tảng:</strong> Streamlit Cloud + Groq AI</p>
+        <hr>
+        <p style="text-align:center; font-style:italic;">"Kết nối tri thức, mở ra tương lai"</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("### ✨ TÍNH NĂNG CHÍNH")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.write("✅ **Trò chuyện AI** với NEXUS OS Gateway")
+        st.write("✅ **Phân tích file Word** và hình ảnh (OCR)")
+        st.write("✅ **Lưu trữ đám mây** với cây thư mục")
+    with col2:
+        st.write("✅ **Lịch sử trò chuyện** không giới hạn")
+        st.write("✅ **Tự động dọn dẹp** file cũ")
+        st.write("✅ **Nâng cấp Pro** dung lượng không giới hạn")
+    
+    st.markdown("---")
+    st.markdown("### 💎 HƯỚNG DẪN SỬ DỤNG")
+    st.write("1. **Đăng ký tài khoản** để lưu dữ liệu vĩnh viễn")
+    st.write("2. **Chat với AI** - Có thể tải file Word/ảnh để phân tích")
+    st.write("3. **Quản lý file** trong Cloud với thư mục")
+    st.write("4. **Xem lại lịch sử** các cuộc trò chuyện")
+    st.write("5. **Nhập mã Pro** để nâng cấp dung lượng không giới hạn")
+    
+    st.markdown("---")
+    st.markdown(f"© 2025 {CONFIG['CREATOR']} - Bảo lưu mọi quyền")
+    st.markdown(f"**{CONFIG['NAME']}** - Hệ điều hành AI đa năng")
 
 # ================== ADMIN ==================
 elif st.session_state.page == "ADMIN":
     if st.session_state.user != CONFIG["ADMIN_USERNAME"]:
-        st.error("Không có quyền truy cập!")
+        st.error("⛔ Không có quyền truy cập!")
         go_to("DASHBOARD")
     else:
-        st.header("🛠️ ADMIN")
+        st.header("🛠️ ADMIN PANEL")
         
-        tab1, tab2, tab3, tab4 = st.tabs(["Mã Pro", "Người dùng", "Dọn dẹp", "Hệ thống"])
+        tab1, tab2, tab3, tab4 = st.tabs(["🎫 Mã Pro", "👥 Người dùng", "🗑️ Dọn dẹp", "📊 Hệ thống"])
         
         with tab1:
-            st.subheader("Tạo mã Pro")
+            st.subheader("➕ Tạo mã Pro mới")
             new_code = st.text_input("Mã mới").upper()
-            if st.button("TẠO"):
+            if st.button("TẠO MÃ"):
                 if new_code and new_code not in st.session_state.data["codes"]:
                     st.session_state.data["codes"].append(new_code)
                     save_data(st.session_state.data)
-                    st.toast(f"Đã tạo mã {new_code}", icon="✅")
+                    st.toast(f"✅ Đã tạo mã {new_code}", icon="✅")
                     st.rerun()
                 else:
-                    st.error("Mã đã tồn tại!")
-            st.subheader("Danh sách mã")
+                    st.error("❌ Mã đã tồn tại hoặc không hợp lệ!")
+            st.subheader("📋 Danh sách mã Pro")
             for code in st.session_state.data["codes"]:
-                st.write(f"- {code}")
+                st.write(f"- `{code}`")
         
         with tab2:
-            st.subheader("Người dùng")
+            st.subheader("👥 Danh sách người dùng")
             for user in st.session_state.data["users"]:
-                is_pro_user = "PRO" if user in st.session_state.data["pro_users"] else "FREE"
-                st.write(f"- {user} ({is_pro_user})")
+                is_pro_user = "💎 PRO" if user in st.session_state.data["pro_users"] else "🆓 FREE"
+                st.write(f"- **{user}** ({is_pro_user})")
             
             st.divider()
-            st.subheader("Pro Users")
+            st.subheader("💎 Danh sách Pro Users")
             for u in st.session_state.data["pro_users"]:
                 col1, col2 = st.columns([3, 1])
                 col1.write(f"- {u}")
-                if col2.button("Xóa", key=f"remove_{u}"):
+                if col2.button("❌ Xóa", key=f"remove_{u}"):
                     st.session_state.data["pro_users"].remove(u)
                     save_data(st.session_state.data)
-                    st.toast(f"Đã xóa {u}", icon="🗑️")
+                    st.toast(f"Đã xóa {u} khỏi danh sách Pro", icon="🗑️")
                     st.rerun()
         
         with tab3:
-            st.subheader("Dọn dẹp file cũ")
+            st.subheader("🗑️ Dọn dẹp file cũ")
             st.write(f"**Thời gian giữ file:** {CONFIG['AUTO_CLEANUP_DAYS']} ngày")
             if st.button("🧹 Dọn dẹp ngay", use_container_width=True):
                 with st.spinner("Đang dọn dẹp..."):
                     auto_cleanup_files()
-                    st.toast("Đã dọn dẹp file cũ!", icon="✅")
+                    st.toast("✅ Đã dọn dẹp file cũ!", icon="✅")
                     st.rerun()
             
-            st.subheader("Thống kê file")
+            st.subheader("📊 Thống kê file")
             total_files = len(st.session_state.data["files"])
             total_size = sum(f.get("size", 0) for f in st.session_state.data["files"].values())
             st.write(f"**Tổng số file:** {total_files}")
             st.write(f"**Tổng dung lượng:** {total_size / (1024**3):.2f} GB")
         
         with tab4:
-            st.subheader("Thông tin hệ thống")
+            st.subheader("📊 Thông tin hệ thống")
+            st.write(f"**Tên hệ thống:** {CONFIG['NAME']}")
             st.write(f"**Phiên bản:** {CONFIG['VERSION']}")
             st.write(f"**Tác giả:** {CONFIG['CREATOR']}")
             st.write(f"**Số người dùng:** {len(st.session_state.data['users'])}")
             st.write(f"**Số phiên chat:** {len(st.session_state.data['chat_sessions'])}")
+            st.write(f"**Số mã Pro:** {len(st.session_state.data['codes'])}")
+            st.write(f"**Số Pro Users:** {len(st.session_state.data['pro_users'])}")
             
-            if st.button("🔄 Đồng bộ dữ liệu", use_container_width=True):
+            st.divider()
+            if st.button("🔄 Đồng bộ dữ liệu từ GitHub", use_container_width=True):
                 with st.spinner("Đang đồng bộ..."):
                     st.session_state.data = load_data()
-                    st.toast("Đã đồng bộ!", icon="🔄")
+                    st.toast("✅ Đã đồng bộ dữ liệu!", icon="🔄")
                     st.rerun()
+            if st.button("💾 Lưu dữ liệu lên GitHub", use_container_width=True):
+                with st.spinner("Đang lưu..."):
+                    save_data(st.session_state.data)
+                    st.toast("✅ Đã lưu dữ liệu!", icon="💾")
