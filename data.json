@@ -288,7 +288,16 @@
       "name": "Chat 30/03/2026 09:23",
       "owner": "Thiên Phát",
       "created": "2026-03-30 09:23:39.525870",
-      "messages": []
+      "messages": [
+        {
+          "role": "user",
+          "content": "chào"
+        },
+        {
+          "role": "assistant",
+          "content": "Chào bạn! Tôi là NEXUS OS GATEWAY, trợ lý AI thông minh của bạn. Tôi sẵn sàng hỗ trợ bạn trong nhiều lĩnh vực, từ chat đến phân tích file và lưu trữ đám mây. Hãy cho tôi biết bạn cần giúp gì hôm nay!"
+        }
+      ]
     }
   ],
   "system_info": {
