@@ -16,8 +16,6 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional, List
 import mimetypes
 from PIL import Image
-from bs4 import BeautifulSoup
-import trafilatura
 
 # Xử lý file Word và OCR
 try:
@@ -32,10 +30,34 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
+# Xử lý web scraping - xử lý lỗi import
+try:
+    from bs4 import BeautifulSoup
+    BS4_AVAILABLE = True
+except ImportError:
+    BS4_AVAILABLE = False
+    st.warning("⚠️ Đang cài đặt beautifulsoup4...")
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "beautifulsoup4"])
+    from bs4 import BeautifulSoup
+    BS4_AVAILABLE = True
+
+try:
+    import trafilatura
+    TRAFILATURA_AVAILABLE = True
+except ImportError:
+    TRAFILATURA_AVAILABLE = False
+    st.warning("⚠️ Đang cài đặt trafilatura...")
+    import subprocess
+    import sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "trafilatura"])
+    import trafilatura
+    TRAFILATURA_AVAILABLE = True
+
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "5.0.0",
+    "VERSION": "5.1.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "Thiên Phát",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -62,7 +84,7 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 5.0.0
+- Phiên bản: 5.1.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web, tóm tắt nội dung
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
@@ -140,7 +162,7 @@ st.markdown(f"""
     .chat-full-container {{
         display: flex;
         flex-direction: column;
-        height: 100%;
+        height: calc(100vh - 100px);
         background: white;
         border-radius: 16px;
         overflow: hidden;
@@ -329,6 +351,9 @@ def delete_old_github_files():
 # ================== HÀM TÌM KIẾM WEB ==================
 def search_web(query: str) -> List[Dict]:
     """Tìm kiếm web sử dụng DuckDuckGo (miễn phí)"""
+    if not BS4_AVAILABLE:
+        return [{'title': 'Thiếu thư viện BeautifulSoup', 'url': '', 'snippet': 'Vui lòng cài đặt: pip install beautifulsoup4'}]
+    
     try:
         url = f"https://html.duckduckgo.com/html/?q={query}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
@@ -359,6 +384,9 @@ def search_web(query: str) -> List[Dict]:
 
 def fetch_webpage_content(url: str) -> str:
     """Lấy nội dung trang web"""
+    if not TRAFILATURA_AVAILABLE:
+        return "Thiếu thư viện trafilatura. Vui lòng cài đặt: pip install trafilatura"
+    
     try:
         downloaded = trafilatura.fetch_url(url)
         if downloaded:
@@ -372,7 +400,7 @@ def fetch_webpage_content(url: str) -> str:
 def summarize_webpage(url: str) -> str:
     """Tóm tắt nội dung trang web bằng AI"""
     content = fetch_webpage_content(url)
-    if not content or "Lỗi" in content:
+    if not content or "Lỗi" in content or "Thiếu" in content:
         return content
     
     try:
@@ -399,7 +427,7 @@ def extract_text_from_file(uploaded_file) -> str:
                 return "\n".join([para.text for para in doc.paragraphs])[:3000]
             except:
                 return "[Lỗi đọc file Word]"
-        return "[Cần cài đặt python-docx]"
+        return "[Cần cài đặt python-docx: pip install python-docx]"
     
     elif file_ext in CONFIG["SUPPORTED_IMAGE_TYPES"]:
         if OCR_AVAILABLE:
@@ -409,7 +437,7 @@ def extract_text_from_file(uploaded_file) -> str:
                 return text[:3000] if text.strip() else "[Không tìm thấy văn bản trong ảnh]"
             except Exception as e:
                 return f"[Lỗi OCR: {str(e)[:100]}]"
-        return "[Cần cài đặt Tesseract OCR]"
+        return "[Cần cài đặt pytesseract và Tesseract OCR]"
     
     elif file_ext in ['txt']:
         try:
@@ -827,8 +855,77 @@ st.markdown('</div>', unsafe_allow_html=True)
 # Content Area
 st.markdown('<div class="content-area">', unsafe_allow_html=True)
 
+# ================== DASHBOARD ==================
+if st.session_state.page == "DASHBOARD":
+    st.markdown(f"""
+    <div style="text-align:center;margin-bottom:30px">
+        <h1>🚀 {CONFIG['NAME']}</h1>
+        <p>Hệ điều hành AI đa năng - by <b>{CONFIG['CREATOR']}</b></p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.session_state.user:
+        user_info = st.session_state.data["users"][st.session_state.user]["info"] if not st.session_state.guest_mode else None
+        st.markdown(f"<div class='custom-card' style='text-align:center'><h2>Chào mừng, <b>{user_info.get('name', st.session_state.user) if user_info else st.session_state.user}</b>!</h2></div>", unsafe_allow_html=True)
+    
+    st.markdown("### ✨ TÍNH NĂNG NỔI BẬT")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown("""
+        <div class='feature-card' onclick="document.getElementById('btn_chat').click()">
+            <div style="font-size:40px;text-align:center">🧠</div>
+            <h4 style="text-align:center">Chat AI</h4>
+            <p style="text-align:center;font-size:12px">Trò chuyện với NEXUS OS</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🧠 CHAT AI", key="btn_chat", use_container_width=True): go_to("CHAT")
+    
+    with col2:
+        st.markdown("""
+        <div class='feature-card'>
+            <div style="font-size:40px;text-align:center">🌐</div>
+            <h4 style="text-align:center">Tìm kiếm Web</h4>
+            <p style="text-align:center;font-size:12px">Tìm kiếm và tóm tắt nội dung</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🌐 TÌM KIẾM", use_container_width=True): go_to("SEARCH")
+    
+    with col3:
+        st.markdown("""
+        <div class='feature-card'>
+            <div style="font-size:40px;text-align:center">☁️</div>
+            <h4 style="text-align:center">Lưu trữ</h4>
+            <p style="text-align:center;font-size:12px">Lưu trữ đám mây không giới hạn</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("☁️ LƯU TRỮ", use_container_width=True): go_to("CLOUD")
+    
+    with col4:
+        st.markdown("""
+        <div class='feature-card'>
+            <div style="font-size:40px;text-align:center">👥</div>
+            <h4 style="text-align:center">Kết bạn</h4>
+            <p style="text-align:center;font-size:12px">Kết nối và chia sẻ file</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("👥 BẠN BÈ", use_container_width=True): go_to("SOCIAL")
+    
+    st.markdown("---")
+    st.markdown("### 📊 THỐNG KÊ NHANH")
+    col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+    with col_stat1:
+        st.metric("Người dùng", len(st.session_state.data["users"]))
+    with col_stat2:
+        st.metric("Pro Users", len(st.session_state.data["pro_users"]))
+    with col_stat3:
+        st.metric("Phiên chat", len(st.session_state.data["chat_sessions"]))
+    with col_stat4:
+        total_size = sum(f.get("size", 0) for f in st.session_state.data["files"].values())
+        st.metric("Dung lượng", f"{total_size/(1024**3):.1f} GB")
+
 # ================== TRANG CHAT AI ==================
-if st.session_state.page == "CHAT":
+elif st.session_state.page == "CHAT":
     st.markdown("<h2>🧠 NEXUS OS GATEWAY - Trợ lý AI</h2>", unsafe_allow_html=True)
     
     if not st.session_state.guest_mode and st.session_state.current_chat_id is None:
@@ -940,7 +1037,7 @@ elif st.session_state.page == "SEARCH":
         for i, result in enumerate(st.session_state.search_results):
             with st.container():
                 st.markdown(f"""
-                <div class="search-result" onclick="document.getElementById('url_{i}').click()">
+                <div class="search-result">
                     <b>{result['title']}</b><br>
                     <small style="color:#6b7280">{result['url'][:80]}...</small><br>
                     <span style="font-size:0.9rem">{result['snippet'][:150]}...</span>
@@ -1363,19 +1460,6 @@ elif st.session_state.page == "ABOUT":
         - ✅ Lịch sử trò chuyện
         - ✅ Xuất file chat (ZIP)
         """)
-    
-    st.markdown("---")
-    st.markdown("### 📊 THỐNG KÊ HỆ THỐNG")
-    col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
-    with col_stat1:
-        st.metric("Người dùng", len(st.session_state.data["users"]))
-    with col_stat2:
-        st.metric("Pro Users", len(st.session_state.data["pro_users"]))
-    with col_stat3:
-        st.metric("Phiên chat", len(st.session_state.data["chat_sessions"]))
-    with col_stat4:
-        total_size = sum(f.get("size", 0) for f in st.session_state.data["files"].values())
-        st.metric("Dung lượng", f"{total_size/(1024**3):.1f} GB")
     
     st.markdown("---")
     st.markdown(f"© 2025 {CONFIG['CREATOR']} - Bảo lưu mọi quyền")
