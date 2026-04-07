@@ -15,66 +15,21 @@ from openai import OpenAI
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List
 import mimetypes
-from PIL import Image
-
-# Xử lý file Word và OCR
-try:
-    from docx import Document
-    DOCX_AVAILABLE = True
-except ImportError:
-    DOCX_AVAILABLE = False
-
-try:
-    import pytesseract
-    OCR_AVAILABLE = True
-except ImportError:
-    OCR_AVAILABLE = False
-
-# Xử lý web scraping - xử lý lỗi import
-try:
-    from bs4 import BeautifulSoup
-    BS4_AVAILABLE = True
-except ImportError:
-    BS4_AVAILABLE = False
-    st.warning("⚠️ Đang cài đặt beautifulsoup4...")
-    import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "beautifulsoup4"])
-    from bs4 import BeautifulSoup
-    BS4_AVAILABLE = True
-
-try:
-    import trafilatura
-    TRAFILATURA_AVAILABLE = True
-except ImportError:
-    TRAFILATURA_AVAILABLE = False
-    st.warning("⚠️ Đang cài đặt trafilatura...")
-    import subprocess
-    import sys
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "trafilatura"])
-    import trafilatura
-    TRAFILATURA_AVAILABLE = True
 
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "5.1.0",
+    "VERSION": "5.2.0",
     "CREATOR": "Lê Trần Thiên Phát",
-    "ADMIN_USERNAME": "Thiên Phát",
+    "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
     "DATA_FILE": "data.json",
-    "OLD_FILES_TO_DELETE": [
-        "nexus_final_v25.json", "nexus_gateway_v40.json", "nexus_gateway_v50.json",
-        "nexus_gateway_v60.json", "nexus_gateway_v70.json", "nexus_gateway_v80.json",
-        "nexus_gateway_v90.json", "nexus_gateway_v100.json"
-    ],
     "GUEST_ENABLED": True,
     "FREE_STORAGE_LIMIT": 30 * 1024 * 1024 * 1024,
     "PRO_STORAGE_LIMIT": float('inf'),
     "AUTO_CLEANUP_DAYS": 30,
     "SUPPORTED_IMAGE_TYPES": ["png", "jpg", "jpeg", "gif", "bmp"],
-    "SUPPORTED_DOC_TYPES": ["docx", "doc", "txt", "pdf"],
-    "MAX_AVATAR_SIZE": 5 * 1024 * 1024,
-    "MAX_FILE_SIZE": 100 * 1024 * 1024
+    "MAX_AVATAR_SIZE": 5 * 1024 * 1024
 }
 
 # SYSTEM PROMPT CHO AI
@@ -84,8 +39,8 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 5.1.0
-- Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web, tóm tắt nội dung
+- Phiên bản: 5.2.0
+- Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
 
@@ -105,215 +60,36 @@ st.set_page_config(page_title=CONFIG["NAME"], layout="wide", initial_sidebar_sta
 # ================== CSS TỐI ƯU ==================
 st.markdown(f"""
 <style>
-    /* Reset và cấu hình cơ bản */
-    * {{
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }}
-    
-    .stApp {{
-        background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%);
-        height: 100vh;
-        overflow: hidden;
-    }}
-    
-    /* Main layout - full screen */
-    .main-container {{
-        display: flex;
-        height: 100vh;
-        width: 100%;
-        overflow: hidden;
-    }}
-    
-    /* Sidebar */
-    .sidebar {{
-        width: 280px;
-        background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
-        border-right: 1px solid rgba(0,0,0,0.05);
-        overflow-y: auto;
-        padding: 20px;
-        flex-shrink: 0;
-    }}
-    
-    /* Content area */
-    .content-area {{
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-    }}
-    
-    /* Cards */
-    .feature-card {{
-        background: white;
-        border-radius: 16px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        transition: all 0.3s ease;
-        cursor: pointer;
-    }}
-    .feature-card:hover {{
-        transform: translateY(-4px);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    }}
-    
-    /* Chat container */
-    .chat-full-container {{
-        display: flex;
-        flex-direction: column;
-        height: calc(100vh - 100px);
-        background: white;
-        border-radius: 16px;
-        overflow: hidden;
-    }}
-    .chat-messages-area {{
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-    }}
-    .chat-input-area {{
-        padding: 15px 20px;
-        background: white;
-        border-top: 1px solid #e5e7eb;
-    }}
-    
-    /* AI Banner */
-    .ai-banner {{
-        background: linear-gradient(135deg, #0047AB, #0066CC);
-        color: white !important;
-        padding: 16px 20px;
-        border-radius: 20px;
-        margin: 12px 0;
-        border-left: 4px solid #FFD966;
-    }}
-    .ai-banner::before {{
-        content: "🧠 NEXUS OS | ";
-        font-weight: bold;
-    }}
-    
-    /* Buttons */
-    .stButton>button {{
-        border-radius: 40px;
-        font-weight: 600;
-        transition: all 0.2s;
-        background: #0047AB;
-        color: white;
-        border: none;
-        width: 100%;
-    }}
+    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+    .stApp {{ background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%); height: 100vh; overflow: hidden; }}
+    .main-container {{ display: flex; height: 100vh; width: 100%; overflow: hidden; }}
+    .sidebar {{ width: 280px; background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%); border-right: 1px solid rgba(0,0,0,0.05); overflow-y: auto; padding: 20px; flex-shrink: 0; }}
+    .content-area {{ flex: 1; overflow-y: auto; padding: 20px; }}
+    .feature-card {{ background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: all 0.3s ease; cursor: pointer; }}
+    .feature-card:hover {{ transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }}
+    .chat-full-container {{ display: flex; flex-direction: column; height: calc(100vh - 100px); background: white; border-radius: 16px; overflow: hidden; }}
+    .chat-messages-area {{ flex: 1; overflow-y: auto; padding: 20px; }}
+    .chat-input-area {{ padding: 15px 20px; background: white; border-top: 1px solid #e5e7eb; }}
+    .ai-banner {{ background: linear-gradient(135deg, #0047AB, #0066CC); color: white !important; padding: 16px 20px; border-radius: 20px; margin: 12px 0; border-left: 4px solid #FFD966; }}
+    .ai-banner::before {{ content: "🧠 NEXUS OS | "; font-weight: bold; }}
+    .stButton>button {{ border-radius: 40px; font-weight: 600; transition: all 0.2s; background: #0047AB; color: white; border: none; width: 100%; }}
     .stButton>button:hover {{ background: #003399; transform: scale(1.02); }}
-    
-    /* Badges */
     .guest-badge {{ background: #FFD966; color: #1f2937; padding: 4px 12px; border-radius: 40px; font-size: 0.8rem; font-weight: bold; }}
     .pro-badge {{ background: linear-gradient(135deg, #FFD700, #FFB347); }}
     .version-badge {{ background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; }}
-    
-    /* Avatar */
-    .avatar-large {{
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        object-fit: cover;
-        margin: 10px auto;
-        display: block;
-    }}
-    
-    /* Notification */
-    .notification-bell {{
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #0047AB;
-        color: white;
-        border-radius: 50%;
-        width: 45px;
-        height: 45px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        z-index: 1000;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }}
-    .notification-badge {{
-        position: absolute;
-        top: -5px;
-        right: -5px;
-        background: red;
-        color: white;
-        border-radius: 50%;
-        width: 20px;
-        height: 20px;
-        font-size: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }}
-    .notification-panel {{
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        width: 350px;
-        max-height: 500px;
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        z-index: 1000;
-        overflow: hidden;
-        display: none;
-    }}
+    .avatar-large {{ width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }}
+    .notification-bell {{ position: fixed; top: 20px; right: 20px; background: #0047AB; color: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; }}
+    .notification-badge {{ position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; }}
+    .notification-panel {{ position: fixed; top: 80px; right: 20px; width: 350px; max-height: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1000; overflow: hidden; display: none; }}
     .notification-panel.show {{ display: block; }}
-    .notification-header {{
-        padding: 15px;
-        background: #0047AB;
-        color: white;
-        font-weight: bold;
-        display: flex;
-        justify-content: space-between;
-    }}
-    .notification-list {{
-        max-height: 400px;
-        overflow-y: auto;
-        padding: 10px;
-    }}
-    .notification-item {{
-        padding: 10px;
-        border-bottom: 1px solid #e5e7eb;
-        cursor: pointer;
-    }}
+    .notification-header {{ padding: 15px; background: #0047AB; color: white; font-weight: bold; display: flex; justify-content: space-between; }}
+    .notification-list {{ max-height: 400px; overflow-y: auto; padding: 10px; }}
+    .notification-item {{ padding: 10px; border-bottom: 1px solid #e5e7eb; cursor: pointer; }}
     .notification-item:hover {{ background: #f3f4f6; }}
     .notification-item.unread {{ background: #e0e7ff; }}
-    
-    /* Grid layout */
-    .features-grid {{
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 20px;
-        margin-top: 20px;
-    }}
-    
-    /* Search result */
-    .search-result {{
-        background: white;
-        border-radius: 12px;
-        padding: 15px;
-        margin-bottom: 10px;
-        border: 1px solid #e5e7eb;
-        cursor: pointer;
-        transition: all 0.2s;
-    }}
-    .search-result:hover {{
-        background: #f9fafb;
-        transform: translateX(4px);
-    }}
-    
-    /* Responsive */
-    @media (max-width: 768px) {{
-        .sidebar {{ width: 100%; position: fixed; z-index: 100; transform: translateX(-100%); transition: transform 0.3s; }}
-        .sidebar.open {{ transform: translateX(0); }}
-        .features-grid {{ grid-template-columns: 1fr; }}
-    }}
+    .search-result {{ background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; transition: all 0.2s; }}
+    .search-result:hover {{ background: #f9fafb; transform: translateX(4px); }}
+    @media (max-width: 768px) {{ .sidebar {{ width: 100%; position: fixed; z-index: 100; transform: translateX(-100%); transition: transform 0.3s; }} .sidebar.open {{ transform: translateX(0); }} }}
 </style>
 
 <script>
@@ -321,93 +97,99 @@ function toggleNotifications() {{
     var panel = document.getElementById('notification-panel');
     if (panel) panel.classList.toggle('show');
 }}
-function toggleSidebar() {{
-    var sidebar = document.getElementById('sidebar');
-    if (sidebar) sidebar.classList.toggle('open');
-}}
 </script>
 """, unsafe_allow_html=True)
 
-# ================== HÀM XÓA FILE CŨ ==================
-def delete_old_github_files():
-    url_base = f"https://api.github.com/repos/{GH_REPO}/contents"
-    headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
-    deleted_count = 0
-    for old_file in CONFIG["OLD_FILES_TO_DELETE"]:
-        try:
-            url = f"{url_base}/{old_file}"
-            res = requests.get(url, headers=headers, timeout=10)
-            if res.status_code == 200:
-                sha = res.json().get("sha")
-                if sha:
-                    delete_data = {"message": f"Xóa file cũ {old_file}", "sha": sha, "branch": "main"}
-                    requests.delete(url, headers=headers, json=delete_data, timeout=10)
-                    deleted_count += 1
-        except:
-            pass
-    if deleted_count > 0:
-        st.toast(f"🗑️ Đã xóa {deleted_count} file JSON cũ!", icon="🧹")
-
-# ================== HÀM TÌM KIẾM WEB ==================
+# ================== HÀM TÌM KIẾM WEB (KHÔNG CẦN THƯ VIỆN PHỤ) ==================
 def search_web(query: str) -> List[Dict]:
-    """Tìm kiếm web sử dụng DuckDuckGo (miễn phí)"""
-    if not BS4_AVAILABLE:
-        return [{'title': 'Thiếu thư viện BeautifulSoup', 'url': '', 'snippet': 'Vui lòng cài đặt: pip install beautifulsoup4'}]
-    
+    """Tìm kiếm web sử dụng DuckDuckGo API (không cần BeautifulSoup)"""
     try:
-        url = f"https://html.duckduckgo.com/html/?q={query}"
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        # Sử dụng DuckDuckGo Instant Answer API
+        url = f"https://api.duckduckgo.com/?q={query}&format=json&pretty=1"
+        headers = {"User-Agent": "NEXUS-OS-GATEWAY/1.0"}
         response = requests.get(url, headers=headers, timeout=10)
         
-        soup = BeautifulSoup(response.text, 'html.parser')
-        results = []
-        
-        for result in soup.find_all('div', class_='result')[:10]:
-            title_elem = result.find('a', class_='result__a')
-            link_elem = result.find('a', class_='result__url')
-            snippet_elem = result.find('a', class_='result__snippet')
+        if response.status_code == 200:
+            data = response.json()
+            results = []
             
-            if title_elem and link_elem:
-                title = title_elem.get_text(strip=True)
-                link = link_elem.get('href', '')
-                snippet = snippet_elem.get_text(strip=True) if snippet_elem else ""
-                
-                results.append({
-                    'title': title,
-                    'url': link,
-                    'snippet': snippet
+            # Thêm kết quả từ RelatedTopics
+            if "RelatedTopics" in data:
+                for topic in data["RelatedTopics"][:10]:
+                    if isinstance(topic, dict):
+                        text = topic.get("Text", "")
+                        first_url = topic.get("FirstURL", "")
+                        if text and first_url:
+                            # Tách tiêu đề và mô tả
+                            parts = text.split(" - ", 1)
+                            title = parts[0] if parts else text[:100]
+                            snippet = parts[1] if len(parts) > 1 else ""
+                            results.append({
+                                'title': title[:100],
+                                'url': first_url,
+                                'snippet': snippet[:200] if snippet else "Nhấn để xem chi tiết"
+                            })
+            
+            # Thêm kết quả từ Abstract
+            if data.get("Abstract"):
+                results.insert(0, {
+                    'title': data.get("Heading", query),
+                    'url': data.get("AbstractURL", ""),
+                    'snippet': data.get("Abstract", "")[:200]
                 })
-        
-        return results
+            
+            # Nếu không có kết quả, thêm kết quả từ Bing search (fallback)
+            if not results:
+                bing_url = f"https://www.bing.com/search?q={query}"
+                results.append({
+                    'title': f"Tìm kiếm trên Bing: {query}",
+                    'url': bing_url,
+                    'snippet': "Nhấn để mở trang tìm kiếm Bing"
+                })
+            
+            return results
+        else:
+            return [{'title': 'Lỗi kết nối', 'url': '', 'snippet': f'Không thể kết nối đến API (Mã lỗi: {response.status_code})'}]
     except Exception as e:
         return [{'title': 'Lỗi tìm kiếm', 'url': '', 'snippet': str(e)}]
 
 def fetch_webpage_content(url: str) -> str:
-    """Lấy nội dung trang web"""
-    if not TRAFILATURA_AVAILABLE:
-        return "Thiếu thư viện trafilatura. Vui lòng cài đặt: pip install trafilatura"
-    
+    """Lấy nội dung trang web (đơn giản, không cần thư viện phụ)"""
     try:
-        downloaded = trafilatura.fetch_url(url)
-        if downloaded:
-            text = trafilatura.extract(downloaded)
-            if text:
-                return text[:5000]
-        return "Không thể đọc nội dung trang web."
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        
+        # Lấy nội dung text đơn giản
+        content = response.text
+        
+        # Loại bỏ thẻ script và style
+        content = re.sub(r'<script[^>]*>.*?</script>', '', content, flags=re.DOTALL | re.IGNORECASE)
+        content = re.sub(r'<style[^>]*>.*?</style>', '', content, flags=re.DOTALL | re.IGNORECASE)
+        
+        # Loại bỏ thẻ HTML
+        content = re.sub(r'<[^>]+>', ' ', content)
+        
+        # Xóa khoảng trắng thừa
+        content = re.sub(r'\s+', ' ', content)
+        content = content.strip()
+        
+        # Giới hạn độ dài
+        return content[:5000] if content else "Không thể trích xuất nội dung từ trang web."
     except Exception as e:
-        return f"Lỗi: {str(e)}"
+        return f"Lỗi khi đọc trang web: {str(e)}"
 
 def summarize_webpage(url: str) -> str:
     """Tóm tắt nội dung trang web bằng AI"""
     content = fetch_webpage_content(url)
-    if not content or "Lỗi" in content or "Thiếu" in content:
-        return content
+    if not content or "Lỗi" in content or len(content) < 100:
+        return content or "Không thể lấy nội dung để tóm tắt."
     
     try:
         client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
         messages = [
             {"role": "system", "content": "Bạn là NEXUS OS GATEWAY. Hãy tóm tắt nội dung trang web sau một cách ngắn gọn, súc tích, khoảng 200-300 từ."},
-            {"role": "user", "content": f"Nội dung trang web:\n{content[:4000]}\n\nHãy tóm tắt:"}
+            {"role": "user", "content": f"Nội dung trang web:\n{content[:4000]}\n\nHãy tóm tắt nội dung chính:"}
         ]
         res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.5, max_tokens=1024)
         return res.choices[0].message.content
@@ -416,39 +198,27 @@ def summarize_webpage(url: str) -> str:
 
 # ================== HÀM XỬ LÝ FILE ==================
 def extract_text_from_file(uploaded_file) -> str:
+    """Trích xuất text từ file txt hoặc ảnh (đơn giản)"""
     file_name = uploaded_file.name
     file_ext = file_name.split('.')[-1].lower()
     file_bytes = uploaded_file.getvalue()
     
-    if file_ext in ['docx', 'doc']:
-        if DOCX_AVAILABLE:
-            try:
-                doc = Document(BytesIO(file_bytes))
-                return "\n".join([para.text for para in doc.paragraphs])[:3000]
-            except:
-                return "[Lỗi đọc file Word]"
-        return "[Cần cài đặt python-docx: pip install python-docx]"
-    
-    elif file_ext in CONFIG["SUPPORTED_IMAGE_TYPES"]:
-        if OCR_AVAILABLE:
-            try:
-                image = Image.open(BytesIO(file_bytes))
-                text = pytesseract.image_to_string(image, lang='vie+eng')
-                return text[:3000] if text.strip() else "[Không tìm thấy văn bản trong ảnh]"
-            except Exception as e:
-                return f"[Lỗi OCR: {str(e)[:100]}]"
-        return "[Cần cài đặt pytesseract và Tesseract OCR]"
-    
-    elif file_ext in ['txt']:
+    if file_ext in ['txt']:
         try:
             return file_bytes.decode('utf-8')[:3000]
         except:
             return "[Không thể đọc file text]"
     
-    return f"[Không hỗ trợ file {file_ext}]"
+    elif file_ext in ['png', 'jpg', 'jpeg', 'gif', 'bmp']:
+        # OCR không có sẵn, thông báo
+        return "[Tính năng OCR chưa khả dụng trên cloud. Vui lòng tải file txt hoặc nhập trực tiếp.]"
+    
+    else:
+        return f"[Hiện tại chỉ hỗ trợ file txt. File {file_ext} chưa được hỗ trợ.]"
 
 def resize_image(image_bytes, max_size=(200, 200)):
     try:
+        from PIL import Image
         img = Image.open(BytesIO(image_bytes))
         img.thumbnail(max_size, Image.Resampling.LANCZOS)
         buffer = BytesIO()
@@ -533,7 +303,6 @@ def migrate_user_data(data: Dict) -> Dict:
 def load_data() -> Dict:
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['DATA_FILE']}"
     headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
-    delete_old_github_files()
     try:
         res = requests.get(url, headers=headers, timeout=10)
         if res.status_code == 200:
@@ -590,7 +359,6 @@ def add_notification(user: str, title: str, message: str, notification_type: str
     save_data(st.session_state.data)
 
 def share_file_with_friend(owner: str, file_path: str, friend: str) -> bool:
-    """Chia sẻ file với bạn bè"""
     if file_path not in st.session_state.data["files"]:
         return False
     if friend not in st.session_state.data["users"]:
@@ -616,7 +384,6 @@ def share_file_with_friend(owner: str, file_path: str, friend: str) -> bool:
     return True
 
 def get_shared_files(user: str) -> List[Dict]:
-    """Lấy danh sách file được chia sẻ cho user"""
     return st.session_state.data.get("shared_files", {}).get(user, [])
 
 # ================== KHỞI TẠO ==================
@@ -661,7 +428,6 @@ def call_ai(messages: List[Dict], use_history: bool = False) -> str:
     try:
         client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
         
-        # Thêm context từ lịch sử duyệt web nếu cần
         if use_history and st.session_state.browsing_history:
             history_context = "Lịch sử duyệt web gần đây:\n"
             for item in st.session_state.browsing_history[-5:]:
@@ -729,9 +495,6 @@ st.markdown(f'''
     <div class="notification-header">
         <span>📢 THÔNG BÁO</span>
         <span style="cursor:pointer" onclick="toggleNotifications()">✕</span>
-    </div>
-    <div class="pull-to-refresh" onclick="location.reload()" style="text-align:center;padding:10px;cursor:pointer">
-        ⬇️ Kéo xuống để tải lại ⬇️
     </div>
     <div class="notification-list">
 ''', unsafe_allow_html=True)
@@ -866,53 +629,26 @@ if st.session_state.page == "DASHBOARD":
     
     if st.session_state.user:
         user_info = st.session_state.data["users"][st.session_state.user]["info"] if not st.session_state.guest_mode else None
-        st.markdown(f"<div class='custom-card' style='text-align:center'><h2>Chào mừng, <b>{user_info.get('name', st.session_state.user) if user_info else st.session_state.user}</b>!</h2></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:white;border-radius:16px;padding:20px;text-align:center;margin-bottom:20px'><h2>Chào mừng, <b>{user_info.get('name', st.session_state.user) if user_info else st.session_state.user}</b>!</h2></div>", unsafe_allow_html=True)
     
-    st.markdown("### ✨ TÍNH NĂNG NỔI BẬT")
+    st.markdown("### ✨ TÍNH NĂNG CHÍNH")
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.markdown("""
-        <div class='feature-card' onclick="document.getElementById('btn_chat').click()">
-            <div style="font-size:40px;text-align:center">🧠</div>
-            <h4 style="text-align:center">Chat AI</h4>
-            <p style="text-align:center;font-size:12px">Trò chuyện với NEXUS OS</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("🧠 CHAT AI", key="btn_chat", use_container_width=True): go_to("CHAT")
-    
+        if st.button("🧠 CHAT AI", use_container_width=True): go_to("CHAT")
+        st.caption("Trò chuyện với NEXUS OS")
     with col2:
-        st.markdown("""
-        <div class='feature-card'>
-            <div style="font-size:40px;text-align:center">🌐</div>
-            <h4 style="text-align:center">Tìm kiếm Web</h4>
-            <p style="text-align:center;font-size:12px">Tìm kiếm và tóm tắt nội dung</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("🌐 TÌM KIẾM", use_container_width=True): go_to("SEARCH")
-    
+        if st.button("🌐 TÌM KIẾM WEB", use_container_width=True): go_to("SEARCH")
+        st.caption("Tìm kiếm và tóm tắt")
     with col3:
-        st.markdown("""
-        <div class='feature-card'>
-            <div style="font-size:40px;text-align:center">☁️</div>
-            <h4 style="text-align:center">Lưu trữ</h4>
-            <p style="text-align:center;font-size:12px">Lưu trữ đám mây không giới hạn</p>
-        </div>
-        """, unsafe_allow_html=True)
         if st.button("☁️ LƯU TRỮ", use_container_width=True): go_to("CLOUD")
-    
+        st.caption("Lưu trữ đám mây")
     with col4:
-        st.markdown("""
-        <div class='feature-card'>
-            <div style="font-size:40px;text-align:center">👥</div>
-            <h4 style="text-align:center">Kết bạn</h4>
-            <p style="text-align:center;font-size:12px">Kết nối và chia sẻ file</p>
-        </div>
-        """, unsafe_allow_html=True)
         if st.button("👥 BẠN BÈ", use_container_width=True): go_to("SOCIAL")
+        st.caption("Kết bạn và chia sẻ")
     
     st.markdown("---")
-    st.markdown("### 📊 THỐNG KÊ NHANH")
+    st.markdown("### 📊 THỐNG KÊ")
     col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
     with col_stat1:
         st.metric("Người dùng", len(st.session_state.data["users"]))
@@ -983,7 +719,7 @@ elif st.session_state.page == "CHAT":
     
     col_inp, col_up, col_hist = st.columns([3, 1, 1])
     with col_up:
-        uploaded_file = st.file_uploader("📎", type=["txt", "docx", "doc", "png", "jpg", "jpeg", "gif"], label_visibility="collapsed")
+        uploaded_file = st.file_uploader("📎", type=["txt"], label_visibility="collapsed")
     with col_hist:
         use_history = st.checkbox("📜 Dùng lịch sử web", help="Phản hồi dựa trên các trang web đã xem")
     with col_inp:
@@ -1050,7 +786,6 @@ elif st.session_state.page == "SEARCH":
                         st.session_state.current_url = result['url']
                         with st.spinner("Đang đọc nội dung..."):
                             st.session_state.web_summary = summarize_webpage(result['url'])
-                            # Lưu vào lịch sử
                             st.session_state.browsing_history.append({
                                 "title": result['title'],
                                 "url": result['url'],
@@ -1060,7 +795,8 @@ elif st.session_state.page == "SEARCH":
                                 st.session_state.browsing_history = st.session_state.browsing_history[-50:]
                             st.rerun()
                 with col2:
-                    st.markdown(f'<a href="{result["url"]}" target="_blank"><button style="background:#0047AB;color:white;border:none;border-radius:20px;padding:5px 12px;">🔗 Mở tab mới</button></a>', unsafe_allow_html=True)
+                    if result['url']:
+                        st.markdown(f'<a href="{result["url"]}" target="_blank"><button style="background:#0047AB;color:white;border:none;border-radius:20px;padding:5px 12px;">🔗 Mở tab mới</button></a>', unsafe_allow_html=True)
         
         if st.session_state.web_summary:
             st.divider()
@@ -1421,8 +1157,7 @@ elif st.session_state.page == "ABOUT":
         st.markdown("""
         **🤖 AI Thông Minh**
         - ✅ Trò chuyện AI với NEXUS OS Gateway
-        - ✅ Phân tích file Word, Excel, PDF
-        - ✅ Nhận dạng văn bản trong ảnh (OCR)
+        - ✅ Phân tích file văn bản
         - ✅ Tóm tắt nội dung trang web
         - ✅ Phản hồi dựa trên lịch sử duyệt web
         
@@ -1435,7 +1170,7 @@ elif st.session_state.page == "ABOUT":
         
         **🔍 Tìm kiếm Web**
         - ✅ Tìm kiếm thông tin trên web
-        - ✅ Đọc nội dung trang web trực tiếp
+        - ✅ Đọc nội dung trang web
         - ✅ Tóm tắt nội dung bằng AI
         - ✅ Lưu lịch sử duyệt web
         """)
