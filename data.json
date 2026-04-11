@@ -298,6 +298,13 @@
           "content": "Chào bạn! Tôi là NEXUS OS GATEWAY, trợ lý AI thông minh của bạn. Tôi sẵn sàng hỗ trợ bạn trong nhiều lĩnh vực, từ chat đến phân tích file và lưu trữ đám mây. Hãy cho tôi biết bạn cần giúp gì hôm nay!"
         }
       ]
+    },
+    {
+      "id": 1,
+      "name": "Chat 01:47 11/04",
+      "owner": "ThienPhat",
+      "created": "2026-04-11 01:47:35.643806",
+      "messages": []
     }
   ],
   "system_info": {
@@ -306,5 +313,7 @@
     "last_update": "2026-03-29 11:08:21.431872"
   },
   "notifications": {},
-  "friends": {}
+  "friends": {},
+  "shared_files": {},
+  "browsing_history": []
 }
