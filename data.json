@@ -328,7 +328,16 @@
       "name": "Chat 02:27 11/04",
       "owner": "ThienPhat",
       "created": "2026-04-11 02:27:52.180541",
-      "messages": []
+      "messages": [
+        {
+          "role": "user",
+          "content": "Chào"
+        },
+        {
+          "role": "assistant",
+          "content": "Xin chào! Tôi là NEXUS OS GATEWAY, trợ lý AI thông minh của bạn. Tôi sẵn sàng giúp đỡ bạn với bất kỳ câu hỏi hoặc vấn đề nào. Bạn cần giúp đỡ gì hôm nay?"
+        }
+      ]
     }
   ],
   "system_info": {
