@@ -1,8 +1,7 @@
 streamlit
 openai
 requests
-streamlit-js-eval
+beautifulsoup4
 pillow
-pytesseract
 python-docx
-BeautifulSoup
+pytesseract
