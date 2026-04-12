@@ -176,8 +176,18 @@
     "id": 0
   },
   "codes": [
-    "VIP2024",
-    "PRO2025"
+    {
+      "code": "VIP2024",
+      "expiry": null,
+      "max_uses": null,
+      "used_by": []
+    },
+    {
+      "code": "PRO2025",
+      "expiry": null,
+      "max_uses": null,
+      "used_by": []
+    }
   ],
   "pro_users": [
     "Thiên Phát"
@@ -364,5 +374,18 @@
   "notifications": {},
   "friends": {},
   "shared_files": {},
-  "browsing_history": []
+  "browsing_history": [],
+  "devices": {
+    "ThienPhat": [
+      {
+        "device_id": "7c73ef5b8d3235ae",
+        "device_type": "Windows PC",
+        "browser": "Chrome",
+        "os": "Windows 10",
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+        "first_seen": "2026-04-12 05:09:18.220821",
+        "last_seen": "2026-04-12 05:09:18.220824"
+      }
+    ]
+  }
 }
