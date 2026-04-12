@@ -13,11 +13,12 @@ from io import BytesIO
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List
 import mimetypes
+from urllib.parse import urlparse, urlunparse
 
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "6.5.0",
+    "VERSION": "6.6.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -37,10 +38,10 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 6.5.0
+- Phiên bản: 6.6.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
-Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào de Lê Trần Thiên Phát!"""
+Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
 
 # Load secrets
 try:
@@ -55,14 +56,36 @@ except Exception:
 
 st.set_page_config(page_title=CONFIG["NAME"], layout="wide", initial_sidebar_state="expanded")
 
-# ================== CSS ==================
+# ================== CSS - CHAT CỐ ĐỊNH ==================
 st.markdown("""
 <style>
 .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%); height: 100vh; overflow: hidden; }
 .main-container { display: flex; height: 100vh; width: 100%; overflow: hidden; }
 .sidebar { width: 280px; background: white; border-right: 1px solid #e5e7eb; overflow-y: auto; padding: 20px; flex-shrink: 0; height: 100vh; }
 .content-area { flex: 1; overflow-y: auto; padding: 20px; height: 100vh; }
-.custom-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+/* CHAT CONTAINER CỐ ĐỊNH - QUAN TRỌNG */
+.chat-fixed-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 100px);
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+.chat-messages-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+.chat-input-area {
+    padding: 15px 20px;
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
 .ai-banner { background: linear-gradient(135deg, #0047AB, #0066CC); color: white; padding: 16px 20px; border-radius: 20px; margin: 12px 0; border-left: 4px solid #FFD966; }
 .ai-banner::before { content: "🧠 NEXUS OS | "; font-weight: bold; }
 .stButton>button { border-radius: 40px; font-weight: 600; background: #0047AB; color: white; border: none; width: 100%; }
@@ -71,6 +94,8 @@ st.markdown("""
 .pro-badge { background: linear-gradient(135deg, #FFD700, #FFB347); }
 .version-badge { background: #6c757d; color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; }
 .avatar-large { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }
+
+/* Notification */
 .notification-bell { position: fixed; top: 70px; right: 20px; background: #0047AB; color: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; }
 .notification-badge { position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
 .notification-panel { position: fixed; top: 130px; right: 20px; width: 350px; max-height: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1000; overflow: hidden; display: none; }
@@ -81,13 +106,9 @@ st.markdown("""
 .notification-item:hover { background: #f3f4f6; }
 .notification-item.unread { background: #e0e7ff; }
 .pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
-.chat-wrapper { display: flex; flex-direction: column; height: calc(100vh - 100px); background: white; border-radius: 16px; overflow: hidden; }
-.chat-messages { flex: 1; overflow-y: auto; padding: 20px; }
-.chat-input-area { padding: 15px 20px; background: white; border-top: 1px solid #e5e7eb; flex-shrink: 0; }
+
 .search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; }
-.features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
-.feature-card { background: white; border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; }
-.feature-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+.custom-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 </style>
 
 <script>
@@ -100,7 +121,6 @@ function toggleNotifications() {
 
 # ================== HÀM THÔNG BÁO HỆ THỐNG ==================
 def load_system_notifications() -> List[Dict]:
-    """Load thông báo hệ thống từ file riêng"""
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['SYSTEM_NOTIF_FILE']}"
     headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     try:
@@ -113,7 +133,6 @@ def load_system_notifications() -> List[Dict]:
         return []
 
 def save_system_notifications(notifications: List[Dict]) -> bool:
-    """Lưu thông báo hệ thống"""
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['SYSTEM_NOTIF_FILE']}"
     headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     try:
@@ -129,7 +148,6 @@ def save_system_notifications(notifications: List[Dict]) -> bool:
         return False
 
 def add_system_notification(title: str, message: str, notification_type: str = "system"):
-    """Thêm thông báo hệ thống - TẤT CẢ người dùng (kể cả tương lai) đều nhận được"""
     system_notifications = load_system_notifications()
     system_notifications.append({
         "id": str(uuid.uuid4()),
@@ -143,7 +161,6 @@ def add_system_notification(title: str, message: str, notification_type: str = "
     return True
 
 def get_system_notifications_for_user(username: str) -> List[Dict]:
-    """Lấy thông báo hệ thống chưa đọc cho user"""
     system_notifications = load_system_notifications()
     unread = []
     for notif in system_notifications:
@@ -152,7 +169,6 @@ def get_system_notifications_for_user(username: str) -> List[Dict]:
     return unread
 
 def mark_system_notification_read(username: str, notif_id: str):
-    """Đánh dấu thông báo hệ thống đã đọc"""
     system_notifications = load_system_notifications()
     for notif in system_notifications:
         if notif["id"] == notif_id:
@@ -262,7 +278,6 @@ def add_notification(user: str, title: str, message: str, notification_type: str
     save_data(st.session_state.data)
 
 def load_system_notifications_for_user(username: str):
-    """Load và chuyển thông báo hệ thống vào notification của user"""
     sys_notifs = get_system_notifications_for_user(username)
     for notif in sys_notifs:
         if username not in st.session_state.data["notifications"]:
@@ -299,7 +314,63 @@ def share_file_with_friend(owner: str, file_path: str, friend: str) -> bool:
 def get_shared_files(user: str) -> List[Dict]:
     return st.session_state.data.get("shared_files", {}).get(user, [])
 
-# ================== HÀM TÌM KIẾM WEB ==================
+# ================== HÀM TÌM KIẾM WEB (SỬA LỖI CHUYỂN HƯỚNG) ==================
+def get_final_url(url: str) -> str:
+    """Lấy URL cuối cùng sau khi chuyển hướng"""
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=10)
+        return response.url
+    except:
+        return url
+
+def fetch_webpage_content(url: str) -> str:
+    """Lấy nội dung trang web - xử lý đúng URL gốc"""
+    try:
+        # Lấy URL thực sau chuyển hướng
+        final_url = get_final_url(url)
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate",
+            "Connection": "keep-alive"
+        }
+        
+        # Gửi request GET để lấy nội dung thực tế
+        response = requests.get(final_url, headers=headers, timeout=20, allow_redirects=True)
+        response.raise_for_status()
+        
+        text = response.text
+        # Loại bỏ script và style
+        text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<[^>]+>', ' ', text)
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+        
+        return text[:5000] if text else "Không thể trích xuất nội dung từ trang web."
+    except Exception as e:
+        return f"Lỗi khi đọc trang web: {str(e)}"
+
+def summarize_webpage(url: str, content: str = None) -> str:
+    """Tóm tắt nội dung trang web"""
+    if not content:
+        content = fetch_webpage_content(url)
+    if not content or len(content) < 50:
+        return "Không đủ nội dung để tóm tắt."
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
+        messages = [
+            {"role": "system", "content": "Bạn là NEXUS OS GATEWAY. Hãy tóm tắt nội dung sau một cách ngắn gọn, khoảng 200-300 từ."},
+            {"role": "user", "content": f"Nội dung cần tóm tắt:\n{content[:4000]}\n\nHãy tóm tắt nội dung chính:"}
+        ]
+        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.5, max_tokens=1024)
+        return res.choices[0].message.content
+    except Exception as e:
+        return f"Lỗi tóm tắt: {str(e)}"
+
 def search_web(query: str) -> List[Dict]:
     results = []
     try:
@@ -333,38 +404,6 @@ def search_web(query: str) -> List[Dict]:
     except Exception as e:
         results.append({'title': 'Lỗi tìm kiếm', 'url': '', 'snippet': str(e)})
     return results
-
-def fetch_webpage_content(url: str) -> str:
-    try:
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-        text = response.text
-        text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
-        text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
-        text = re.sub(r'<[^>]+>', ' ', text)
-        text = re.sub(r'\s+', ' ', text)
-        text = text.strip()
-        return text[:5000] if text else "Không thể trích xuất nội dung."
-    except Exception as e:
-        return f"Lỗi: {str(e)}"
-
-def summarize_webpage(url: str, content: str = None) -> str:
-    if not content:
-        content = fetch_webpage_content(url)
-    if not content or len(content) < 50:
-        return "Không đủ nội dung để tóm tắt."
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
-        messages = [
-            {"role": "system", "content": "Bạn là NEXUS OS GATEWAY. Hãy tóm tắt nội dung sau một cách ngắn gọn, khoảng 200-300 từ."},
-            {"role": "user", "content": f"Nội dung cần tóm tắt:\n{content[:4000]}\n\nHãy tóm tắt nội dung chính:"}
-        ]
-        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.5, max_tokens=1024)
-        return res.choices[0].message.content
-    except Exception as e:
-        return f"Lỗi tóm tắt: {str(e)}"
 
 # ================== HÀM XỬ LÝ FILE ==================
 def extract_text_from_file(uploaded_file) -> str:
@@ -437,7 +476,6 @@ def init_session():
 
 init_session()
 
-# Sau khi có user, load thông báo hệ thống cho user đó
 if st.session_state.user and not st.session_state.guest_mode:
     load_system_notifications_for_user(st.session_state.user)
 
@@ -661,7 +699,7 @@ if st.session_state.page == "DASHBOARD":
     total_size = sum(f.get("size", 0) for f in st.session_state.data["files"].values())
     c4.metric("Dung lượng", f"{total_size/(1024**3):.1f} GB")
 
-# ================== CHAT AI ==================
+# ================== CHAT AI - CỐ ĐỊNH ==================
 elif st.session_state.page == "CHAT":
     st.markdown("<h2>🧠 NEXUS OS GATEWAY - Trợ lý AI</h2>", unsafe_allow_html=True)
     
@@ -715,8 +753,9 @@ elif st.session_state.page == "CHAT":
     
     messages = chat.get("messages", [])
     
-    st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
-    st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
+    # CHAT CONTAINER CỐ ĐỊNH
+    st.markdown('<div class="chat-fixed-container">', unsafe_allow_html=True)
+    st.markdown('<div class="chat-messages-area">', unsafe_allow_html=True)
     
     for m in messages:
         if m.get("role") == "user":
@@ -832,7 +871,7 @@ elif st.session_state.page == "SEARCH":
                             st.session_state[f"show_summary_{i}"] = False
                             st.rerun()
 
-# ================== LƯU TRỮ ==================
+# ================== CLOUD ==================
 elif st.session_state.page == "CLOUD":
     st.markdown("<h2>☁️ NEXUS CLOUD</h2>", unsafe_allow_html=True)
     
@@ -1175,7 +1214,6 @@ elif st.session_state.page == "ADMIN":
         with tab2:
             st.subheader("📢 GỬI THÔNG BÁO")
             
-            # Checkbox quan trọng: Gửi cho người dùng tương lai
             send_to_future = st.checkbox("✓ Gửi cho cả người dùng đăng ký sau", value=False, 
                                         help="Bật để thông báo này được lưu và hiển thị cho người dùng đăng ký trong tương lai")
             
@@ -1191,11 +1229,9 @@ elif st.session_state.page == "ADMIN":
             
             if st.button("📤 GỬI THÔNG BÁO"):
                 if send_to_future:
-                    # Gửi thông báo hệ thống - lưu riêng, sẽ hiển thị cho user đăng ký sau
                     add_system_notification(title, msg, "admin")
                     st.toast(f"✅ Đã lưu thông báo hệ thống! Tất cả người dùng (kể cả tương lai) sẽ nhận được!", icon="🔔")
                 else:
-                    # Gửi thông báo thường
                     if target == "Tất cả":
                         for u in users:
                             add_notification(u, title, msg, "admin")
@@ -1224,7 +1260,7 @@ elif st.session_state.page == "ABOUT":
         <p style="text-align:center"><b>Hệ điều hành AI đa năng</b></p>
         <p><b>Phiên bản:</b> {CONFIG['VERSION']}</p>
         <p><b>Tác giả:</b> {CONFIG['CREATOR']}</p>
-        <p><b>Ngày phát hành:</b> 12/04/2026</p>
+        <p><b>Ngày phát hành:</b> 12.04.2026</p>
         <hr>
         <p style="text-align:center"><i>"Kết nối tri thức, mở ra tương lai"</i></p>
     </div>
