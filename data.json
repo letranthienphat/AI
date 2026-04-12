@@ -357,5 +357,12 @@
       }
     ]
   },
-  "session_tokens": {}
+  "session_tokens": {
+    "96eb60075efe9154d4d401fa74b223826a3f10dc8e837851e26479255f46bf4f": {
+      "username": "ThienPhat",
+      "expiry": "2026-05-12 09:03:52.483651",
+      "created": "2026-04-12 09:03:52.483670",
+      "device_id": "7c73ef5b8d3235ae"
+    }
+  }
 }
