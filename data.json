@@ -180,7 +180,9 @@
       "code": "VIP2024",
       "expiry": null,
       "max_uses": null,
-      "used_by": []
+      "used_by": [
+        "ThienPhat"
+      ]
     },
     {
       "code": "PRO2025",
@@ -190,7 +192,8 @@
     }
   ],
   "pro_users": [
-    "Thiên Phát"
+    "Thiên Phát",
+    "ThienPhat"
   ],
   "chats": [
     {
