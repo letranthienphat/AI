@@ -7,7 +7,9 @@
         "bio": "",
         "link": "8de4ad25-1096-4ad8-baca-8a2b0333151c",
         "avatar": null,
-        "created": "2026-03-30 09:22:04.602466"
+        "created": "2026-03-30 09:22:04.602466",
+        "email_provided": false,
+        "email": null
       }
     },
     "Thiên Phát": {
@@ -17,7 +19,9 @@
         "bio": "",
         "link": "f3a58665-ea04-4ae4-9c0a-50294f6bad0f",
         "avatar": null,
-        "created": "2026-03-30 09:22:04.602489"
+        "created": "2026-03-30 09:22:04.602489",
+        "email_provided": false,
+        "email": null
       }
     },
     "ThienPhat": {
@@ -27,7 +31,9 @@
         "bio": "",
         "link": "50edb49b-ddef-4078-b4e5-cce6e305c614",
         "avatar": null,
-        "created": "2026-03-30 09:22:04.602498"
+        "created": "2026-03-30 09:22:04.602498",
+        "email_provided": false,
+        "email": null
       }
     }
   },
@@ -334,5 +340,6 @@
         "last_seen": "2026-04-12 05:19:35.495765"
       }
     ]
-  }
+  },
+  "session_tokens": {}
 }
