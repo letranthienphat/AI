@@ -17,7 +17,7 @@ import mimetypes
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "6.7.0",
+    "VERSION": "6.8.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -28,17 +28,16 @@ CONFIG = {
     "PRO_STORAGE_LIMIT": float('inf'),
     "AUTO_CLEANUP_DAYS": 30,
     "MAX_AVATAR_SIZE": 5 * 1024 * 1024,
-    "SESSION_TOKEN_EXPIRY": 30  # ngày
+    "SESSION_TOKEN_EXPIRY": 30
 }
 
-# SYSTEM PROMPT
 SYSTEM_PROMPT = """Bạn là NEXUS OS GATEWAY, một hệ điều hành AI đa năng được sáng tạo và phát triển bởi Lê Trần Thiên Phát (Thiên Phát). 
 Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ công ty nào khác. Bạn là trí tuệ nhân tạo độc lập.
 
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 6.7.0
+- Phiên bản: 6.8.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
@@ -59,12 +58,18 @@ st.set_page_config(page_title=CONFIG["NAME"], layout="wide", initial_sidebar_sta
 # ================== CSS ==================
 st.markdown("""
 <style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
 .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%); height: 100vh; overflow: hidden; }
+
 .main-container { display: flex; height: 100vh; width: 100%; overflow: hidden; }
+
 .sidebar { width: 280px; background: white; border-right: 1px solid #e5e7eb; overflow-y: auto; padding: 20px; flex-shrink: 0; height: 100vh; }
+
 .content-area { flex: 1; overflow-y: auto; padding: 20px; height: 100vh; }
 
-.chat-fixed-container {
+/* CHAT CONTAINER CHUẨN */
+.chat-wrapper {
     display: flex;
     flex-direction: column;
     height: calc(100vh - 100px);
@@ -73,10 +78,12 @@ st.markdown("""
     overflow: hidden;
     box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
-.chat-messages-area {
+.chat-messages {
     flex: 1;
     overflow-y: auto;
     padding: 20px;
+    display: flex;
+    flex-direction: column;
 }
 .chat-input-area {
     padding: 15px 20px;
@@ -87,23 +94,44 @@ st.markdown("""
 
 .ai-banner { background: linear-gradient(135deg, #0047AB, #0066CC); color: white; padding: 16px 20px; border-radius: 20px; margin: 12px 0; border-left: 4px solid #FFD966; }
 .ai-banner::before { content: "🧠 NEXUS OS | "; font-weight: bold; }
+
 .stButton>button { border-radius: 40px; font-weight: 600; background: #0047AB; color: white; border: none; width: 100%; }
 .stButton>button:hover { background: #003399; }
+
 .guest-badge { background: #FFD966; padding: 4px 12px; border-radius: 40px; font-size: 0.8rem; font-weight: bold; display: inline-block; }
 .pro-badge { background: linear-gradient(135deg, #FFD700, #FFB347); }
 .version-badge { background: #6c757d; color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; }
 .avatar-large { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }
 
-.notification-bell { position: fixed; top: 70px; right: 20px; background: #0047AB; color: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; }
+/* NOTIFICATION */
+.notification-bell { position: fixed; top: 20px; right: 20px; background: #0047AB; color: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 .notification-badge { position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
-.notification-panel { position: fixed; top: 130px; right: 20px; width: 350px; max-height: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1000; overflow: hidden; }
-.notification-panel.show { display: block !important; }
-.notification-header { padding: 15px; background: #0047AB; color: white; font-weight: bold; display: flex; justify-content: space-between; }
+.notification-panel { 
+    position: fixed; 
+    top: 80px; 
+    right: 20px; 
+    width: 350px; 
+    max-height: 500px; 
+    background: white; 
+    border-radius: 16px; 
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
+    z-index: 1001; 
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+}
+.notification-panel.show { 
+    opacity: 1;
+    visibility: visible;
+}
+.notification-header { padding: 15px; background: #0047AB; color: white; font-weight: bold; display: flex; justify-content: space-between; cursor: pointer; }
 .notification-list { max-height: 400px; overflow-y: auto; padding: 10px; }
 .notification-item { padding: 10px; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
 .notification-item:hover { background: #f3f4f6; }
 .notification-item.unread { background: #e0e7ff; }
 .pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
+.pull-to-refresh:hover { color: #0047AB; }
 
 .search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; }
 .custom-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -120,73 +148,29 @@ function toggleNotifications() {
         }
     }
 }
+
+function scrollToBottom() {
+    var container = document.querySelector('.chat-messages');
+    if (container) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+// Tự động cuộn xuống cuối khi trang tải
+setTimeout(scrollToBottom, 100);
 </script>
 """, unsafe_allow_html=True)
 
-# ================== HÀM LẤY NỘI DUNG WEB (DÙNG API) ==================
-def get_webpage_content_via_textise(url: str) -> str:
-    """Lấy nội dung trang web qua textise dot iitty (tránh chuyển hướng)"""
-    try:
-        # Sử dụng textise API để lấy nội dung thuần text
-        textise_url = f"https://textise.iitty.com/?u={url}"
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        response = requests.get(textise_url, headers=headers, timeout=20)
-        if response.status_code == 200:
-            # Lấy nội dung từ textise
-            text = response.text
-            # Tìm phần nội dung chính
-            match = re.search(r'<div id="display">(.*?)</div>', text, re.DOTALL)
-            if match:
-                content = match.group(1)
-                content = re.sub(r'<[^>]+>', ' ', content)
-                content = re.sub(r'\s+', ' ', content)
-                return content.strip()[:5000]
-        return None
-    except:
-        return None
-
-def fetch_webpage_content_simple(url: str) -> str:
-    """Lấy nội dung trang web đơn giản, tránh JavaScript"""
-    try:
-        # Thử dùng textise trước
-        content = get_webpage_content_via_textise(url)
-        if content and len(content) > 100:
-            return content
-        
-        # Nếu không được, dùng request đơn giản
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "text/html,application/xhtml+xml",
-            "Accept-Language": "en-US,en;q=0.9",
-        }
-        response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
-        
-        if response.status_code == 200:
-            text = response.text
-            # Loại bỏ script, style
-            text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
-            text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
-            text = re.sub(r'<[^>]+>', ' ', text)
-            text = re.sub(r'\s+', ' ', text)
-            text = text.strip()
-            return text[:5000] if text else "Không thể trích xuất nội dung."
-        else:
-            return f"Không thể truy cập trang (Mã lỗi: {response.status_code})"
-    except Exception as e:
-        return f"Lỗi: {str(e)}"
-
+# ================== HÀM LẤY NỘI DUNG WEB ==================
 def search_web_via_api(query: str) -> List[Dict]:
-    """Tìm kiếm web dùng API, không parse HTML"""
     results = []
     try:
-        # Dùng DuckDuckGo API
         url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
         response = requests.get(url, headers={"User-Agent": "NEXUS-OS/6.0"}, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
             
-            # Abstract
             if data.get("AbstractText"):
                 results.append({
                     'title': data.get("Heading", query),
@@ -194,7 +178,6 @@ def search_web_via_api(query: str) -> List[Dict]:
                     'snippet': data.get("AbstractText", "")[:300]
                 })
             
-            # Related topics
             for topic in data.get("RelatedTopics", [])[:10]:
                 if isinstance(topic, dict):
                     text = topic.get("Text", "")
@@ -205,7 +188,6 @@ def search_web_via_api(query: str) -> List[Dict]:
                         snippet = parts[1][:200] if len(parts) > 1 else ""
                         results.append({'title': title, 'url': url_topic, 'snippet': snippet})
             
-            # Nếu không có kết quả
             if not results:
                 results.append({
                     'title': f"Tìm kiếm: {query}",
@@ -219,8 +201,29 @@ def search_web_via_api(query: str) -> List[Dict]:
     
     return results
 
+def fetch_webpage_content_simple(url: str) -> str:
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+        
+        if response.status_code == 200:
+            text = response.text
+            text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r'<[^>]+>', ' ', text)
+            text = re.sub(r'\s+', ' ', text)
+            text = text.strip()
+            return text[:5000] if text else "Không thể trích xuất nội dung."
+        else:
+            return f"Không thể truy cập trang (Mã lỗi: {response.status_code})"
+    except Exception as e:
+        return f"Lỗi: {str(e)}"
+
 def summarize_webpage(url: str) -> str:
-    """Tóm tắt nội dung trang web"""
     content = fetch_webpage_content_simple(url)
     if not content or len(content) < 50:
         return "Không đủ nội dung để tóm tắt. Trang web có thể yêu cầu JavaScript hoặc bị chặn."
@@ -368,7 +371,6 @@ def load_data() -> Dict:
                 if key not in data:
                     data[key] = default_val
             
-            # Thêm email_provided cho user cũ nếu chưa có
             for username, user_data in data["users"].items():
                 if "info" not in user_data:
                     user_data["info"] = {}
@@ -432,7 +434,6 @@ def load_system_notifications_for_user(username: str):
 
 # ================== HÀM GHI NHỚ THIẾT BỊ ==================
 def create_session_token(username: str) -> str:
-    """Tạo token ghi nhớ thiết bị"""
     token = hashlib.sha256(f"{username}{uuid.uuid4()}{datetime.now()}".encode()).hexdigest()
     expiry = datetime.now() + timedelta(days=CONFIG["SESSION_TOKEN_EXPIRY"])
     
@@ -449,12 +450,10 @@ def create_session_token(username: str) -> str:
     return token
 
 def get_device_id() -> str:
-    """Lấy ID thiết bị từ User-Agent"""
     ua = st.context.headers.get("User-Agent", "Unknown")
     return hashlib.md5(ua.encode()).hexdigest()[:16]
 
 def check_remembered_device() -> Optional[str]:
-    """Kiểm tra xem thiết bị đã được ghi nhớ chưa"""
     device_id = get_device_id()
     
     if "session_tokens" not in st.session_state.data:
@@ -466,14 +465,12 @@ def check_remembered_device() -> Optional[str]:
             if datetime.now() < expiry:
                 return info["username"]
             else:
-                # Xóa token hết hạn
                 del st.session_state.data["session_tokens"][token]
                 save_data(st.session_state.data)
     return None
 
 # ================== HÀM XỬ LÝ EMAIL ==================
 def prompt_for_email(username: str) -> bool:
-    """Yêu cầu người dùng cung cấp email nếu chưa có"""
     user_info = st.session_state.data["users"][username]["info"]
     
     if user_info.get("email_provided", False):
@@ -575,7 +572,6 @@ def init_session():
 
 init_session()
 
-# Kiểm tra ghi nhớ thiết bị
 if st.session_state.page == "AUTH" and not st.session_state.user:
     remembered_user = check_remembered_device()
     if remembered_user:
@@ -661,14 +657,14 @@ def download_multiple_files(file_paths: List[str]) -> bytes:
 
 # ================== NOTIFICATION BELL ==================
 st.markdown(f'''
-<div id="notification-bell" class="notification-bell" onclick="toggleNotifications()">
+<div class="notification-bell" onclick="toggleNotifications()">
     🔔
     {f'<span class="notification-badge">{unread_count}</span>' if unread_count > 0 else ''}
 </div>
 <div id="notification-panel" class="notification-panel">
-    <div class="notification-header">
+    <div class="notification-header" onclick="toggleNotifications()">
         <span>📢 THÔNG BÁO</span>
-        <span style="cursor:pointer" onclick="toggleNotifications()">✕</span>
+        <span>✕</span>
     </div>
     <div class="pull-to-refresh" onclick="location.reload()">
         ⬇️ Kéo xuống để tải lại ⬇️
@@ -710,8 +706,6 @@ with st.sidebar:
             st.subheader("🔐 ĐĂNG NHẬP")
             login_user = st.text_input("Tài khoản")
             login_pass = st.text_input("Mật khẩu", type="password")
-            
-            # Ghi nhớ thiết bị
             remember = st.checkbox("💾 Ghi nhớ thiết bị này", value=False)
             
             if st.form_submit_button("Đăng nhập", use_container_width=True):
@@ -720,11 +714,8 @@ with st.sidebar:
                         if st.session_state.data["users"][login_user]["password"] == login_pass:
                             st.session_state.user = login_user
                             st.session_state.guest_mode = False
-                            
-                            # Tạo token nếu chọn ghi nhớ
                             if remember:
                                 create_session_token(login_user)
-                            
                             load_system_notifications_for_user(login_user)
                             st.toast(f"✅ Chào mừng đến với {CONFIG['NAME']}!", icon="🎉")
                             st.rerun()
@@ -794,7 +785,6 @@ with st.sidebar:
 
 # ================== DASHBOARD ==================
 if st.session_state.page == "DASHBOARD":
-    # Kiểm tra email cho user cũ
     if st.session_state.user and not st.session_state.guest_mode:
         user_info = st.session_state.data["users"][st.session_state.user]["info"]
         if not user_info.get("email_provided", False):
@@ -881,8 +871,8 @@ elif st.session_state.page == "CHAT":
     
     messages = chat.get("messages", [])
     
-    st.markdown('<div class="chat-fixed-container">', unsafe_allow_html=True)
-    st.markdown('<div class="chat-messages-area">', unsafe_allow_html=True)
+    st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
+    st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
     
     for m in messages:
         if m.get("role") == "user":
@@ -932,7 +922,7 @@ elif st.session_state.page == "CHAT":
                 save_data(st.session_state.data)
         st.rerun()
 
-# ================== TÌM KIẾM WEB (SỬA LỖI) ==================
+# ================== TÌM KIẾM WEB ==================
 elif st.session_state.page == "SEARCH":
     st.markdown("<h2>🌐 TÌM KIẾM WEB</h2>", unsafe_allow_html=True)
     st.markdown("<p>Tìm kiếm thông tin trên web và nhận tóm tắt từ NEXUS OS</p>", unsafe_allow_html=True)
@@ -1229,7 +1219,6 @@ elif st.session_state.page == "SETTINGS":
                     save_data(st.session_state.data)
                     st.toast("✅ Đã cập nhật giới thiệu!", icon="✅")
                 
-                # Hiển thị email nếu có
                 if user_info.get("email"):
                     st.info(f"📧 Email đã đăng ký: {user_info['email']}")
                 elif user_info.get("email_provided"):
