@@ -338,6 +338,13 @@
           "content": "Xin chào! Tôi là NEXUS OS GATEWAY, trợ lý AI thông minh của bạn. Tôi sẵn sàng giúp đỡ bạn với bất kỳ câu hỏi hoặc vấn đề nào. Bạn cần giúp đỡ gì hôm nay?"
         }
       ]
+    },
+    {
+      "id": 3,
+      "name": "Chat 04:42 12/04",
+      "owner": "ThienPhat",
+      "created": "2026-04-12 04:42:21.405450",
+      "messages": []
     }
   ],
   "system_info": {
