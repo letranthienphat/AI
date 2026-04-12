@@ -9,6 +9,7 @@ import hashlib
 import re
 import zipfile
 import uuid
+import platform
 from io import BytesIO
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List
@@ -42,7 +43,7 @@ except ImportError:
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "6.2.0",
+    "VERSION": "6.3.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -61,7 +62,7 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 6.2.0
+- Phiên bản: 6.3.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
@@ -79,40 +80,134 @@ except Exception as e:
 
 st.set_page_config(page_title=CONFIG["NAME"], layout="wide", initial_sidebar_state="expanded")
 
-# ================== CSS GIAO DIỆN ==================
+# ================== CSS GIAO DIỆN VỪA MÀN HÌNH ==================
 st.markdown("""
 <style>
-.stApp { background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%); }
-[data-testid="stSidebar"] { background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%); border-right: 1px solid #e5e7eb; }
-.custom-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }
-.custom-card:hover { transform: translateY(-2px); }
-.ai-banner { background: linear-gradient(135deg, #0047AB, #0066CC); color: white; padding: 16px 20px; border-radius: 20px; margin: 12px 0; border-left: 4px solid #FFD966; }
-.ai-banner::before { content: "🧠 NEXUS OS | "; font-weight: bold; }
-.stButton>button { border-radius: 40px; font-weight: 600; background: #0047AB; color: white; border: none; width: 100%; transition: all 0.2s; }
-.stButton>button:hover { background: #003399; transform: scale(1.02); }
-.guest-badge { background: #FFD966; color: #1f2937; padding: 4px 12px; border-radius: 40px; font-size: 0.8rem; font-weight: bold; display: inline-block; }
-.pro-badge { background: linear-gradient(135deg, #FFD700, #FFB347); color: #1f2937; }
-.version-badge { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; }
-.avatar-large { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }
-.notification-bell { position: fixed; top: 70px; right: 20px; background: #0047AB; color: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-.notification-badge { position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
-.notification-panel { position: fixed; top: 130px; right: 20px; width: 350px; max-height: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1000; overflow: hidden; display: none; }
-.notification-panel.show { display: block; }
-.notification-header { padding: 15px; background: #0047AB; color: white; font-weight: bold; display: flex; justify-content: space-between; }
-.notification-list { max-height: 400px; overflow-y: auto; padding: 10px; }
-.notification-item { padding: 10px; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
-.notification-item:hover { background: #f3f4f6; }
-.notification-item.unread { background: #e0e7ff; }
-.search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; transition: all 0.2s; cursor: pointer; }
-.search-result:hover { background: #f9fafb; transform: translateX(4px); }
-.chat-container { height: calc(100vh - 180px); overflow-y: auto; padding: 20px; background: white; border-radius: 16px; margin-bottom: 20px; display: flex; flex-direction: column; }
-.chat-messages { flex: 1; }
-.chat-input-fixed { position: sticky; bottom: 0; background: white; padding: 15px; border-radius: 16px; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 100; margin-top: 20px; }
-.features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
-.feature-card { background: white; border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; }
-.feature-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-.pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
-.pull-to-refresh:hover { color: #0047AB; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    .stApp { 
+        background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%);
+        height: 100vh;
+        overflow: hidden;
+    }
+    
+    /* Main container full screen */
+    .main-container {
+        display: flex;
+        height: 100vh;
+        width: 100%;
+        overflow: hidden;
+    }
+    
+    /* Sidebar cố định */
+    .sidebar {
+        width: 280px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+        border-right: 1px solid #e5e7eb;
+        overflow-y: auto;
+        padding: 20px;
+        flex-shrink: 0;
+        height: 100vh;
+    }
+    
+    /* Content area scrollable */
+    .content-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        height: 100vh;
+    }
+    
+    /* Cards */
+    .custom-card { 
+        background: white; 
+        border-radius: 16px; 
+        padding: 20px; 
+        margin-bottom: 20px; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        transition: transform 0.2s; 
+    }
+    .custom-card:hover { transform: translateY(-2px); }
+    
+    /* AI Banner */
+    .ai-banner { 
+        background: linear-gradient(135deg, #0047AB, #0066CC); 
+        color: white; 
+        padding: 16px 20px; 
+        border-radius: 20px; 
+        margin: 12px 0; 
+        border-left: 4px solid #FFD966; 
+    }
+    .ai-banner::before { content: "🧠 NEXUS OS | "; font-weight: bold; }
+    
+    /* Buttons */
+    .stButton>button { 
+        border-radius: 40px; 
+        font-weight: 600; 
+        background: #0047AB; 
+        color: white; 
+        border: none; 
+        width: 100%; 
+        transition: all 0.2s; 
+    }
+    .stButton>button:hover { background: #003399; transform: scale(1.02); }
+    
+    /* Badges */
+    .guest-badge { background: #FFD966; color: #1f2937; padding: 4px 12px; border-radius: 40px; font-size: 0.8rem; font-weight: bold; display: inline-block; }
+    .pro-badge { background: linear-gradient(135deg, #FFD700, #FFB347); color: #1f2937; }
+    .version-badge { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; }
+    
+    /* Avatar */
+    .avatar-large { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }
+    
+    /* Notification */
+    .notification-bell { position: fixed; top: 70px; right: 20px; background: #0047AB; color: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .notification-badge { position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+    .notification-panel { position: fixed; top: 130px; right: 20px; width: 350px; max-height: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1000; overflow: hidden; display: none; }
+    .notification-panel.show { display: block; }
+    .notification-header { padding: 15px; background: #0047AB; color: white; font-weight: bold; display: flex; justify-content: space-between; }
+    .notification-list { max-height: 400px; overflow-y: auto; padding: 10px; }
+    .notification-item { padding: 10px; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
+    .notification-item:hover { background: #f3f4f6; }
+    .notification-item.unread { background: #e0e7ff; }
+    .pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
+    .pull-to-refresh:hover { color: #0047AB; }
+    
+    /* Search result */
+    .search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; transition: all 0.2s; cursor: pointer; }
+    .search-result:hover { background: #f9fafb; transform: translateX(4px); }
+    
+    /* Chat container */
+    .chat-full-container { 
+        display: flex; 
+        flex-direction: column; 
+        height: calc(100vh - 120px); 
+        background: white; 
+        border-radius: 16px; 
+        overflow: hidden; 
+    }
+    .chat-messages-area { 
+        flex: 1; 
+        overflow-y: auto; 
+        padding: 20px; 
+    }
+    .chat-input-area { 
+        padding: 15px 20px; 
+        background: white; 
+        border-top: 1px solid #e5e7eb; 
+    }
+    
+    /* Features grid */
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
+    .feature-card { background: white; border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; }
+    .feature-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .sidebar { width: 100%; position: fixed; z-index: 100; transform: translateX(-100%); transition: transform 0.3s; }
+        .sidebar.open { transform: translateX(0); }
+        .features-grid { grid-template-columns: 1fr; }
+    }
 </style>
 
 <script>
@@ -123,12 +218,73 @@ function toggleNotifications() {
 </script>
 """, unsafe_allow_html=True)
 
+# ================== HÀM LẤY THÔNG TIN THIẾT BỊ ==================
+def get_device_info() -> Dict:
+    """Lấy thông tin thiết bị từ headers"""
+    headers = st.context.headers
+    
+    user_agent = headers.get("User-Agent", "Unknown")
+    accept_language = headers.get("Accept-Language", "Unknown")
+    
+    # Phân tích User-Agent
+    device_type = "Unknown"
+    browser = "Unknown"
+    os = "Unknown"
+    
+    if "iPhone" in user_agent:
+        device_type = "iPhone"
+    elif "iPad" in user_agent:
+        device_type = "iPad"
+    elif "Android" in user_agent:
+        device_type = "Android"
+    elif "Windows" in user_agent:
+        device_type = "Windows PC"
+    elif "Mac" in user_agent:
+        device_type = "Mac"
+    elif "Linux" in user_agent:
+        device_type = "Linux"
+    
+    # Xác định trình duyệt
+    if "Chrome" in user_agent and "Edg" not in user_agent:
+        browser = "Chrome"
+    elif "Firefox" in user_agent:
+        browser = "Firefox"
+    elif "Safari" in user_agent and "Chrome" not in user_agent:
+        browser = "Safari"
+    elif "Edg" in user_agent:
+        browser = "Edge"
+    elif "Opera" in user_agent:
+        browser = "Opera"
+    
+    # Xác định hệ điều hành
+    if "Windows NT 10.0" in user_agent:
+        os = "Windows 10"
+    elif "Windows NT 11.0" in user_agent:
+        os = "Windows 11"
+    elif "Mac OS X" in user_agent:
+        os = "macOS"
+    elif "Android" in user_agent:
+        os = "Android"
+    elif "iOS" in user_agent:
+        os = "iOS"
+    elif "Linux" in user_agent:
+        os = "Linux"
+    
+    return {
+        "user_agent": user_agent[:200],
+        "device_type": device_type,
+        "browser": browser,
+        "os": os,
+        "accept_language": accept_language,
+        "ip": headers.get("X-Forwarded-For", headers.get("Remote-Addr", "Unknown")),
+        "timestamp": str(datetime.now())
+    }
+
 # ================== HÀM TÌM KIẾM WEB ==================
 def search_web(query: str) -> List[Dict]:
-    """Tìm kiếm web sử dụng DuckDuckGo và lấy link"""
+    """Tìm kiếm web sử dụng DuckDuckGo"""
     results = []
     try:
-        # Sử dụng DuckDuckGo API
         url = f"https://api.duckduckgo.com/?q={query}&format=json&pretty=1"
         headers = {"User-Agent": "NEXUS-OS-GATEWAY/6.0"}
         response = requests.get(url, headers=headers, timeout=10)
@@ -136,7 +292,6 @@ def search_web(query: str) -> List[Dict]:
         if response.status_code == 200:
             data = response.json()
             
-            # Abstract
             if data.get("Abstract"):
                 results.append({
                     'title': data.get("Heading", query),
@@ -144,7 +299,6 @@ def search_web(query: str) -> List[Dict]:
                     'snippet': data.get("Abstract", "")[:200]
                 })
             
-            # Related topics
             for topic in data.get("RelatedTopics", [])[:15]:
                 if isinstance(topic, dict) and "Text" in topic:
                     text = topic.get("Text", "")
@@ -155,26 +309,16 @@ def search_web(query: str) -> List[Dict]:
                         snippet = parts[1][:200] if len(parts) > 1 else ""
                         results.append({'title': title, 'url': url_topic, 'snippet': snippet})
             
-            # Nếu không có kết quả, thử tìm kiếm Bing
             if not results:
-                bing_url = f"https://www.bing.com/search?q={query}"
                 results.append({
-                    'title': f"Tìm kiếm trên Bing: {query}",
-                    'url': bing_url,
-                    'snippet': "Nhấn để mở trang tìm kiếm Bing"
+                    'title': f"Tìm kiếm trên DuckDuckGo: {query}",
+                    'url': f"https://duckduckgo.com/?q={query}",
+                    'snippet': "Nhấn để mở trang tìm kiếm"
                 })
         else:
-            results.append({
-                'title': 'Lỗi kết nối',
-                'url': '',
-                'snippet': f'Mã lỗi: {response.status_code}'
-            })
+            results.append({'title': 'Lỗi kết nối', 'url': '', 'snippet': f'Mã lỗi: {response.status_code}'})
     except Exception as e:
-        results.append({
-            'title': 'Lỗi tìm kiếm',
-            'url': '',
-            'snippet': str(e)
-        })
+        results.append({'title': 'Lỗi tìm kiếm', 'url': '', 'snippet': str(e)})
     
     return results
 
@@ -186,7 +330,6 @@ def fetch_webpage_content(url: str) -> str:
         response.raise_for_status()
         
         text = response.text
-        # Loại bỏ script và style
         text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
         text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
         text = re.sub(r'<[^>]+>', ' ', text)
@@ -298,6 +441,7 @@ def get_default_data() -> Dict:
         "notifications": {},
         "friends": {},
         "browsing_history": [],
+        "devices": {},
         "system_info": {"created": str(datetime.now()), "creator": CONFIG["CREATOR"], "system_name": CONFIG["NAME"]}
     }
 
@@ -309,7 +453,6 @@ def load_data() -> Dict:
         if res.status_code == 200:
             content = base64.b64decode(res.json()['content']).decode('utf-8')
             data = json.loads(content)
-            # Đảm bảo admin tồn tại
             if CONFIG["ADMIN_USERNAME"] not in data.get("users", {}):
                 data["users"][CONFIG["ADMIN_USERNAME"]] = {
                     "password": CONFIG["ADMIN_PASSWORD"],
@@ -321,10 +464,10 @@ def load_data() -> Dict:
                         "created": str(datetime.now())
                     }
                 }
-            # Đảm bảo các key tồn tại
             defaults = {
                 "codes": [], "pro_users": [], "chat_sessions": [], "files": {},
-                "shared_files": {}, "notifications": {}, "friends": {}, "browsing_history": [], "system_info": {}
+                "shared_files": {}, "notifications": {}, "friends": {}, "browsing_history": [],
+                "devices": {}, "system_info": {}
             }
             for key, default_val in defaults.items():
                 if key not in data:
@@ -405,6 +548,39 @@ def init_session():
         st.session_state.web_summaries = {}
     if 'browsing_history' not in st.session_state:
         st.session_state.browsing_history = []
+    
+    # Lưu thông tin thiết bị
+    device_info = get_device_info()
+    device_id = hashlib.md5(device_info.get("user_agent", "").encode()).hexdigest()[:16]
+    
+    if st.session_state.user and st.session_state.user not in st.session_state.data.get("devices", {}):
+        st.session_state.data["devices"][st.session_state.user] = []
+    
+    if st.session_state.user:
+        existing_devices = st.session_state.data["devices"].get(st.session_state.user, [])
+        device_exists = False
+        for d in existing_devices:
+            if d.get("device_id") == device_id:
+                device_exists = True
+                break
+        if not device_exists:
+            st.session_state.data["devices"][st.session_state.user].append({
+                "device_id": device_id,
+                "device_type": device_info.get("device_type"),
+                "browser": device_info.get("browser"),
+                "os": device_info.get("os"),
+                "user_agent": device_info.get("user_agent"),
+                "first_seen": str(datetime.now()),
+                "last_seen": str(datetime.now())
+            })
+            save_data(st.session_state.data)
+        else:
+            for d in existing_devices:
+                if d.get("device_id") == device_id:
+                    d["last_seen"] = str(datetime.now())
+                    break
+            save_data(st.session_state.data)
+    
     auto_cleanup_files()
 
 init_session()
@@ -502,10 +678,11 @@ st.markdown(f'''
 
 if st.session_state.user and st.session_state.user in st.session_state.data.get("notifications", {}):
     for n in reversed(st.session_state.data["notifications"][st.session_state.user]):
-        st.markdown(f'<div class="notification-item {"unread" if not n.get("read") else ""}"><b>{n["title"]}</b><br>{n["message"]}<br><small>{n["time"][:16]}</small></div>', unsafe_allow_html=True)
-        if not n.get("read"):
-            n["read"] = True
-            save_data(st.session_state.data)
+        if isinstance(n, dict):
+            st.markdown(f'<div class="notification-item {"unread" if not n.get("read") else ""}"><b>{n.get("title", "")}</b><br>{n.get("message", "")}<br><small>{n.get("time", "")[:16]}</small></div>', unsafe_allow_html=True)
+            if not n.get("read"):
+                n["read"] = True
+                save_data(st.session_state.data)
 else:
     st.markdown('<div class="notification-item">Chưa có thông báo nào</div>', unsafe_allow_html=True)
 
@@ -649,21 +826,27 @@ elif st.session_state.page == "CHAT":
             st.session_state.current_chat_id = new_id
             save_data(st.session_state.data)
             st.rerun()
+        if st.button("🗑️ Xóa tất cả lịch sử", use_container_width=True):
+            st.session_state.data["chat_sessions"] = [s for s in st.session_state.data["chat_sessions"] if s.get("owner") != st.session_state.user]
+            st.session_state.current_chat_id = None
+            save_data(st.session_state.data)
+            st.toast("✅ Đã xóa toàn bộ lịch sử chat!", icon="🗑️")
+            st.rerun()
         st.write("---")
-        for s in st.session_state.data["chat_sessions"]:
-            if s.get("owner") == st.session_state.user:
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    if st.button(f"💬 {s['name']}", key=f"chat_{s['id']}", use_container_width=True):
-                        st.session_state.current_chat_id = s["id"]
-                        st.rerun()
-                with col2:
-                    if st.button("🗑️", key=f"del_{s['id']}"):
-                        st.session_state.data["chat_sessions"] = [x for x in st.session_state.data["chat_sessions"] if x.get("id") != s["id"]]
-                        if st.session_state.current_chat_id == s["id"]:
-                            st.session_state.current_chat_id = None
-                        save_data(st.session_state.data)
-                        st.rerun()
+        sessions = [s for s in st.session_state.data["chat_sessions"] if s.get("owner") == st.session_state.user]
+        for s in sessions[-20:]:
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                if st.button(f"💬 {s.get('name', 'Chat')}", key=f"chat_{s.get('id')}", use_container_width=True):
+                    st.session_state.current_chat_id = s.get("id")
+                    st.rerun()
+            with col2:
+                if st.button("🗑️", key=f"del_{s.get('id')}"):
+                    st.session_state.data["chat_sessions"] = [x for x in st.session_state.data["chat_sessions"] if x.get("id") != s.get("id")]
+                    if st.session_state.current_chat_id == s.get("id"):
+                        st.session_state.current_chat_id = None
+                    save_data(st.session_state.data)
+                    st.rerun()
     
     if st.session_state.guest_mode:
         chat = st.session_state.temp_chat
@@ -673,21 +856,19 @@ elif st.session_state.page == "CHAT":
     
     messages = chat.get("messages", [])
     
-    # Chat container
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-    st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
+    st.markdown('<div class="chat-full-container">', unsafe_allow_html=True)
+    st.markdown('<div class="chat-messages-area">', unsafe_allow_html=True)
     
     for m in messages:
-        if m["role"] == "user":
+        if m.get("role") == "user":
             with st.chat_message("user"):
-                st.write(m["content"])
+                st.write(m.get("content", ""))
         else:
-            st.markdown(f'<div class="ai-banner">{m["content"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="ai-banner">{m.get("content", "")}</div>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chat-input-area">', unsafe_allow_html=True)
     
-    # Input cố định
-    st.markdown('<div class="chat-input-fixed">', unsafe_allow_html=True)
     col_inp, col_up, col_hist = st.columns([3, 1, 1])
     with col_up:
         uploaded_file = st.file_uploader("📎", type=["txt", "docx", "png", "jpg", "jpeg"], label_visibility="collapsed")
@@ -695,6 +876,7 @@ elif st.session_state.page == "CHAT":
         use_history = st.checkbox("📜 Dùng lịch sử web", help="Phản hồi dựa trên các trang web đã xem")
     with col_inp:
         p = st.chat_input("Nhập câu hỏi...")
+    
     st.markdown('</div></div>', unsafe_allow_html=True)
     
     if uploaded_file:
@@ -714,7 +896,7 @@ elif st.session_state.page == "CHAT":
             chat["messages"].append(user_msg)
         
         with st.spinner("🧠 NEXUS OS đang suy nghĩ..."):
-            msgs = [{"role": m["role"], "content": m["content"]} for m in messages[-10:]] if is_pro else [{"role": m["role"], "content": m["content"]} for m in messages[-5:]]
+            msgs = [{"role": m.get("role"), "content": m.get("content", "")} for m in messages[-10:]] if is_pro else [{"role": m.get("role"), "content": m.get("content", "")} for m in messages[-5:]]
             msgs.append({"role": "user", "content": p})
             ans = call_ai(msgs, use_history)
             assistant_msg = {"role": "assistant", "content": ans}
@@ -764,7 +946,6 @@ elif st.session_state.page == "SEARCH":
                                 'summary': summary,
                                 'content': content[:2000]
                             }
-                            # Lưu vào lịch sử
                             st.session_state.browsing_history.append({
                                 "title": result.get('title', ''),
                                 "url": result.get('url', ''),
@@ -782,11 +963,10 @@ elif st.session_state.page == "SEARCH":
                             st.session_state[f"show_summary_{i}"] = True
                             st.rerun()
                 
-                # Hiển thị tóm tắt nếu có
                 if st.session_state.get(f"show_summary_{i}", False):
                     summary_data = st.session_state.web_summaries.get(result['url'], {})
                     if summary_data:
-                        st.markdown(f'<div class="ai-banner"><b>📝 TÓM TẮT NỘI DUNG</b><br>{summary_data["summary"]}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="ai-banner"><b>📝 TÓM TẮT NỘI DUNG</b><br>{summary_data.get("summary", "")}</div>', unsafe_allow_html=True)
                         with st.expander("📄 Xem nội dung gốc"):
                             st.text(summary_data.get('content', 'Không có nội dung')[:1000])
                         if st.button("🔙 Đóng tóm tắt", key=f"close_sum_{i}"):
@@ -973,14 +1153,12 @@ elif st.session_state.page == "HISTORY":
                             st.session_state.current_chat_id = s.get("id")
                             go_to("CHAT")
                     with col2:
-                        if st.button("📥 Tải ZIP", key=f"zip_{s.get('id')}"):
-                            zip_data = BytesIO()
-                            with zipfile.ZipFile(zip_data, 'w', zipfile.ZIP_DEFLATED) as zf:
-                                chat_text = f"Chat: {s.get('name', '')}\nThời gian: {s.get('created', '')}\n\n"
-                                for m in s.get('messages', []):
-                                    chat_text += f"{'👤 User' if m.get('role')=='user' else '🤖 NEXUS OS'}: {m.get('content', '')}\n\n"
-                                zf.writestr("chat_history.txt", chat_text)
-                            st.download_button("📥 Tải xuống", zip_data.getvalue(), f"chat_{s.get('id')}.zip", "application/zip")
+                        if st.button("🗑️ Xóa phiên này", key=f"del_{s.get('id')}"):
+                            st.session_state.data["chat_sessions"] = [x for x in st.session_state.data["chat_sessions"] if x.get("id") != s.get("id")]
+                            if st.session_state.current_chat_id == s.get("id"):
+                                st.session_state.current_chat_id = None
+                            save_data(st.session_state.data)
+                            st.rerun()
 
 # ================== CÀI ĐẶT ==================
 elif st.session_state.page == "SETTINGS":
@@ -1089,7 +1267,7 @@ elif st.session_state.page == "ADMIN":
     else:
         st.markdown("<h2>🛠️ ADMIN PANEL</h2>", unsafe_allow_html=True)
         
-        tab1, tab2, tab3, tab4 = st.tabs(["🎫 Mã Pro", "📢 Thông báo", "👥 Người dùng", "📊 Hệ thống"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎫 Mã Pro", "📢 Thông báo", "👥 Người dùng", "📱 Thiết bị", "📊 Hệ thống"])
         
         with tab1:
             new_code = st.text_input("Mã mới").upper()
@@ -1111,9 +1289,11 @@ elif st.session_state.page == "ADMIN":
                 st.toast(f"✅ Đã tạo mã {new_code}", icon="✅")
             st.subheader("Danh sách mã Pro")
             for c in st.session_state.data["codes"]:
-                expiry_text = c.get('expiry') or 'Vĩnh viễn'
-                used_count = len(c.get('used_by', []))
-                max_uses_text = c.get('max_uses') or '∞'
+                expiry_val = c.get("expiry")
+                expiry_text = expiry_val if expiry_val else "Vĩnh viễn"
+                used_count = len(c.get("used_by", []))
+                max_uses_val = c.get("max_uses")
+                max_uses_text = str(max_uses_val) if max_uses_val else "∞"
                 st.write(f"- `{c.get('code')}` (Hết hạn: {expiry_text}, Lượt: {used_count}/{max_uses_text})")
         
         with tab2:
@@ -1137,6 +1317,20 @@ elif st.session_state.page == "ADMIN":
                 st.write(f"- **{info.get('info', {}).get('name', u)}** (@{u}) - {is_pro_user}")
         
         with tab4:
+            st.subheader("📱 THIẾT BỊ ĐANG KẾT NỐI")
+            devices = st.session_state.data.get("devices", {})
+            if devices:
+                for user, device_list in devices.items():
+                    st.markdown(f"**👤 {user}**")
+                    for d in device_list:
+                        st.write(f"  - 📱 **{d.get('device_type', 'Unknown')}** | 🌐 {d.get('browser', 'Unknown')} | 💻 {d.get('os', 'Unknown')}")
+                        st.write(f"    🕐 Lần cuối: {d.get('last_seen', 'Unknown')[:16]}")
+                        st.write(f"    🔑 ID: `{d.get('device_id', 'Unknown')}`")
+                        st.write("---")
+            else:
+                st.info("Chưa có thiết bị nào được ghi nhận.")
+        
+        with tab5:
             st.write(f"**Số người dùng:** {len(st.session_state.data['users'])}")
             st.write(f"**Số Pro users:** {len(st.session_state.data['pro_users'])}")
             st.write(f"**Số phiên chat:** {len(st.session_state.data['chat_sessions'])}")
