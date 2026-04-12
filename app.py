@@ -17,7 +17,7 @@ import mimetypes
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "6.8.0",
+    "VERSION": "7.0.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -37,7 +37,7 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 6.8.0
+- Phiên bản: 7.0.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
@@ -68,23 +68,117 @@ st.markdown("""
 
 .content-area { flex: 1; overflow-y: auto; padding: 20px; height: 100vh; }
 
-/* CHAT CONTAINER CHUẨN */
-.chat-wrapper {
+/* ===== CHAT DESIGN MỚI ===== */
+.chat-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 100px);
+    height: calc(100vh - 80px);
     background: white;
-    border-radius: 16px;
+    border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
 }
+
+.chat-header {
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #0047AB, #0066CC);
+    color: white;
+    font-weight: bold;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.chat-header::before {
+    content: "🧠";
+    font-size: 24px;
+}
+
 .chat-messages {
     flex: 1;
     overflow-y: auto;
     padding: 20px;
     display: flex;
     flex-direction: column;
+    gap: 12px;
+    background: #f8f9fa;
 }
+
+/* Message bubble */
+.message {
+    display: flex;
+    margin-bottom: 8px;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.message.user {
+    justify-content: flex-end;
+}
+
+.message.assistant {
+    justify-content: flex-start;
+}
+
+.message-bubble {
+    max-width: 70%;
+    padding: 12px 16px;
+    border-radius: 20px;
+    word-wrap: break-word;
+    line-height: 1.5;
+}
+
+.message.user .message-bubble {
+    background: linear-gradient(135deg, #0047AB, #0066CC);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.message.assistant .message-bubble {
+    background: white;
+    color: #1f2937;
+    border: 1px solid #e5e7eb;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* Typing indicator */
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 16px;
+    background: white;
+    border-radius: 20px;
+    border: 1px solid #e5e7eb;
+    border-bottom-left-radius: 4px;
+    width: fit-content;
+}
+
+.typing-dot {
+    width: 8px;
+    height: 8px;
+    background: #9ca3af;
+    border-radius: 50%;
+    animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) { animation-delay: 0s; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-8px); opacity: 1; }
+}
+
+/* Chat input area */
 .chat-input-area {
     padding: 15px 20px;
     background: white;
@@ -92,47 +186,117 @@ st.markdown("""
     flex-shrink: 0;
 }
 
-.ai-banner { background: linear-gradient(135deg, #0047AB, #0066CC); color: white; padding: 16px 20px; border-radius: 20px; margin: 12px 0; border-left: 4px solid #FFD966; }
-.ai-banner::before { content: "🧠 NEXUS OS | "; font-weight: bold; }
+/* ===== NOTIFICATION PANEL ===== */
+.notification-sidebar {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 380px;
+    max-height: 80vh;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    z-index: 1000;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 1px solid #e5e7eb;
+}
 
+.notification-sidebar.hidden {
+    transform: translateX(400px);
+}
+
+.notification-header {
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #0047AB, #0066CC);
+    color: white;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.notification-list {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    padding: 12px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.notification-item:hover {
+    background: #f8f9fa;
+}
+
+.notification-item.unread {
+    background: #e0e7ff;
+}
+
+.notification-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.notification-message {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 5px;
+}
+
+.notification-time {
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+.notification-bell {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #0047AB;
+    color: white;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1001;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: transform 0.2s;
+}
+
+.notification-bell:hover {
+    transform: scale(1.05);
+}
+
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ef4444;
+    color: white;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Common */
 .stButton>button { border-radius: 40px; font-weight: 600; background: #0047AB; color: white; border: none; width: 100%; }
 .stButton>button:hover { background: #003399; }
-
 .guest-badge { background: #FFD966; padding: 4px 12px; border-radius: 40px; font-size: 0.8rem; font-weight: bold; display: inline-block; }
 .pro-badge { background: linear-gradient(135deg, #FFD700, #FFB347); }
 .version-badge { background: #6c757d; color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; }
 .avatar-large { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }
-
-/* NOTIFICATION */
-.notification-bell { position: fixed; top: 20px; right: 20px; background: #0047AB; color: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-.notification-badge { position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
-.notification-panel { 
-    position: fixed; 
-    top: 80px; 
-    right: 20px; 
-    width: 350px; 
-    max-height: 500px; 
-    background: white; 
-    border-radius: 16px; 
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
-    z-index: 1001; 
-    overflow: hidden;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s, visibility 0.3s;
-}
-.notification-panel.show { 
-    opacity: 1;
-    visibility: visible;
-}
-.notification-header { padding: 15px; background: #0047AB; color: white; font-weight: bold; display: flex; justify-content: space-between; cursor: pointer; }
-.notification-list { max-height: 400px; overflow-y: auto; padding: 10px; }
-.notification-item { padding: 10px; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
-.notification-item:hover { background: #f3f4f6; }
-.notification-item.unread { background: #e0e7ff; }
-.pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
-.pull-to-refresh:hover { color: #0047AB; }
-
 .search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; }
 .custom-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 </style>
@@ -141,22 +305,18 @@ st.markdown("""
 function toggleNotifications() {
     var panel = document.getElementById('notification-panel');
     if (panel) {
-        if (panel.classList.contains('show')) {
-            panel.classList.remove('show');
-        } else {
-            panel.classList.add('show');
-        }
+        panel.classList.toggle('hidden');
     }
 }
 
 function scrollToBottom() {
-    var container = document.querySelector('.chat-messages');
+    var container = document.getElementById('chat-messages-container');
     if (container) {
         container.scrollTop = container.scrollHeight;
     }
 }
 
-// Tự động cuộn xuống cuối khi trang tải
+// Tự động cuộn xuống cuối khi trang tải và sau mỗi tin nhắn
 setTimeout(scrollToBottom, 100);
 </script>
 """, unsafe_allow_html=True)
@@ -166,7 +326,7 @@ def search_web_via_api(query: str) -> List[Dict]:
     results = []
     try:
         url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
-        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/6.0"}, timeout=10)
+        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/7.0"}, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
@@ -568,6 +728,8 @@ def init_session():
         st.session_state.browsing_history = []
     if 'remember_device' not in st.session_state:
         st.session_state.remember_device = False
+    if 'is_typing' not in st.session_state:
+        st.session_state.is_typing = False
     auto_cleanup_files()
 
 init_session()
@@ -655,18 +817,20 @@ def download_multiple_files(file_paths: List[str]) -> bytes:
                 zip_file.writestr(file_path.split("/")[-1], file_data)
     return zip_buffer.getvalue()
 
-# ================== NOTIFICATION BELL ==================
+# ================== NOTIFICATION BELL & PANEL ==================
+# Notification bell
 st.markdown(f'''
 <div class="notification-bell" onclick="toggleNotifications()">
     🔔
     {f'<span class="notification-badge">{unread_count}</span>' if unread_count > 0 else ''}
 </div>
-<div id="notification-panel" class="notification-panel">
+
+<div id="notification-panel" class="notification-sidebar hidden">
     <div class="notification-header" onclick="toggleNotifications()">
         <span>📢 THÔNG BÁO</span>
         <span>✕</span>
     </div>
-    <div class="pull-to-refresh" onclick="location.reload()">
+    <div class="pull-to-refresh" onclick="location.reload()" style="text-align:center;padding:10px;cursor:pointer;color:#6b7280;font-size:12px;">
         ⬇️ Kéo xuống để tải lại ⬇️
     </div>
     <div class="notification-list">
@@ -675,12 +839,18 @@ st.markdown(f'''
 if st.session_state.user and st.session_state.user in st.session_state.data.get("notifications", {}):
     for n in reversed(st.session_state.data["notifications"][st.session_state.user]):
         if isinstance(n, dict):
-            st.markdown(f'<div class="notification-item {"unread" if not n.get("read") else ""}"><b>{n.get("title", "")}</b><br>{n.get("message", "")}<br><small>{n.get("time", "")[:16]}</small></div>', unsafe_allow_html=True)
+            st.markdown(f'''
+            <div class="notification-item {"unread" if not n.get("read") else ""}">
+                <div class="notification-title">{n.get("title", "")}</div>
+                <div class="notification-message">{n.get("message", "")}</div>
+                <div class="notification-time">{n.get("time", "")[:16]}</div>
+            </div>
+            ''', unsafe_allow_html=True)
             if not n.get("read"):
                 n["read"] = True
                 save_data(st.session_state.data)
 else:
-    st.markdown('<div class="notification-item">Chưa có thông báo nào</div>', unsafe_allow_html=True)
+    st.markdown('<div class="notification-item" style="text-align:center">Chưa có thông báo nào</div>', unsafe_allow_html=True)
 
 st.markdown('</div></div>', unsafe_allow_html=True)
 
@@ -817,9 +987,10 @@ if st.session_state.page == "DASHBOARD":
     total_size = sum(f.get("size", 0) for f in st.session_state.data["files"].values())
     c4.metric("Dung lượng", f"{total_size/(1024**3):.1f} GB")
 
-# ================== CHAT AI ==================
+# ================== CHAT AI - THIẾT KẾ LẠI HOÀN TOÀN ==================
 elif st.session_state.page == "CHAT":
-    st.markdown("<h2>🧠 NEXUS OS GATEWAY - Trợ lý AI</h2>", unsafe_allow_html=True)
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+    st.markdown('<div class="chat-header">NEXUS OS GATEWAY - Trợ lý AI thông minh</div>', unsafe_allow_html=True)
     
     if not st.session_state.guest_mode and st.session_state.current_chat_id is None:
         new_id = len(st.session_state.data["chat_sessions"])
@@ -871,19 +1042,39 @@ elif st.session_state.page == "CHAT":
     
     messages = chat.get("messages", [])
     
-    st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
-    st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
+    # Messages container
+    st.markdown('<div id="chat-messages-container" class="chat-messages">', unsafe_allow_html=True)
     
     for m in messages:
         if m.get("role") == "user":
-            with st.chat_message("user"):
-                st.write(m.get("content", ""))
+            st.markdown(f'''
+            <div class="message user">
+                <div class="message-bubble">{m.get("content", "")}</div>
+            </div>
+            ''', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="ai-banner">{m.get("content", "")}</div>', unsafe_allow_html=True)
+            st.markdown(f'''
+            <div class="message assistant">
+                <div class="message-bubble">{m.get("content", "")}</div>
+            </div>
+            ''', unsafe_allow_html=True)
+    
+    # Typing indicator
+    if st.session_state.get("is_typing", False):
+        st.markdown('''
+        <div class="message assistant">
+            <div class="typing-indicator">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        </div>
+        ''', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('<div class="chat-input-area">', unsafe_allow_html=True)
     
+    # Input area
+    st.markdown('<div class="chat-input-area">', unsafe_allow_html=True)
     col_inp, col_up, col_hist = st.columns([3, 1, 1])
     with col_up:
         uploaded_file = st.file_uploader("📎", type=["txt"], label_visibility="collapsed")
@@ -891,7 +1082,6 @@ elif st.session_state.page == "CHAT":
         use_history = st.checkbox("📜 Dùng lịch sử web", help="Phản hồi dựa trên các trang web đã xem")
     with col_inp:
         p = st.chat_input("Nhập câu hỏi...")
-    
     st.markdown('</div></div>', unsafe_allow_html=True)
     
     if uploaded_file:
@@ -910,7 +1100,11 @@ elif st.session_state.page == "CHAT":
         else:
             chat["messages"].append(user_msg)
         
-        with st.spinner("🧠 NEXUS OS đang suy nghĩ..."):
+        # Hiển thị typing indicator
+        st.session_state.is_typing = True
+        st.rerun()
+        
+        with st.spinner(""):
             msgs = [{"role": m.get("role"), "content": m.get("content", "")} for m in messages[-10:]] if is_pro else [{"role": m.get("role"), "content": m.get("content", "")} for m in messages[-5:]]
             msgs.append({"role": "user", "content": p})
             ans = call_ai(msgs, use_history)
@@ -920,6 +1114,8 @@ elif st.session_state.page == "CHAT":
             else:
                 chat["messages"].append(assistant_msg)
                 save_data(st.session_state.data)
+        
+        st.session_state.is_typing = False
         st.rerun()
 
 # ================== TÌM KIẾM WEB ==================
