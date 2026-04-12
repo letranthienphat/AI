@@ -1224,7 +1224,7 @@ elif st.session_state.page == "ABOUT":
         <p style="text-align:center"><b>Hệ điều hành AI đa năng</b></p>
         <p><b>Phiên bản:</b> {CONFIG['VERSION']}</p>
         <p><b>Tác giả:</b> {CONFIG['CREATOR']}</p>
-        <p><b>Ngày phát hành:</b> 2025</p>
+        <p><b>Ngày phát hành:</b> 12/04/2026</p>
         <hr>
         <p style="text-align:center"><i>"Kết nối tri thức, mở ra tương lai"</i></p>
     </div>
