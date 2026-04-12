@@ -43,7 +43,7 @@ except ImportError:
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "6.3.0",
+    "VERSION": "6.4.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -62,7 +62,7 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 6.3.0
+- Phiên bản: 6.4.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
@@ -80,7 +80,7 @@ except Exception as e:
 
 st.set_page_config(page_title=CONFIG["NAME"], layout="wide", initial_sidebar_state="expanded")
 
-# ================== CSS GIAO DIỆN VỪA MÀN HÌNH ==================
+# ================== CSS GIAO DIỆN CHAT CỐ ĐỊNH ==================
 st.markdown("""
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -110,12 +110,38 @@ st.markdown("""
         height: 100vh;
     }
     
-    /* Content area scrollable */
+    /* Content area */
     .content-area {
         flex: 1;
         overflow-y: auto;
         padding: 20px;
         height: 100vh;
+    }
+    
+    /* Chat container cố định */
+    .chat-wrapper {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 100px);
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    
+    /* Messages area - scrollable */
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+    }
+    
+    /* Input area - cố định ở dưới */
+    .chat-input-area {
+        padding: 15px 20px;
+        background: white;
+        border-top: 1px solid #e5e7eb;
+        flex-shrink: 0;
     }
     
     /* Cards */
@@ -177,26 +203,6 @@ st.markdown("""
     .search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; transition: all 0.2s; cursor: pointer; }
     .search-result:hover { background: #f9fafb; transform: translateX(4px); }
     
-    /* Chat container */
-    .chat-full-container { 
-        display: flex; 
-        flex-direction: column; 
-        height: calc(100vh - 120px); 
-        background: white; 
-        border-radius: 16px; 
-        overflow: hidden; 
-    }
-    .chat-messages-area { 
-        flex: 1; 
-        overflow-y: auto; 
-        padding: 20px; 
-    }
-    .chat-input-area { 
-        padding: 15px 20px; 
-        background: white; 
-        border-top: 1px solid #e5e7eb; 
-    }
-    
     /* Features grid */
     .features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
     .feature-card { background: white; border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; }
@@ -220,13 +226,9 @@ function toggleNotifications() {
 
 # ================== HÀM LẤY THÔNG TIN THIẾT BỊ ==================
 def get_device_info() -> Dict:
-    """Lấy thông tin thiết bị từ headers"""
     headers = st.context.headers
-    
     user_agent = headers.get("User-Agent", "Unknown")
-    accept_language = headers.get("Accept-Language", "Unknown")
     
-    # Phân tích User-Agent
     device_type = "Unknown"
     browser = "Unknown"
     os = "Unknown"
@@ -244,7 +246,6 @@ def get_device_info() -> Dict:
     elif "Linux" in user_agent:
         device_type = "Linux"
     
-    # Xác định trình duyệt
     if "Chrome" in user_agent and "Edg" not in user_agent:
         browser = "Chrome"
     elif "Firefox" in user_agent:
@@ -256,7 +257,6 @@ def get_device_info() -> Dict:
     elif "Opera" in user_agent:
         browser = "Opera"
     
-    # Xác định hệ điều hành
     if "Windows NT 10.0" in user_agent:
         os = "Windows 10"
     elif "Windows NT 11.0" in user_agent:
@@ -275,14 +275,11 @@ def get_device_info() -> Dict:
         "device_type": device_type,
         "browser": browser,
         "os": os,
-        "accept_language": accept_language,
-        "ip": headers.get("X-Forwarded-For", headers.get("Remote-Addr", "Unknown")),
         "timestamp": str(datetime.now())
     }
 
 # ================== HÀM TÌM KIẾM WEB ==================
 def search_web(query: str) -> List[Dict]:
-    """Tìm kiếm web sử dụng DuckDuckGo"""
     results = []
     try:
         url = f"https://api.duckduckgo.com/?q={query}&format=json&pretty=1"
@@ -315,15 +312,12 @@ def search_web(query: str) -> List[Dict]:
                     'url': f"https://duckduckgo.com/?q={query}",
                     'snippet': "Nhấn để mở trang tìm kiếm"
                 })
-        else:
-            results.append({'title': 'Lỗi kết nối', 'url': '', 'snippet': f'Mã lỗi: {response.status_code}'})
     except Exception as e:
         results.append({'title': 'Lỗi tìm kiếm', 'url': '', 'snippet': str(e)})
     
     return results
 
 def fetch_webpage_content(url: str) -> str:
-    """Lấy nội dung trang web"""
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         response = requests.get(url, headers=headers, timeout=15)
@@ -341,7 +335,6 @@ def fetch_webpage_content(url: str) -> str:
         return f"Lỗi: {str(e)}"
 
 def summarize_webpage(url: str, content: str = None) -> str:
-    """Tóm tắt nội dung trang web bằng AI"""
     if not content:
         content = fetch_webpage_content(url)
     
@@ -362,7 +355,6 @@ def summarize_webpage(url: str, content: str = None) -> str:
 
 # ================== HÀM XỬ LÝ FILE ==================
 def extract_text_from_file(uploaded_file) -> str:
-    """Trích xuất text từ file"""
     file_name = uploaded_file.name
     file_ext = file_name.split('.')[-1].lower()
     file_bytes = uploaded_file.getvalue()
@@ -445,6 +437,18 @@ def get_default_data() -> Dict:
         "system_info": {"created": str(datetime.now()), "creator": CONFIG["CREATOR"], "system_name": CONFIG["NAME"]}
     }
 
+def migrate_codes(data: Dict) -> Dict:
+    """Chuyển đổi codes từ string sang dict nếu cần"""
+    if "codes" in data:
+        new_codes = []
+        for c in data["codes"]:
+            if isinstance(c, str):
+                new_codes.append({"code": c, "expiry": None, "max_uses": None, "used_by": []})
+            else:
+                new_codes.append(c)
+        data["codes"] = new_codes
+    return data
+
 def load_data() -> Dict:
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['DATA_FILE']}"
     headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
@@ -453,6 +457,8 @@ def load_data() -> Dict:
         if res.status_code == 200:
             content = base64.b64decode(res.json()['content']).decode('utf-8')
             data = json.loads(content)
+            
+            # Đảm bảo admin tồn tại
             if CONFIG["ADMIN_USERNAME"] not in data.get("users", {}):
                 data["users"][CONFIG["ADMIN_USERNAME"]] = {
                     "password": CONFIG["ADMIN_PASSWORD"],
@@ -464,6 +470,11 @@ def load_data() -> Dict:
                         "created": str(datetime.now())
                     }
                 }
+            
+            # Migrate codes
+            data = migrate_codes(data)
+            
+            # Đảm bảo các key tồn tại
             defaults = {
                 "codes": [], "pro_users": [], "chat_sessions": [], "files": {},
                 "shared_files": {}, "notifications": {}, "friends": {}, "browsing_history": [],
@@ -472,6 +483,7 @@ def load_data() -> Dict:
             for key, default_val in defaults.items():
                 if key not in data:
                     data[key] = default_val
+            
             return data
         else:
             return get_default_data()
@@ -802,7 +814,7 @@ if st.session_state.page == "DASHBOARD":
     total_size = sum(f.get("size", 0) for f in st.session_state.data["files"].values())
     c4.metric("Dung lượng", f"{total_size/(1024**3):.1f} GB")
 
-# ================== CHAT AI ==================
+# ================== CHAT AI (CẢI TIẾN - INPUT CỐ ĐỊNH) ==================
 elif st.session_state.page == "CHAT":
     st.markdown("<h2>🧠 NEXUS OS GATEWAY - Trợ lý AI</h2>", unsafe_allow_html=True)
     
@@ -856,8 +868,9 @@ elif st.session_state.page == "CHAT":
     
     messages = chat.get("messages", [])
     
-    st.markdown('<div class="chat-full-container">', unsafe_allow_html=True)
-    st.markdown('<div class="chat-messages-area">', unsafe_allow_html=True)
+    # Chat container với input cố định
+    st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
+    st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
     
     for m in messages:
         if m.get("role") == "user":
@@ -869,6 +882,7 @@ elif st.session_state.page == "CHAT":
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="chat-input-area">', unsafe_allow_html=True)
     
+    # Input area
     col_inp, col_up, col_hist = st.columns([3, 1, 1])
     with col_up:
         uploaded_file = st.file_uploader("📎", type=["txt", "docx", "png", "jpg", "jpeg"], label_visibility="collapsed")
@@ -1227,7 +1241,7 @@ elif st.session_state.page == "SETTINGS":
             if st.button("KÍCH HOẠT"):
                 found = False
                 for c in st.session_state.data["codes"]:
-                    if c.get("code") == code:
+                    if isinstance(c, dict) and c.get("code") == code:
                         expiry = c.get("expiry")
                         max_uses = c.get("max_uses")
                         used_by = c.get("used_by", [])
@@ -1245,6 +1259,18 @@ elif st.session_state.page == "SETTINGS":
                             st.balloons()
                             st.toast("🎉 Chúc mừng! Bạn đã là thành viên Pro!", icon="💎")
                             st.rerun()
+                        found = True
+                        break
+                    elif isinstance(c, str) and c == code:
+                        # Xử lý code cũ dạng string
+                        if st.session_state.user not in st.session_state.data["pro_users"]:
+                            st.session_state.data["pro_users"].append(st.session_state.user)
+                        # Xóa code cũ
+                        st.session_state.data["codes"] = [x for x in st.session_state.data["codes"] if x != code]
+                        save_data(st.session_state.data)
+                        st.balloons()
+                        st.toast("🎉 Chúc mừng! Bạn đã là thành viên Pro!", icon="💎")
+                        st.rerun()
                         found = True
                         break
                 if not found:
@@ -1289,12 +1315,15 @@ elif st.session_state.page == "ADMIN":
                 st.toast(f"✅ Đã tạo mã {new_code}", icon="✅")
             st.subheader("Danh sách mã Pro")
             for c in st.session_state.data["codes"]:
-                expiry_val = c.get("expiry")
-                expiry_text = expiry_val if expiry_val else "Vĩnh viễn"
-                used_count = len(c.get("used_by", []))
-                max_uses_val = c.get("max_uses")
-                max_uses_text = str(max_uses_val) if max_uses_val else "∞"
-                st.write(f"- `{c.get('code')}` (Hết hạn: {expiry_text}, Lượt: {used_count}/{max_uses_text})")
+                if isinstance(c, dict):
+                    expiry_val = c.get("expiry")
+                    expiry_text = expiry_val if expiry_val else "Vĩnh viễn"
+                    used_count = len(c.get("used_by", []))
+                    max_uses_val = c.get("max_uses")
+                    max_uses_text = str(max_uses_val) if max_uses_val else "∞"
+                    st.write(f"- `{c.get('code')}` (Hết hạn: {expiry_text}, Lượt: {used_count}/{max_uses_text})")
+                else:
+                    st.write(f"- `{c}` (Mã cũ, không có hạn chế)")
         
         with tab2:
             users = list(st.session_state.data["users"].keys())
