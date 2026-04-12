@@ -9,45 +9,20 @@ import hashlib
 import re
 import zipfile
 import uuid
-import platform
 from io import BytesIO
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List
 import mimetypes
 
-# Kiểm tra import các thư viện bổ sung
-try:
-    from bs4 import BeautifulSoup
-    BS4_AVAILABLE = True
-except ImportError:
-    BS4_AVAILABLE = False
-
-try:
-    from PIL import Image
-    PIL_AVAILABLE = True
-except ImportError:
-    PIL_AVAILABLE = False
-
-try:
-    from docx import Document
-    DOCX_AVAILABLE = True
-except ImportError:
-    DOCX_AVAILABLE = False
-
-try:
-    import pytesseract
-    OCR_AVAILABLE = True
-except ImportError:
-    OCR_AVAILABLE = False
-
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "6.4.0",
+    "VERSION": "6.5.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
     "DATA_FILE": "data.json",
+    "SYSTEM_NOTIF_FILE": "system_notifications.json",
     "GUEST_ENABLED": True,
     "FREE_STORAGE_LIMIT": 30 * 1024 * 1024 * 1024,
     "PRO_STORAGE_LIMIT": float('inf'),
@@ -55,17 +30,17 @@ CONFIG = {
     "MAX_AVATAR_SIZE": 5 * 1024 * 1024
 }
 
-# SYSTEM PROMPT CHO AI
+# SYSTEM PROMPT
 SYSTEM_PROMPT = """Bạn là NEXUS OS GATEWAY, một hệ điều hành AI đa năng được sáng tạo và phát triển bởi Lê Trần Thiên Phát (Thiên Phát). 
 Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ công ty nào khác. Bạn là trí tuệ nhân tạo độc lập.
 
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 6.4.0
+- Phiên bản: 6.5.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
-Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
+Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào de Lê Trần Thiên Phát!"""
 
 # Load secrets
 try:
@@ -74,146 +49,45 @@ try:
     GROQ_KEYS = st.secrets["GROQ_KEYS"]
     if isinstance(GROQ_KEYS, str):
         GROQ_KEYS = [GROQ_KEYS]
-except Exception as e:
-    st.error(f"🛑 LỖI: Thiếu cấu hình Secrets trên Streamlit Cloud!\n{str(e)}")
+except Exception:
+    st.error("🛑 LỖI: Thiếu cấu hình Secrets trên Streamlit Cloud!")
     st.stop()
 
 st.set_page_config(page_title=CONFIG["NAME"], layout="wide", initial_sidebar_state="expanded")
 
-# ================== CSS GIAO DIỆN CHAT CỐ ĐỊNH ==================
+# ================== CSS ==================
 st.markdown("""
 <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    
-    .stApp { 
-        background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%);
-        height: 100vh;
-        overflow: hidden;
-    }
-    
-    /* Main container full screen */
-    .main-container {
-        display: flex;
-        height: 100vh;
-        width: 100%;
-        overflow: hidden;
-    }
-    
-    /* Sidebar cố định */
-    .sidebar {
-        width: 280px;
-        background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
-        border-right: 1px solid #e5e7eb;
-        overflow-y: auto;
-        padding: 20px;
-        flex-shrink: 0;
-        height: 100vh;
-    }
-    
-    /* Content area */
-    .content-area {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-        height: 100vh;
-    }
-    
-    /* Chat container cố định */
-    .chat-wrapper {
-        display: flex;
-        flex-direction: column;
-        height: calc(100vh - 100px);
-        background: white;
-        border-radius: 16px;
-        overflow: hidden;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-    
-    /* Messages area - scrollable */
-    .chat-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-    }
-    
-    /* Input area - cố định ở dưới */
-    .chat-input-area {
-        padding: 15px 20px;
-        background: white;
-        border-top: 1px solid #e5e7eb;
-        flex-shrink: 0;
-    }
-    
-    /* Cards */
-    .custom-card { 
-        background: white; 
-        border-radius: 16px; 
-        padding: 20px; 
-        margin-bottom: 20px; 
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
-        transition: transform 0.2s; 
-    }
-    .custom-card:hover { transform: translateY(-2px); }
-    
-    /* AI Banner */
-    .ai-banner { 
-        background: linear-gradient(135deg, #0047AB, #0066CC); 
-        color: white; 
-        padding: 16px 20px; 
-        border-radius: 20px; 
-        margin: 12px 0; 
-        border-left: 4px solid #FFD966; 
-    }
-    .ai-banner::before { content: "🧠 NEXUS OS | "; font-weight: bold; }
-    
-    /* Buttons */
-    .stButton>button { 
-        border-radius: 40px; 
-        font-weight: 600; 
-        background: #0047AB; 
-        color: white; 
-        border: none; 
-        width: 100%; 
-        transition: all 0.2s; 
-    }
-    .stButton>button:hover { background: #003399; transform: scale(1.02); }
-    
-    /* Badges */
-    .guest-badge { background: #FFD966; color: #1f2937; padding: 4px 12px; border-radius: 40px; font-size: 0.8rem; font-weight: bold; display: inline-block; }
-    .pro-badge { background: linear-gradient(135deg, #FFD700, #FFB347); color: #1f2937; }
-    .version-badge { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; }
-    
-    /* Avatar */
-    .avatar-large { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }
-    
-    /* Notification */
-    .notification-bell { position: fixed; top: 70px; right: 20px; background: #0047AB; color: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .notification-badge { position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
-    .notification-panel { position: fixed; top: 130px; right: 20px; width: 350px; max-height: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1000; overflow: hidden; display: none; }
-    .notification-panel.show { display: block; }
-    .notification-header { padding: 15px; background: #0047AB; color: white; font-weight: bold; display: flex; justify-content: space-between; }
-    .notification-list { max-height: 400px; overflow-y: auto; padding: 10px; }
-    .notification-item { padding: 10px; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
-    .notification-item:hover { background: #f3f4f6; }
-    .notification-item.unread { background: #e0e7ff; }
-    .pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
-    .pull-to-refresh:hover { color: #0047AB; }
-    
-    /* Search result */
-    .search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; transition: all 0.2s; cursor: pointer; }
-    .search-result:hover { background: #f9fafb; transform: translateX(4px); }
-    
-    /* Features grid */
-    .features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
-    .feature-card { background: white; border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; }
-    .feature-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-    
-    /* Responsive */
-    @media (max-width: 768px) {
-        .sidebar { width: 100%; position: fixed; z-index: 100; transform: translateX(-100%); transition: transform 0.3s; }
-        .sidebar.open { transform: translateX(0); }
-        .features-grid { grid-template-columns: 1fr; }
-    }
+.stApp { background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%); height: 100vh; overflow: hidden; }
+.main-container { display: flex; height: 100vh; width: 100%; overflow: hidden; }
+.sidebar { width: 280px; background: white; border-right: 1px solid #e5e7eb; overflow-y: auto; padding: 20px; flex-shrink: 0; height: 100vh; }
+.content-area { flex: 1; overflow-y: auto; padding: 20px; height: 100vh; }
+.custom-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+.ai-banner { background: linear-gradient(135deg, #0047AB, #0066CC); color: white; padding: 16px 20px; border-radius: 20px; margin: 12px 0; border-left: 4px solid #FFD966; }
+.ai-banner::before { content: "🧠 NEXUS OS | "; font-weight: bold; }
+.stButton>button { border-radius: 40px; font-weight: 600; background: #0047AB; color: white; border: none; width: 100%; }
+.stButton>button:hover { background: #003399; }
+.guest-badge { background: #FFD966; padding: 4px 12px; border-radius: 40px; font-size: 0.8rem; font-weight: bold; display: inline-block; }
+.pro-badge { background: linear-gradient(135deg, #FFD700, #FFB347); }
+.version-badge { background: #6c757d; color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; }
+.avatar-large { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }
+.notification-bell { position: fixed; top: 70px; right: 20px; background: #0047AB; color: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; }
+.notification-badge { position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+.notification-panel { position: fixed; top: 130px; right: 20px; width: 350px; max-height: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1000; overflow: hidden; display: none; }
+.notification-panel.show { display: block; }
+.notification-header { padding: 15px; background: #0047AB; color: white; font-weight: bold; display: flex; justify-content: space-between; }
+.notification-list { max-height: 400px; overflow-y: auto; padding: 10px; }
+.notification-item { padding: 10px; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
+.notification-item:hover { background: #f3f4f6; }
+.notification-item.unread { background: #e0e7ff; }
+.pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
+.chat-wrapper { display: flex; flex-direction: column; height: calc(100vh - 100px); background: white; border-radius: 16px; overflow: hidden; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 20px; }
+.chat-input-area { padding: 15px 20px; background: white; border-top: 1px solid #e5e7eb; flex-shrink: 0; }
+.search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; }
+.features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
+.feature-card { background: white; border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; }
+.feature-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
 </style>
 
 <script>
@@ -224,191 +98,70 @@ function toggleNotifications() {
 </script>
 """, unsafe_allow_html=True)
 
-# ================== HÀM LẤY THÔNG TIN THIẾT BỊ ==================
-def get_device_info() -> Dict:
-    headers = st.context.headers
-    user_agent = headers.get("User-Agent", "Unknown")
-    
-    device_type = "Unknown"
-    browser = "Unknown"
-    os = "Unknown"
-    
-    if "iPhone" in user_agent:
-        device_type = "iPhone"
-    elif "iPad" in user_agent:
-        device_type = "iPad"
-    elif "Android" in user_agent:
-        device_type = "Android"
-    elif "Windows" in user_agent:
-        device_type = "Windows PC"
-    elif "Mac" in user_agent:
-        device_type = "Mac"
-    elif "Linux" in user_agent:
-        device_type = "Linux"
-    
-    if "Chrome" in user_agent and "Edg" not in user_agent:
-        browser = "Chrome"
-    elif "Firefox" in user_agent:
-        browser = "Firefox"
-    elif "Safari" in user_agent and "Chrome" not in user_agent:
-        browser = "Safari"
-    elif "Edg" in user_agent:
-        browser = "Edge"
-    elif "Opera" in user_agent:
-        browser = "Opera"
-    
-    if "Windows NT 10.0" in user_agent:
-        os = "Windows 10"
-    elif "Windows NT 11.0" in user_agent:
-        os = "Windows 11"
-    elif "Mac OS X" in user_agent:
-        os = "macOS"
-    elif "Android" in user_agent:
-        os = "Android"
-    elif "iOS" in user_agent:
-        os = "iOS"
-    elif "Linux" in user_agent:
-        os = "Linux"
-    
-    return {
-        "user_agent": user_agent[:200],
-        "device_type": device_type,
-        "browser": browser,
-        "os": os,
-        "timestamp": str(datetime.now())
-    }
-
-# ================== HÀM TÌM KIẾM WEB ==================
-def search_web(query: str) -> List[Dict]:
-    results = []
+# ================== HÀM THÔNG BÁO HỆ THỐNG ==================
+def load_system_notifications() -> List[Dict]:
+    """Load thông báo hệ thống từ file riêng"""
+    url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['SYSTEM_NOTIF_FILE']}"
+    headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     try:
-        url = f"https://api.duckduckgo.com/?q={query}&format=json&pretty=1"
-        headers = {"User-Agent": "NEXUS-OS-GATEWAY/6.0"}
-        response = requests.get(url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            if data.get("Abstract"):
-                results.append({
-                    'title': data.get("Heading", query),
-                    'url': data.get("AbstractURL", ""),
-                    'snippet': data.get("Abstract", "")[:200]
-                })
-            
-            for topic in data.get("RelatedTopics", [])[:15]:
-                if isinstance(topic, dict) and "Text" in topic:
-                    text = topic.get("Text", "")
-                    url_topic = topic.get("FirstURL", "")
-                    if text and url_topic:
-                        parts = text.split(" - ", 1)
-                        title = parts[0][:100]
-                        snippet = parts[1][:200] if len(parts) > 1 else ""
-                        results.append({'title': title, 'url': url_topic, 'snippet': snippet})
-            
-            if not results:
-                results.append({
-                    'title': f"Tìm kiếm trên DuckDuckGo: {query}",
-                    'url': f"https://duckduckgo.com/?q={query}",
-                    'snippet': "Nhấn để mở trang tìm kiếm"
-                })
-    except Exception as e:
-        results.append({'title': 'Lỗi tìm kiếm', 'url': '', 'snippet': str(e)})
-    
-    return results
+        res = requests.get(url, headers=headers, timeout=10)
+        if res.status_code == 200:
+            content = base64.b64decode(res.json()['content']).decode('utf-8')
+            return json.loads(content)
+        return []
+    except:
+        return []
 
-def fetch_webpage_content(url: str) -> str:
+def save_system_notifications(notifications: List[Dict]) -> bool:
+    """Lưu thông báo hệ thống"""
+    url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['SYSTEM_NOTIF_FILE']}"
+    headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-        
-        text = response.text
-        text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
-        text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
-        text = re.sub(r'<[^>]+>', ' ', text)
-        text = re.sub(r'\s+', ' ', text)
-        text = text.strip()
-        
-        return text[:5000] if text else "Không thể trích xuất nội dung."
-    except Exception as e:
-        return f"Lỗi: {str(e)}"
+        res = requests.get(url, headers=headers, timeout=10)
+        sha = res.json().get("sha") if res.status_code == 200 else None
+        content = base64.b64encode(json.dumps(notifications, ensure_ascii=False, indent=2).encode('utf-8')).decode('utf-8')
+        put_data = {"message": "Update system notifications", "content": content, "branch": "main"}
+        if sha:
+            put_data["sha"] = sha
+        put_res = requests.put(url, headers=headers, json=put_data, timeout=10)
+        return put_res.status_code in [200, 201]
+    except:
+        return False
 
-def summarize_webpage(url: str, content: str = None) -> str:
-    if not content:
-        content = fetch_webpage_content(url)
-    
-    if not content or len(content) < 50:
-        return "Không đủ nội dung để tóm tắt."
-    
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
-        messages = [
-            {"role": "system", "content": "Bạn là NEXUS OS GATEWAY. Hãy tóm tắt nội dung sau một cách ngắn gọn, khoảng 200-300 từ."},
-            {"role": "user", "content": f"Nội dung cần tóm tắt:\n{content[:4000]}\n\nHãy tóm tắt nội dung chính:"}
-        ]
-        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.5, max_tokens=1024)
-        return res.choices[0].message.content
-    except Exception as e:
-        return f"Lỗi tóm tắt: {str(e)}"
+def add_system_notification(title: str, message: str, notification_type: str = "system"):
+    """Thêm thông báo hệ thống - TẤT CẢ người dùng (kể cả tương lai) đều nhận được"""
+    system_notifications = load_system_notifications()
+    system_notifications.append({
+        "id": str(uuid.uuid4()),
+        "title": title,
+        "message": message,
+        "type": notification_type,
+        "time": str(datetime.now()),
+        "read_by": []
+    })
+    save_system_notifications(system_notifications)
+    return True
 
-# ================== HÀM XỬ LÝ FILE ==================
-def extract_text_from_file(uploaded_file) -> str:
-    file_name = uploaded_file.name
-    file_ext = file_name.split('.')[-1].lower()
-    file_bytes = uploaded_file.getvalue()
-    
-    if file_ext == 'txt':
-        try:
-            return file_bytes.decode('utf-8')[:3000]
-        except:
-            return "[Không thể đọc file text]"
-    elif file_ext == 'docx' and DOCX_AVAILABLE:
-        try:
-            doc = Document(BytesIO(file_bytes))
-            return "\n".join([para.text for para in doc.paragraphs])[:3000]
-        except:
-            return "[Lỗi đọc file Word]"
-    elif file_ext in ['png', 'jpg', 'jpeg', 'gif'] and OCR_AVAILABLE:
-        try:
-            image = Image.open(BytesIO(file_bytes))
-            text = pytesseract.image_to_string(image, lang='vie+eng')
-            return text[:3000] if text.strip() else "[Không tìm thấy văn bản]"
-        except:
-            return "[Lỗi OCR]"
-    else:
-        return f"[Hiện tại hỗ trợ file txt, docx. File {file_ext} chưa được hỗ trợ.]"
+def get_system_notifications_for_user(username: str) -> List[Dict]:
+    """Lấy thông báo hệ thống chưa đọc cho user"""
+    system_notifications = load_system_notifications()
+    unread = []
+    for notif in system_notifications:
+        if username not in notif.get("read_by", []):
+            unread.append(notif)
+    return unread
 
-def resize_image(image_bytes, max_size=(200, 200)):
-    if PIL_AVAILABLE:
-        try:
-            img = Image.open(BytesIO(image_bytes))
-            img.thumbnail(max_size, Image.Resampling.LANCZOS)
-            buffer = BytesIO()
-            img.save(buffer, format='PNG')
-            return buffer.getvalue()
-        except:
-            return image_bytes
-    return image_bytes
-
-# ================== HÀM DỌN DẸP ==================
-def auto_cleanup_files():
-    if 'last_cleanup' not in st.session_state:
-        st.session_state.last_cleanup = datetime.now()
-    if (datetime.now() - st.session_state.last_cleanup).days >= 1:
-        files_to_delete = []
-        cutoff_time = datetime.now() - timedelta(days=CONFIG["AUTO_CLEANUP_DAYS"])
-        for file_path, file_info in st.session_state.data.get("files", {}).items():
-            if "upload_time" in file_info:
-                upload_time = datetime.fromisoformat(file_info["upload_time"])
-                if upload_time < cutoff_time:
-                    files_to_delete.append(file_path)
-        for file_path in files_to_delete:
-            del st.session_state.data["files"][file_path]
-        if files_to_delete:
-            save_data(st.session_state.data)
-        st.session_state.last_cleanup = datetime.now()
+def mark_system_notification_read(username: str, notif_id: str):
+    """Đánh dấu thông báo hệ thống đã đọc"""
+    system_notifications = load_system_notifications()
+    for notif in system_notifications:
+        if notif["id"] == notif_id:
+            if "read_by" not in notif:
+                notif["read_by"] = []
+            if username not in notif["read_by"]:
+                notif["read_by"].append(username)
+            break
+    save_system_notifications(system_notifications)
 
 # ================== HÀM XỬ LÝ DATA ==================
 def get_default_data() -> Dict:
@@ -433,12 +186,10 @@ def get_default_data() -> Dict:
         "notifications": {},
         "friends": {},
         "browsing_history": [],
-        "devices": {},
         "system_info": {"created": str(datetime.now()), "creator": CONFIG["CREATOR"], "system_name": CONFIG["NAME"]}
     }
 
 def migrate_codes(data: Dict) -> Dict:
-    """Chuyển đổi codes từ string sang dict nếu cần"""
     if "codes" in data:
         new_codes = []
         for c in data["codes"]:
@@ -457,8 +208,6 @@ def load_data() -> Dict:
         if res.status_code == 200:
             content = base64.b64decode(res.json()['content']).decode('utf-8')
             data = json.loads(content)
-            
-            # Đảm bảo admin tồn tại
             if CONFIG["ADMIN_USERNAME"] not in data.get("users", {}):
                 data["users"][CONFIG["ADMIN_USERNAME"]] = {
                     "password": CONFIG["ADMIN_PASSWORD"],
@@ -470,20 +219,14 @@ def load_data() -> Dict:
                         "created": str(datetime.now())
                     }
                 }
-            
-            # Migrate codes
             data = migrate_codes(data)
-            
-            # Đảm bảo các key tồn tại
             defaults = {
                 "codes": [], "pro_users": [], "chat_sessions": [], "files": {},
-                "shared_files": {}, "notifications": {}, "friends": {}, "browsing_history": [],
-                "devices": {}, "system_info": {}
+                "shared_files": {}, "notifications": {}, "friends": {}, "browsing_history": [], "system_info": {}
             }
             for key, default_val in defaults.items():
                 if key not in data:
                     data[key] = default_val
-            
             return data
         else:
             return get_default_data()
@@ -518,6 +261,26 @@ def add_notification(user: str, title: str, message: str, notification_type: str
         st.session_state.data["notifications"][user] = st.session_state.data["notifications"][user][-100:]
     save_data(st.session_state.data)
 
+def load_system_notifications_for_user(username: str):
+    """Load và chuyển thông báo hệ thống vào notification của user"""
+    sys_notifs = get_system_notifications_for_user(username)
+    for notif in sys_notifs:
+        if username not in st.session_state.data["notifications"]:
+            st.session_state.data["notifications"][username] = []
+        existing = [n for n in st.session_state.data["notifications"][username] if n.get("id") == notif["id"]]
+        if not existing:
+            st.session_state.data["notifications"][username].append({
+                "id": notif["id"],
+                "title": notif["title"],
+                "message": notif["message"],
+                "type": notif["type"],
+                "time": notif["time"],
+                "read": False,
+                "is_system": True
+            })
+        mark_system_notification_read(username, notif["id"])
+    save_data(st.session_state.data)
+
 def share_file_with_friend(owner: str, file_path: str, friend: str) -> bool:
     if file_path not in st.session_state.data["files"] or friend not in st.session_state.data["users"]:
         return False
@@ -535,6 +298,116 @@ def share_file_with_friend(owner: str, file_path: str, friend: str) -> bool:
 
 def get_shared_files(user: str) -> List[Dict]:
     return st.session_state.data.get("shared_files", {}).get(user, [])
+
+# ================== HÀM TÌM KIẾM WEB ==================
+def search_web(query: str) -> List[Dict]:
+    results = []
+    try:
+        url = f"https://api.duckduckgo.com/?q={query}&format=json&pretty=1"
+        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/6.0"}, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("Abstract"):
+                results.append({
+                    'title': data.get("Heading", query),
+                    'url': data.get("AbstractURL", ""),
+                    'snippet': data.get("Abstract", "")[:200]
+                })
+            for topic in data.get("RelatedTopics", [])[:15]:
+                if isinstance(topic, dict) and "Text" in topic:
+                    text = topic.get("Text", "")
+                    url_topic = topic.get("FirstURL", "")
+                    if text and url_topic:
+                        parts = text.split(" - ", 1)
+                        title = parts[0][:100]
+                        snippet = parts[1][:200] if len(parts) > 1 else ""
+                        results.append({'title': title, 'url': url_topic, 'snippet': snippet})
+            if not results:
+                results.append({
+                    'title': f"Tìm kiếm: {query}",
+                    'url': f"https://duckduckgo.com/?q={query}",
+                    'snippet': "Nhấn để mở trang tìm kiếm"
+                })
+        else:
+            results.append({'title': 'Lỗi kết nối', 'url': '', 'snippet': f'Mã lỗi: {response.status_code}'})
+    except Exception as e:
+        results.append({'title': 'Lỗi tìm kiếm', 'url': '', 'snippet': str(e)})
+    return results
+
+def fetch_webpage_content(url: str) -> str:
+    try:
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        text = response.text
+        text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<[^>]+>', ' ', text)
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+        return text[:5000] if text else "Không thể trích xuất nội dung."
+    except Exception as e:
+        return f"Lỗi: {str(e)}"
+
+def summarize_webpage(url: str, content: str = None) -> str:
+    if not content:
+        content = fetch_webpage_content(url)
+    if not content or len(content) < 50:
+        return "Không đủ nội dung để tóm tắt."
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
+        messages = [
+            {"role": "system", "content": "Bạn là NEXUS OS GATEWAY. Hãy tóm tắt nội dung sau một cách ngắn gọn, khoảng 200-300 từ."},
+            {"role": "user", "content": f"Nội dung cần tóm tắt:\n{content[:4000]}\n\nHãy tóm tắt nội dung chính:"}
+        ]
+        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.5, max_tokens=1024)
+        return res.choices[0].message.content
+    except Exception as e:
+        return f"Lỗi tóm tắt: {str(e)}"
+
+# ================== HÀM XỬ LÝ FILE ==================
+def extract_text_from_file(uploaded_file) -> str:
+    file_name = uploaded_file.name
+    file_ext = file_name.split('.')[-1].lower()
+    file_bytes = uploaded_file.getvalue()
+    
+    if file_ext == 'txt':
+        try:
+            return file_bytes.decode('utf-8')[:3000]
+        except:
+            return "[Không thể đọc file text]"
+    else:
+        return f"[Hiện tại hỗ trợ file txt. File {file_ext} chưa được hỗ trợ.]"
+
+def resize_image(image_bytes, max_size=(200, 200)):
+    try:
+        from PIL import Image
+        img = Image.open(BytesIO(image_bytes))
+        img.thumbnail(max_size, Image.Resampling.LANCZOS)
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        return buffer.getvalue()
+    except:
+        return image_bytes
+
+# ================== HÀM DỌN DẸP ==================
+def auto_cleanup_files():
+    if 'last_cleanup' not in st.session_state:
+        st.session_state.last_cleanup = datetime.now()
+    if (datetime.now() - st.session_state.last_cleanup).days >= 1:
+        files_to_delete = []
+        cutoff_time = datetime.now() - timedelta(days=CONFIG["AUTO_CLEANUP_DAYS"])
+        for file_path, file_info in st.session_state.data.get("files", {}).items():
+            if "upload_time" in file_info:
+                upload_time = datetime.fromisoformat(file_info["upload_time"])
+                if upload_time < cutoff_time:
+                    files_to_delete.append(file_path)
+        for file_path in files_to_delete:
+            del st.session_state.data["files"][file_path]
+        if files_to_delete:
+            save_data(st.session_state.data)
+        st.session_state.last_cleanup = datetime.now()
 
 # ================== KHỞI TẠO ==================
 def init_session():
@@ -560,42 +433,14 @@ def init_session():
         st.session_state.web_summaries = {}
     if 'browsing_history' not in st.session_state:
         st.session_state.browsing_history = []
-    
-    # Lưu thông tin thiết bị
-    device_info = get_device_info()
-    device_id = hashlib.md5(device_info.get("user_agent", "").encode()).hexdigest()[:16]
-    
-    if st.session_state.user and st.session_state.user not in st.session_state.data.get("devices", {}):
-        st.session_state.data["devices"][st.session_state.user] = []
-    
-    if st.session_state.user:
-        existing_devices = st.session_state.data["devices"].get(st.session_state.user, [])
-        device_exists = False
-        for d in existing_devices:
-            if d.get("device_id") == device_id:
-                device_exists = True
-                break
-        if not device_exists:
-            st.session_state.data["devices"][st.session_state.user].append({
-                "device_id": device_id,
-                "device_type": device_info.get("device_type"),
-                "browser": device_info.get("browser"),
-                "os": device_info.get("os"),
-                "user_agent": device_info.get("user_agent"),
-                "first_seen": str(datetime.now()),
-                "last_seen": str(datetime.now())
-            })
-            save_data(st.session_state.data)
-        else:
-            for d in existing_devices:
-                if d.get("device_id") == device_id:
-                    d["last_seen"] = str(datetime.now())
-                    break
-            save_data(st.session_state.data)
-    
     auto_cleanup_files()
 
 init_session()
+
+# Sau khi có user, load thông báo hệ thống cho user đó
+if st.session_state.user and not st.session_state.guest_mode:
+    load_system_notifications_for_user(st.session_state.user)
+
 is_pro = (st.session_state.user in st.session_state.data.get("pro_users", [])) if st.session_state.user else False
 unread_count = sum(1 for n in st.session_state.data.get("notifications", {}).get(st.session_state.user, []) if not n.get("read", False)) if st.session_state.user else 0
 
@@ -728,6 +573,7 @@ with st.sidebar:
                         if st.session_state.data["users"][login_user]["password"] == login_pass:
                             st.session_state.user = login_user
                             st.session_state.guest_mode = False
+                            load_system_notifications_for_user(login_user)
                             st.toast(f"✅ Chào mừng đến với {CONFIG['NAME']}!", icon="🎉")
                             st.rerun()
                         else:
@@ -767,6 +613,7 @@ with st.sidebar:
                             }
                         }
                         save_data(st.session_state.data)
+                        load_system_notifications_for_user(reg_user)
                         st.success("✅ Đăng ký thành công! Vui lòng đăng nhập.")
     else:
         st.markdown("### 🚀 TIỆN ÍCH")
@@ -814,7 +661,7 @@ if st.session_state.page == "DASHBOARD":
     total_size = sum(f.get("size", 0) for f in st.session_state.data["files"].values())
     c4.metric("Dung lượng", f"{total_size/(1024**3):.1f} GB")
 
-# ================== CHAT AI (CẢI TIẾN - INPUT CỐ ĐỊNH) ==================
+# ================== CHAT AI ==================
 elif st.session_state.page == "CHAT":
     st.markdown("<h2>🧠 NEXUS OS GATEWAY - Trợ lý AI</h2>", unsafe_allow_html=True)
     
@@ -868,7 +715,6 @@ elif st.session_state.page == "CHAT":
     
     messages = chat.get("messages", [])
     
-    # Chat container với input cố định
     st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
     st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
     
@@ -882,10 +728,9 @@ elif st.session_state.page == "CHAT":
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="chat-input-area">', unsafe_allow_html=True)
     
-    # Input area
     col_inp, col_up, col_hist = st.columns([3, 1, 1])
     with col_up:
-        uploaded_file = st.file_uploader("📎", type=["txt", "docx", "png", "jpg", "jpeg"], label_visibility="collapsed")
+        uploaded_file = st.file_uploader("📎", type=["txt"], label_visibility="collapsed")
     with col_hist:
         use_history = st.checkbox("📜 Dùng lịch sử web", help="Phản hồi dựa trên các trang web đã xem")
     with col_inp:
@@ -1076,8 +921,12 @@ elif st.session_state.page == "CLOUD":
             st.divider()
             st.subheader(f"🔍 Xem trước: {st.session_state.preview_file['name']}")
             p = st.session_state.preview_file
-            if p["info"]["type"].startswith("image/") and PIL_AVAILABLE:
-                st.image(f"data:{p['info']['type']};base64,{p['info']['data']}", use_column_width=True)
+            if p["info"]["type"].startswith("image/"):
+                try:
+                    from PIL import Image
+                    st.image(f"data:{p['info']['type']};base64,{p['info']['data']}", use_column_width=True)
+                except:
+                    st.warning("Không thể hiển thị ảnh")
             elif p["info"]["type"].startswith("text/"):
                 try:
                     text = base64.b64decode(p["info"]["data"]).decode("utf-8")
@@ -1262,10 +1111,8 @@ elif st.session_state.page == "SETTINGS":
                         found = True
                         break
                     elif isinstance(c, str) and c == code:
-                        # Xử lý code cũ dạng string
                         if st.session_state.user not in st.session_state.data["pro_users"]:
                             st.session_state.data["pro_users"].append(st.session_state.user)
-                        # Xóa code cũ
                         st.session_state.data["codes"] = [x for x in st.session_state.data["codes"] if x != code]
                         save_data(st.session_state.data)
                         st.balloons()
@@ -1293,7 +1140,7 @@ elif st.session_state.page == "ADMIN":
     else:
         st.markdown("<h2>🛠️ ADMIN PANEL</h2>", unsafe_allow_html=True)
         
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎫 Mã Pro", "📢 Thông báo", "👥 Người dùng", "📱 Thiết bị", "📊 Hệ thống"])
+        tab1, tab2, tab3 = st.tabs(["🎫 Mã Pro", "📢 Thông báo", "📊 Hệ thống"])
         
         with tab1:
             new_code = st.text_input("Mã mới").upper()
@@ -1326,40 +1173,39 @@ elif st.session_state.page == "ADMIN":
                     st.write(f"- `{c}` (Mã cũ, không có hạn chế)")
         
         with tab2:
+            st.subheader("📢 GỬI THÔNG BÁO")
+            
+            # Checkbox quan trọng: Gửi cho người dùng tương lai
+            send_to_future = st.checkbox("✓ Gửi cho cả người dùng đăng ký sau", value=False, 
+                                        help="Bật để thông báo này được lưu và hiển thị cho người dùng đăng ký trong tương lai")
+            
             users = list(st.session_state.data["users"].keys())
-            target = st.selectbox("Gửi đến", ["Tất cả"] + users)
+            if not send_to_future:
+                target = st.selectbox("Gửi đến", ["Tất cả"] + users)
+            else:
+                st.info("🔔 Thông báo này sẽ được lưu và hiển thị cho TẤT CẢ người dùng, kể cả những người đăng ký sau này!")
+                target = "TẤT CẢ (KỂ CẢ TƯƠNG LAI)"
+            
             title = st.text_input("Tiêu đề")
             msg = st.text_area("Nội dung")
+            
             if st.button("📤 GỬI THÔNG BÁO"):
-                if target == "Tất cả":
-                    for u in users:
-                        add_notification(u, title, msg, "admin")
-                    st.toast(f"✅ Đã gửi đến {len(users)} người dùng!", icon="✅")
+                if send_to_future:
+                    # Gửi thông báo hệ thống - lưu riêng, sẽ hiển thị cho user đăng ký sau
+                    add_system_notification(title, msg, "admin")
+                    st.toast(f"✅ Đã lưu thông báo hệ thống! Tất cả người dùng (kể cả tương lai) sẽ nhận được!", icon="🔔")
                 else:
-                    add_notification(target, title, msg, "admin")
-                    st.toast(f"✅ Đã gửi đến {target}!", icon="✅")
+                    # Gửi thông báo thường
+                    if target == "Tất cả":
+                        for u in users:
+                            add_notification(u, title, msg, "admin")
+                        st.toast(f"✅ Đã gửi đến {len(users)} người dùng!", icon="✅")
+                    else:
+                        add_notification(target, title, msg, "admin")
+                        st.toast(f"✅ Đã gửi đến {target}!", icon="✅")
+                st.rerun()
         
         with tab3:
-            st.subheader("Danh sách người dùng")
-            for u, info in st.session_state.data["users"].items():
-                is_pro_user = "💎 PRO" if u in st.session_state.data["pro_users"] else "🆓 FREE"
-                st.write(f"- **{info.get('info', {}).get('name', u)}** (@{u}) - {is_pro_user}")
-        
-        with tab4:
-            st.subheader("📱 THIẾT BỊ ĐANG KẾT NỐI")
-            devices = st.session_state.data.get("devices", {})
-            if devices:
-                for user, device_list in devices.items():
-                    st.markdown(f"**👤 {user}**")
-                    for d in device_list:
-                        st.write(f"  - 📱 **{d.get('device_type', 'Unknown')}** | 🌐 {d.get('browser', 'Unknown')} | 💻 {d.get('os', 'Unknown')}")
-                        st.write(f"    🕐 Lần cuối: {d.get('last_seen', 'Unknown')[:16]}")
-                        st.write(f"    🔑 ID: `{d.get('device_id', 'Unknown')}`")
-                        st.write("---")
-            else:
-                st.info("Chưa có thiết bị nào được ghi nhận.")
-        
-        with tab5:
             st.write(f"**Số người dùng:** {len(st.session_state.data['users'])}")
             st.write(f"**Số Pro users:** {len(st.session_state.data['pro_users'])}")
             st.write(f"**Số phiên chat:** {len(st.session_state.data['chat_sessions'])}")
@@ -1390,7 +1236,7 @@ elif st.session_state.page == "ABOUT":
         st.markdown("""
         **🤖 AI Thông Minh**
         - ✅ Trò chuyện AI với NEXUS OS Gateway
-        - ✅ Phân tích file văn bản, Word
+        - ✅ Phân tích file văn bản
         - ✅ Tóm tắt nội dung trang web
         - ✅ Phản hồi dựa trên lịch sử duyệt web
         
