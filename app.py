@@ -17,7 +17,7 @@ import mimetypes
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "7.0.0",
+    "VERSION": "7.1.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -37,7 +37,7 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 7.0.0
+- Phiên bản: 7.1.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
@@ -55,7 +55,7 @@ except Exception:
 
 st.set_page_config(page_title=CONFIG["NAME"], layout="wide", initial_sidebar_state="expanded")
 
-# ================== CSS ==================
+# ================== CSS TỐI ƯU ==================
 st.markdown("""
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -68,8 +68,8 @@ st.markdown("""
 
 .content-area { flex: 1; overflow-y: auto; padding: 20px; height: 100vh; }
 
-/* ===== CHAT DESIGN MỚI ===== */
-.chat-container {
+/* === CHAT LAYOUT CỐ ĐỊNH === */
+.chat-layout {
     display: flex;
     flex-direction: column;
     height: calc(100vh - 80px);
@@ -85,57 +85,34 @@ st.markdown("""
     color: white;
     font-weight: bold;
     font-size: 18px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
     flex-shrink: 0;
-}
-
-.chat-header::before {
-    content: "🧠";
-    font-size: 24px;
 }
 
 .chat-messages {
     flex: 1;
     overflow-y: auto;
     padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
     background: #f8f9fa;
 }
 
-/* Message bubble */
 .message {
+    margin-bottom: 16px;
     display: flex;
-    margin-bottom: 8px;
-    animation: fadeIn 0.3s ease;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.message.user {
-    justify-content: flex-end;
-}
-
-.message.assistant {
-    justify-content: flex-start;
-}
+.message.user { justify-content: flex-end; }
+.message.assistant { justify-content: flex-start; }
 
 .message-bubble {
-    max-width: 70%;
-    padding: 12px 16px;
-    border-radius: 20px;
+    max-width: 75%;
+    padding: 10px 16px;
+    border-radius: 18px;
     word-wrap: break-word;
-    line-height: 1.5;
+    line-height: 1.4;
 }
 
 .message.user .message-bubble {
-    background: linear-gradient(135deg, #0047AB, #0066CC);
+    background: #0047AB;
     color: white;
     border-bottom-right-radius: 4px;
 }
@@ -148,111 +125,14 @@ st.markdown("""
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
-/* Typing indicator */
-.typing-indicator {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 12px 16px;
-    background: white;
-    border-radius: 20px;
-    border: 1px solid #e5e7eb;
-    border-bottom-left-radius: 4px;
-    width: fit-content;
-}
-
-.typing-dot {
-    width: 8px;
-    height: 8px;
-    background: #9ca3af;
-    border-radius: 50%;
-    animation: typing 1.4s infinite ease-in-out;
-}
-
-.typing-dot:nth-child(1) { animation-delay: 0s; }
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes typing {
-    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-    30% { transform: translateY(-8px); opacity: 1; }
-}
-
-/* Chat input area */
-.chat-input-area {
+.chat-input-fixed {
     padding: 15px 20px;
     background: white;
     border-top: 1px solid #e5e7eb;
     flex-shrink: 0;
 }
 
-/* ===== NOTIFICATION PANEL ===== */
-.notification-sidebar {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    width: 380px;
-    max-height: 80vh;
-    background: white;
-    border-radius: 20px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-    z-index: 1000;
-    overflow: hidden;
-    transition: all 0.3s ease;
-    border: 1px solid #e5e7eb;
-}
-
-.notification-sidebar.hidden {
-    transform: translateX(400px);
-}
-
-.notification-header {
-    padding: 15px 20px;
-    background: linear-gradient(135deg, #0047AB, #0066CC);
-    color: white;
-    font-weight: bold;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-}
-
-.notification-list {
-    max-height: 500px;
-    overflow-y: auto;
-}
-
-.notification-item {
-    padding: 12px 15px;
-    border-bottom: 1px solid #f0f0f0;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.notification-item:hover {
-    background: #f8f9fa;
-}
-
-.notification-item.unread {
-    background: #e0e7ff;
-}
-
-.notification-title {
-    font-weight: bold;
-    margin-bottom: 5px;
-}
-
-.notification-message {
-    font-size: 13px;
-    color: #6b7280;
-    margin-bottom: 5px;
-}
-
-.notification-time {
-    font-size: 11px;
-    color: #9ca3af;
-}
-
+/* === NOTIFICATION === */
 .notification-bell {
     position: fixed;
     top: 20px;
@@ -260,20 +140,17 @@ st.markdown("""
     background: #0047AB;
     color: white;
     border-radius: 50%;
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    z-index: 1001;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     transition: transform 0.2s;
 }
-
-.notification-bell:hover {
-    transform: scale(1.05);
-}
+.notification-bell:hover { transform: scale(1.05); }
 
 .notification-badge {
     position: absolute;
@@ -290,6 +167,39 @@ st.markdown("""
     justify-content: center;
 }
 
+.notification-panel {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    width: 360px;
+    max-height: 500px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    z-index: 1000;
+    overflow: hidden;
+    display: none;
+}
+.notification-panel.show { display: block; }
+
+.notification-header {
+    padding: 15px;
+    background: #0047AB;
+    color: white;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+.notification-list { max-height: 400px; overflow-y: auto; }
+.notification-item { padding: 12px 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+.notification-item:hover { background: #f8f9fa; }
+.notification-item.unread { background: #e0e7ff; }
+.notification-title { font-weight: bold; margin-bottom: 4px; }
+.notification-message { font-size: 13px; color: #6b7280; margin-bottom: 4px; }
+.notification-time { font-size: 11px; color: #9ca3af; }
+
 /* Common */
 .stButton>button { border-radius: 40px; font-weight: 600; background: #0047AB; color: white; border: none; width: 100%; }
 .stButton>button:hover { background: #003399; }
@@ -299,38 +209,37 @@ st.markdown("""
 .avatar-large { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }
 .search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; }
 .custom-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+.pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
 </style>
 
 <script>
 function toggleNotifications() {
     var panel = document.getElementById('notification-panel');
-    if (panel) {
-        panel.classList.toggle('hidden');
-    }
+    if (panel) panel.classList.toggle('show');
 }
 
-function scrollToBottom() {
-    var container = document.getElementById('chat-messages-container');
-    if (container) {
-        container.scrollTop = container.scrollHeight;
-    }
+function scrollChatToBottom() {
+    var container = document.getElementById('chat-messages');
+    if (container) container.scrollTop = container.scrollHeight;
 }
-
-// Tự động cuộn xuống cuối khi trang tải và sau mỗi tin nhắn
-setTimeout(scrollToBottom, 100);
+setTimeout(scrollChatToBottom, 200);
 </script>
 """, unsafe_allow_html=True)
 
-# ================== HÀM LẤY NỘI DUNG WEB ==================
-def search_web_via_api(query: str) -> List[Dict]:
+# ================== HÀM TÌM KIẾM WEB (DÙNG API) ==================
+def search_web(query: str) -> List[Dict]:
+    """Tìm kiếm web dùng DuckDuckGo API - không bị chuyển hướng"""
     results = []
     try:
+        # Dùng DuckDuckGo API
         url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
-        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/7.0"}, timeout=10)
+        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/7.1"}, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
             
+            # Abstract
             if data.get("AbstractText"):
                 results.append({
                     'title': data.get("Heading", query),
@@ -338,6 +247,7 @@ def search_web_via_api(query: str) -> List[Dict]:
                     'snippet': data.get("AbstractText", "")[:300]
                 })
             
+            # Related Topics
             for topic in data.get("RelatedTopics", [])[:10]:
                 if isinstance(topic, dict):
                     text = topic.get("Text", "")
@@ -348,11 +258,12 @@ def search_web_via_api(query: str) -> List[Dict]:
                         snippet = parts[1][:200] if len(parts) > 1 else ""
                         results.append({'title': title, 'url': url_topic, 'snippet': snippet})
             
+            # Fallback
             if not results:
                 results.append({
-                    'title': f"Tìm kiếm: {query}",
+                    'title': f"Tìm kiếm trên DuckDuckGo: {query}",
                     'url': f"https://duckduckgo.com/?q={query}",
-                    'snippet': "Nhấn để xem kết quả trên DuckDuckGo"
+                    'snippet': "Nhấn để mở trang tìm kiếm"
                 })
         else:
             results.append({'title': 'Lỗi kết nối', 'url': '', 'snippet': f'Mã lỗi: {response.status_code}'})
@@ -361,13 +272,10 @@ def search_web_via_api(query: str) -> List[Dict]:
     
     return results
 
-def fetch_webpage_content_simple(url: str) -> str:
+def get_page_content(url: str) -> str:
+    """Lấy nội dung trang web đơn giản"""
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "text/html,application/xhtml+xml",
-            "Accept-Language": "en-US,en;q=0.9",
-        }
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
         
         if response.status_code == 200:
@@ -378,29 +286,28 @@ def fetch_webpage_content_simple(url: str) -> str:
             text = re.sub(r'\s+', ' ', text)
             text = text.strip()
             return text[:5000] if text else "Không thể trích xuất nội dung."
-        else:
-            return f"Không thể truy cập trang (Mã lỗi: {response.status_code})"
+        return f"Lỗi: {response.status_code}"
     except Exception as e:
         return f"Lỗi: {str(e)}"
 
-def summarize_webpage(url: str) -> str:
-    content = fetch_webpage_content_simple(url)
+def summarize_page(url: str) -> str:
+    content = get_page_content(url)
     if not content or len(content) < 50:
-        return "Không đủ nội dung để tóm tắt. Trang web có thể yêu cầu JavaScript hoặc bị chặn."
+        return "Không đủ nội dung để tóm tắt."
     
     try:
         from openai import OpenAI
         client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
         messages = [
-            {"role": "system", "content": "Bạn là NEXUS OS GATEWAY. Hãy tóm tắt nội dung sau một cách ngắn gọn, khoảng 200-300 từ."},
-            {"role": "user", "content": f"Nội dung cần tóm tắt:\n{content[:4000]}\n\nHãy tóm tắt nội dung chính:"}
+            {"role": "system", "content": "Bạn là NEXUS OS GATEWAY. Tóm tắt nội dung sau ngắn gọn, 200-300 từ."},
+            {"role": "user", "content": f"Nội dung:\n{content[:4000]}\n\nTóm tắt:"}
         ]
         res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.5, max_tokens=1024)
         return res.choices[0].message.content
     except Exception as e:
-        return f"Lỗi tóm tắt: {str(e)}"
+        return f"Lỗi: {str(e)}"
 
-# ================== HÀM THÔNG BÁO HỆ THỐNG ==================
+# ================== HÀM THÔNG BÁO ==================
 def load_system_notifications() -> List[Dict]:
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{CONFIG['SYSTEM_NOTIF_FILE']}"
     headers = {"Authorization": f"token {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
@@ -428,37 +335,25 @@ def save_system_notifications(notifications: List[Dict]) -> bool:
     except:
         return False
 
-def add_system_notification(title: str, message: str, notification_type: str = "system"):
-    system_notifications = load_system_notifications()
-    system_notifications.append({
-        "id": str(uuid.uuid4()),
-        "title": title,
-        "message": message,
-        "type": notification_type,
-        "time": str(datetime.now()),
-        "read_by": []
-    })
-    save_system_notifications(system_notifications)
-    return True
+def add_system_notification(title: str, message: str):
+    notifs = load_system_notifications()
+    notifs.append({"id": str(uuid.uuid4()), "title": title, "message": message, "time": str(datetime.now()), "read_by": []})
+    save_system_notifications(notifs)
 
-def get_system_notifications_for_user(username: str) -> List[Dict]:
-    system_notifications = load_system_notifications()
-    unread = []
-    for notif in system_notifications:
-        if username not in notif.get("read_by", []):
-            unread.append(notif)
-    return unread
+def get_unread_system_notifs(username: str) -> List[Dict]:
+    notifs = load_system_notifications()
+    return [n for n in notifs if username not in n.get("read_by", [])]
 
-def mark_system_notification_read(username: str, notif_id: str):
-    system_notifications = load_system_notifications()
-    for notif in system_notifications:
-        if notif["id"] == notif_id:
-            if "read_by" not in notif:
-                notif["read_by"] = []
-            if username not in notif["read_by"]:
-                notif["read_by"].append(username)
+def mark_system_notif_read(username: str, notif_id: str):
+    notifs = load_system_notifications()
+    for n in notifs:
+        if n["id"] == notif_id:
+            if "read_by" not in n:
+                n["read_by"] = []
+            if username not in n["read_by"]:
+                n["read_by"].append(username)
             break
-    save_system_notifications(system_notifications)
+    save_system_notifications(notifs)
 
 # ================== HÀM XỬ LÝ DATA ==================
 def get_default_data() -> Dict:
@@ -527,23 +422,21 @@ def load_data() -> Dict:
                 "shared_files": {}, "notifications": {}, "friends": {}, "browsing_history": [],
                 "session_tokens": {}, "system_info": {}
             }
-            for key, default_val in defaults.items():
+            for key, val in defaults.items():
                 if key not in data:
-                    data[key] = default_val
+                    data[key] = val
             
-            for username, user_data in data["users"].items():
-                if "info" not in user_data:
-                    user_data["info"] = {}
-                if "email_provided" not in user_data["info"]:
-                    user_data["info"]["email_provided"] = False
-                if "email" not in user_data["info"]:
-                    user_data["info"]["email"] = None
+            for u, ud in data["users"].items():
+                if "info" not in ud:
+                    ud["info"] = {}
+                if "email_provided" not in ud["info"]:
+                    ud["info"]["email_provided"] = False
+                if "email" not in ud["info"]:
+                    ud["info"]["email"] = None
             
             return data
-        else:
-            return get_default_data()
-    except Exception as e:
-        st.error(f"Lỗi load data: {str(e)}")
+        return get_default_data()
+    except:
         return get_default_data()
 
 def save_data(data: Dict) -> bool:
@@ -553,58 +446,44 @@ def save_data(data: Dict) -> bool:
         res = requests.get(url, headers=headers, timeout=10)
         sha = res.json().get("sha") if res.status_code == 200 else None
         content = base64.b64encode(json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8')).decode('utf-8')
-        put_data = {"message": f"NEXUS OS GATEWAY v{CONFIG['VERSION']} Update", "content": content, "branch": "main"}
+        put_data = {"message": "Update", "content": content, "branch": "main"}
         if sha:
             put_data["sha"] = sha
         put_res = requests.put(url, headers=headers, json=put_data, timeout=10)
         return put_res.status_code in [200, 201]
-    except Exception as e:
-        st.error(f"Lỗi save data: {str(e)}")
+    except:
         return False
 
-def add_notification(user: str, title: str, message: str, notification_type: str = "info"):
+def add_notification(user: str, title: str, message: str):
     if user not in st.session_state.data["notifications"]:
         st.session_state.data["notifications"][user] = []
     st.session_state.data["notifications"][user].append({
-        "id": str(uuid.uuid4()), "title": title, "message": message, "type": notification_type,
+        "id": str(uuid.uuid4()), "title": title, "message": message,
         "time": str(datetime.now()), "read": False
     })
-    if len(st.session_state.data["notifications"][user]) > 100:
-        st.session_state.data["notifications"][user] = st.session_state.data["notifications"][user][-100:]
     save_data(st.session_state.data)
 
-def load_system_notifications_for_user(username: str):
-    sys_notifs = get_system_notifications_for_user(username)
-    for notif in sys_notifs:
+def load_system_notifs_for_user(username: str):
+    for n in get_unread_system_notifs(username):
         if username not in st.session_state.data["notifications"]:
             st.session_state.data["notifications"][username] = []
-        existing = [n for n in st.session_state.data["notifications"][username] if n.get("id") == notif["id"]]
+        existing = [x for x in st.session_state.data["notifications"][username] if x.get("id") == n["id"]]
         if not existing:
             st.session_state.data["notifications"][username].append({
-                "id": notif["id"],
-                "title": notif["title"],
-                "message": notif["message"],
-                "type": notif["type"],
-                "time": notif["time"],
-                "read": False,
-                "is_system": True
+                "id": n["id"], "title": n["title"], "message": n["message"],
+                "time": n["time"], "read": False, "is_system": True
             })
-        mark_system_notification_read(username, notif["id"])
+        mark_system_notif_read(username, n["id"])
     save_data(st.session_state.data)
 
 # ================== HÀM GHI NHỚ THIẾT BỊ ==================
 def create_session_token(username: str) -> str:
     token = hashlib.sha256(f"{username}{uuid.uuid4()}{datetime.now()}".encode()).hexdigest()
     expiry = datetime.now() + timedelta(days=CONFIG["SESSION_TOKEN_EXPIRY"])
-    
     if "session_tokens" not in st.session_state.data:
         st.session_state.data["session_tokens"] = {}
-    
     st.session_state.data["session_tokens"][token] = {
-        "username": username,
-        "expiry": str(expiry),
-        "created": str(datetime.now()),
-        "device_id": get_device_id()
+        "username": username, "expiry": str(expiry), "device_id": get_device_id()
     }
     save_data(st.session_state.data)
     return token
@@ -615,90 +494,50 @@ def get_device_id() -> str:
 
 def check_remembered_device() -> Optional[str]:
     device_id = get_device_id()
-    
     if "session_tokens" not in st.session_state.data:
         return None
-    
     for token, info in st.session_state.data["session_tokens"].items():
         if info.get("device_id") == device_id:
-            expiry = datetime.fromisoformat(info["expiry"])
-            if datetime.now() < expiry:
+            if datetime.now() < datetime.fromisoformat(info["expiry"]):
                 return info["username"]
             else:
                 del st.session_state.data["session_tokens"][token]
                 save_data(st.session_state.data)
     return None
 
-# ================== HÀM XỬ LÝ EMAIL ==================
-def prompt_for_email(username: str) -> bool:
-    user_info = st.session_state.data["users"][username]["info"]
-    
-    if user_info.get("email_provided", False):
-        return True
-    
-    st.warning("📧 **Cập nhật thông tin**\n\nĐể nhận được hỗ trợ tốt nhất từ NEXUS OS GATEWAY, vui lòng cung cấp email của bạn.\n\nBạn có thể bỏ qua nếu không muốn.")
-    
-    email = st.text_input("Email của bạn:", placeholder="example@email.com")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("✅ Cung cấp email", use_container_width=True):
-            if email and re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
-                user_info["email"] = email
-                user_info["email_provided"] = True
-                save_data(st.session_state.data)
-                st.success("✅ Cảm ơn bạn! Email đã được lưu.")
-                st.rerun()
-            else:
-                st.error("Email không hợp lệ!")
-    with col2:
-        if st.button("⏭️ Bỏ qua", use_container_width=True):
-            user_info["email_provided"] = True
-            save_data(st.session_state.data)
-            st.rerun()
-    
-    return False
-
 # ================== HÀM XỬ LÝ FILE ==================
 def extract_text_from_file(uploaded_file) -> str:
-    file_name = uploaded_file.name
-    file_ext = file_name.split('.')[-1].lower()
-    file_bytes = uploaded_file.getvalue()
-    
-    if file_ext == 'txt':
+    if uploaded_file.name.endswith('.txt'):
         try:
-            return file_bytes.decode('utf-8')[:3000]
+            return uploaded_file.getvalue().decode('utf-8')[:3000]
         except:
             return "[Không thể đọc file text]"
-    else:
-        return f"[Hiện tại hỗ trợ file txt. File {file_ext} chưa được hỗ trợ.]"
+    return "[Chỉ hỗ trợ file txt]"
 
-def resize_image(image_bytes, max_size=(200, 200)):
+def resize_image(img_bytes, max_size=(200, 200)):
     try:
         from PIL import Image
-        img = Image.open(BytesIO(image_bytes))
+        img = Image.open(BytesIO(img_bytes))
         img.thumbnail(max_size, Image.Resampling.LANCZOS)
         buffer = BytesIO()
         img.save(buffer, format='PNG')
         return buffer.getvalue()
     except:
-        return image_bytes
+        return img_bytes
 
 # ================== HÀM DỌN DẸP ==================
 def auto_cleanup_files():
     if 'last_cleanup' not in st.session_state:
         st.session_state.last_cleanup = datetime.now()
     if (datetime.now() - st.session_state.last_cleanup).days >= 1:
-        files_to_delete = []
-        cutoff_time = datetime.now() - timedelta(days=CONFIG["AUTO_CLEANUP_DAYS"])
-        for file_path, file_info in st.session_state.data.get("files", {}).items():
-            if "upload_time" in file_info:
-                upload_time = datetime.fromisoformat(file_info["upload_time"])
-                if upload_time < cutoff_time:
-                    files_to_delete.append(file_path)
-        for file_path in files_to_delete:
-            del st.session_state.data["files"][file_path]
-        if files_to_delete:
+        cutoff = datetime.now() - timedelta(days=CONFIG["AUTO_CLEANUP_DAYS"])
+        to_delete = []
+        for path, info in st.session_state.data.get("files", {}).items():
+            if "upload_time" in info and datetime.fromisoformat(info["upload_time"]) < cutoff:
+                to_delete.append(path)
+        for path in to_delete:
+            del st.session_state.data["files"][path]
+        if to_delete:
             save_data(st.session_state.data)
         st.session_state.last_cleanup = datetime.now()
 
@@ -726,18 +565,14 @@ def init_session():
         st.session_state.web_summaries = {}
     if 'browsing_history' not in st.session_state:
         st.session_state.browsing_history = []
-    if 'remember_device' not in st.session_state:
-        st.session_state.remember_device = False
-    if 'is_typing' not in st.session_state:
-        st.session_state.is_typing = False
     auto_cleanup_files()
 
 init_session()
 
 if st.session_state.page == "AUTH" and not st.session_state.user:
-    remembered_user = check_remembered_device()
-    if remembered_user:
-        st.session_state.user = remembered_user
+    remembered = check_remembered_device()
+    if remembered:
+        st.session_state.user = remembered
         st.session_state.guest_mode = False
         st.session_state.page = "DASHBOARD"
         st.rerun()
@@ -749,31 +584,19 @@ def go_to(page):
     st.session_state.page = page
     st.rerun()
 
-def call_ai(messages: List[Dict], use_history: bool = False) -> str:
+def call_ai(messages: List[Dict]) -> str:
     try:
         from openai import OpenAI
         client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
-        
-        if use_history and st.session_state.browsing_history:
-            history_context = "Lịch sử duyệt web gần đây:\n"
-            for item in st.session_state.browsing_history[-5:]:
-                history_context += f"- {item['title']}: {item['url']}\n"
-            messages.insert(0, {"role": "system", "content": f"{SYSTEM_PROMPT}\n\n{history_context}"})
-        else:
-            messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
-        
+        messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
         res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.7, max_tokens=2048)
         return res.choices[0].message.content
     except Exception as e:
-        return f"❌ Lỗi AI: {str(e)}"
+        return f"❌ Lỗi: {str(e)}"
 
-# ================== CÁC HÀM CLOUD ==================
+# ================== CLOUD FUNCTIONS ==================
 def get_used_storage(user: str) -> int:
-    total = 0
-    for path, info in st.session_state.data.get("files", {}).items():
-        if info.get("owner") == user:
-            total += info.get("size", 0)
-    return total
+    return sum(info.get("size", 0) for path, info in st.session_state.data.get("files", {}).items() if info.get("owner") == user)
 
 def list_dir(path: str) -> Dict:
     folders, files = set(), []
@@ -794,10 +617,7 @@ def create_folder(path: str):
         path += "/"
     marker = path + ".folder"
     if marker not in st.session_state.data["files"]:
-        st.session_state.data["files"][marker] = {
-            "owner": st.session_state.user, "data": "", "size": 0,
-            "type": "inode/directory", "upload_time": str(datetime.now())
-        }
+        st.session_state.data["files"][marker] = {"owner": st.session_state.user, "data": "", "size": 0, "type": "dir", "upload_time": str(datetime.now())}
         save_data(st.session_state.data)
         return True
     return False
@@ -808,49 +628,37 @@ def delete_path(path: str):
         del st.session_state.data["files"][p]
     save_data(st.session_state.data)
 
-def download_multiple_files(file_paths: List[str]) -> bytes:
+def download_files(file_paths: List[str]) -> bytes:
     zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for file_path in file_paths:
-            if file_path in st.session_state.data["files"]:
-                file_data = base64.b64decode(st.session_state.data["files"][file_path]["data"])
-                zip_file.writestr(file_path.split("/")[-1], file_data)
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for fp in file_paths:
+            if fp in st.session_state.data["files"]:
+                data = base64.b64decode(st.session_state.data["files"][fp]["data"])
+                zf.writestr(fp.split("/")[-1], data)
     return zip_buffer.getvalue()
 
-# ================== NOTIFICATION BELL & PANEL ==================
-# Notification bell
+# ================== NOTIFICATION PANEL ==================
 st.markdown(f'''
 <div class="notification-bell" onclick="toggleNotifications()">
-    🔔
-    {f'<span class="notification-badge">{unread_count}</span>' if unread_count > 0 else ''}
+    🔔 {f'<span class="notification-badge">{unread_count}</span>' if unread_count > 0 else ''}
 </div>
-
-<div id="notification-panel" class="notification-sidebar hidden">
+<div id="notification-panel" class="notification-panel">
     <div class="notification-header" onclick="toggleNotifications()">
-        <span>📢 THÔNG BÁO</span>
-        <span>✕</span>
+        <span>📢 THÔNG BÁO</span><span>✕</span>
     </div>
-    <div class="pull-to-refresh" onclick="location.reload()" style="text-align:center;padding:10px;cursor:pointer;color:#6b7280;font-size:12px;">
-        ⬇️ Kéo xuống để tải lại ⬇️
-    </div>
+    <div class="pull-to-refresh" onclick="location.reload()">⬇️ Kéo xuống để tải lại ⬇️</div>
     <div class="notification-list">
 ''', unsafe_allow_html=True)
 
 if st.session_state.user and st.session_state.user in st.session_state.data.get("notifications", {}):
     for n in reversed(st.session_state.data["notifications"][st.session_state.user]):
         if isinstance(n, dict):
-            st.markdown(f'''
-            <div class="notification-item {"unread" if not n.get("read") else ""}">
-                <div class="notification-title">{n.get("title", "")}</div>
-                <div class="notification-message">{n.get("message", "")}</div>
-                <div class="notification-time">{n.get("time", "")[:16]}</div>
-            </div>
-            ''', unsafe_allow_html=True)
+            st.markdown(f'<div class="notification-item {"unread" if not n.get("read") else ""}"><div class="notification-title">{n.get("title", "")}</div><div class="notification-message">{n.get("message", "")}</div><div class="notification-time">{n.get("time", "")[:16]}</div></div>', unsafe_allow_html=True)
             if not n.get("read"):
                 n["read"] = True
                 save_data(st.session_state.data)
 else:
-    st.markdown('<div class="notification-item" style="text-align:center">Chưa có thông báo nào</div>', unsafe_allow_html=True)
+    st.markdown('<div class="notification-item">Chưa có thông báo</div>', unsafe_allow_html=True)
 
 st.markdown('</div></div>', unsafe_allow_html=True)
 
@@ -859,12 +667,12 @@ with st.sidebar:
     st.markdown(f"<div style='text-align:center'><h2>🚀 {CONFIG['NAME']}</h2><span class='version-badge'>v{CONFIG['VERSION']}</span><p><small>by {CONFIG['CREATOR']}</small></p></div>", unsafe_allow_html=True)
     
     if st.session_state.user:
-        user_info = st.session_state.data["users"][st.session_state.user]["info"] if not st.session_state.guest_mode else None
-        if user_info and user_info.get("avatar"):
-            st.markdown(f'<img src="data:image/png;base64,{user_info["avatar"]}" class="avatar-large">', unsafe_allow_html=True)
+        info = st.session_state.data["users"][st.session_state.user]["info"] if not st.session_state.guest_mode else None
+        if info and info.get("avatar"):
+            st.markdown(f'<img src="data:image/png;base64,{info["avatar"]}" class="avatar-large">', unsafe_allow_html=True)
         else:
             st.markdown('<div style="text-align:center; font-size:40px;">👤</div>', unsafe_allow_html=True)
-        st.markdown(f"<div style='text-align:center'><b>{user_info.get('name', st.session_state.user) if user_info else st.session_state.user}</b></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='text-align:center'><b>{info.get('name', st.session_state.user) if info else st.session_state.user}</b></div>", unsafe_allow_html=True)
         if st.session_state.guest_mode:
             st.markdown('<div style="text-align:center"><span class="guest-badge">🔓 GUEST</span></div>', unsafe_allow_html=True)
         else:
@@ -876,78 +684,52 @@ with st.sidebar:
             st.subheader("🔐 ĐĂNG NHẬP")
             login_user = st.text_input("Tài khoản")
             login_pass = st.text_input("Mật khẩu", type="password")
-            remember = st.checkbox("💾 Ghi nhớ thiết bị này", value=False)
-            
-            if st.form_submit_button("Đăng nhập", use_container_width=True):
-                if login_user and login_pass:
-                    if login_user in st.session_state.data["users"]:
-                        if st.session_state.data["users"][login_user]["password"] == login_pass:
-                            st.session_state.user = login_user
-                            st.session_state.guest_mode = False
-                            if remember:
-                                create_session_token(login_user)
-                            load_system_notifications_for_user(login_user)
-                            st.toast(f"✅ Chào mừng đến với {CONFIG['NAME']}!", icon="🎉")
-                            st.rerun()
-                        else:
-                            st.error("❌ Sai mật khẩu!")
-                    else:
-                        st.error("❌ Tài khoản không tồn tại!")
+            remember = st.checkbox("💾 Ghi nhớ thiết bị")
+            if st.form_submit_button("Đăng nhập"):
+                if login_user in st.session_state.data["users"] and st.session_state.data["users"][login_user]["password"] == login_pass:
+                    st.session_state.user = login_user
+                    st.session_state.guest_mode = False
+                    if remember:
+                        create_session_token(login_user)
+                    load_system_notifs_for_user(login_user)
+                    st.rerun()
+                else:
+                    st.error("Sai tài khoản hoặc mật khẩu!")
         
-        if CONFIG["GUEST_ENABLED"]:
-            if st.button("👤 DÙNG THỬ (GUEST)", use_container_width=True):
-                st.session_state.user = "guest"
-                st.session_state.guest_mode = True
-                st.toast("🔓 Chế độ khách: dữ liệu không được lưu", icon="👋")
-                st.rerun()
+        if CONFIG["GUEST_ENABLED"] and st.button("👤 DÙNG THỬ"):
+            st.session_state.user = "guest"
+            st.session_state.guest_mode = True
+            st.rerun()
         
         with st.expander("📝 Đăng ký"):
             reg_user = st.text_input("Tên đăng nhập")
             reg_pass = st.text_input("Mật khẩu", type="password")
-            reg_confirm = st.text_input("Xác nhận", type="password")
+            reg_confirm = st.text_input("Xác nhận")
             reg_name = st.text_input("Tên hiển thị")
-            reg_email = st.text_input("Email (tùy chọn)", placeholder="example@email.com")
-            if st.button("Đăng ký", use_container_width=True):
-                if reg_user and reg_pass and reg_pass == reg_confirm:
-                    if reg_user in st.session_state.data["users"]:
-                        st.error("Tên đăng nhập đã tồn tại!")
-                    elif len(reg_user) < 3:
-                        st.error("Tên phải có ít nhất 3 ký tự!")
-                    elif len(reg_pass) < 6:
-                        st.error("Mật khẩu phải có ít nhất 6 ký tự!")
-                    else:
-                        email_valid = False
-                        if reg_email and re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', reg_email):
-                            email_valid = True
-                        
+            if st.button("Đăng ký"):
+                if reg_user and reg_pass and reg_pass == reg_confirm and len(reg_user) >= 3 and len(reg_pass) >= 6:
+                    if reg_user not in st.session_state.data["users"]:
                         st.session_state.data["users"][reg_user] = {
                             "password": reg_pass,
-                            "info": {
-                                "name": reg_name or reg_user,
-                                "bio": "",
-                                "link": str(uuid.uuid4()),
-                                "avatar": None,
-                                "created": str(datetime.now()),
-                                "email": reg_email if email_valid else None,
-                                "email_provided": email_valid
-                            }
+                            "info": {"name": reg_name or reg_user, "bio": "", "link": str(uuid.uuid4()), "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False}
                         }
                         save_data(st.session_state.data)
-                        load_system_notifications_for_user(reg_user)
-                        st.success("✅ Đăng ký thành công! Vui lòng đăng nhập.")
+                        load_system_notifs_for_user(reg_user)
+                        st.success("Đăng ký thành công!")
+                    else:
+                        st.error("Tên đã tồn tại!")
     else:
         st.markdown("### 🚀 TIỆN ÍCH")
-        if st.button("🧠 CHAT AI", use_container_width=True): go_to("CHAT")
-        if st.button("🌐 TÌM KIẾM WEB", use_container_width=True): go_to("SEARCH")
-        if st.button("☁️ LƯU TRỮ", use_container_width=True): go_to("CLOUD")
-        if st.button("👥 BẠN BÈ & CHIA SẺ", use_container_width=True): go_to("SOCIAL")
-        if st.button("📜 LỊCH SỬ CHAT", use_container_width=True): go_to("HISTORY")
-        if st.button("⚙️ CÀI ĐẶT", use_container_width=True): go_to("SETTINGS")
-        if st.button("ℹ️ THÔNG TIN", use_container_width=True): go_to("ABOUT")
-        if st.session_state.user == CONFIG["ADMIN_USERNAME"] and st.button("🛠️ ADMIN", use_container_width=True): go_to("ADMIN")
-        if st.button("🚪 ĐĂNG XUẤT", use_container_width=True):
+        if st.button("🧠 CHAT AI"): go_to("CHAT")
+        if st.button("🌐 TÌM KIẾM"): go_to("SEARCH")
+        if st.button("☁️ LƯU TRỮ"): go_to("CLOUD")
+        if st.button("👥 BẠN BÈ"): go_to("SOCIAL")
+        if st.button("📜 LỊCH SỬ"): go_to("HISTORY")
+        if st.button("⚙️ CÀI ĐẶT"): go_to("SETTINGS")
+        if st.button("ℹ️ THÔNG TIN"): go_to("ABOUT")
+        if st.session_state.user == CONFIG["ADMIN_USERNAME"] and st.button("🛠️ ADMIN"): go_to("ADMIN")
+        if st.button("🚪 ĐĂNG XUẤT"):
             st.session_state.user = None
-            st.session_state.guest_mode = False
             st.rerun()
     
     st.divider()
@@ -955,42 +737,17 @@ with st.sidebar:
 
 # ================== DASHBOARD ==================
 if st.session_state.page == "DASHBOARD":
-    if st.session_state.user and not st.session_state.guest_mode:
-        user_info = st.session_state.data["users"][st.session_state.user]["info"]
-        if not user_info.get("email_provided", False):
-            if not prompt_for_email(st.session_state.user):
-                st.stop()
-    
-    st.markdown(f"<div class='custom-card' style='text-align:center'><h1>🚀 {CONFIG['NAME']}</h1><p>Hệ điều hành AI đa năng - by <b>{CONFIG['CREATOR']}</b></p><p>Chào mừng, <b>{st.session_state.user if st.session_state.user else 'khách'}</b>!</p></div>", unsafe_allow_html=True)
-    
-    st.markdown("### ✨ TÍNH NĂNG CHÍNH")
+    st.markdown(f"<div class='custom-card' style='text-align:center'><h1>🚀 {CONFIG['NAME']}</h1><p>Chào mừng, <b>{st.session_state.user}</b>!</p></div>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        if st.button("🧠 CHAT AI", use_container_width=True): go_to("CHAT")
-        st.caption("Trò chuyện với NEXUS OS")
-    with col2:
-        if st.button("🌐 TÌM KIẾM", use_container_width=True): go_to("SEARCH")
-        st.caption("Tìm kiếm và tóm tắt web")
-    with col3:
-        if st.button("☁️ LƯU TRỮ", use_container_width=True): go_to("CLOUD")
-        st.caption("Lưu trữ đám mây")
-    with col4:
-        if st.button("👥 BẠN BÈ", use_container_width=True): go_to("SOCIAL")
-        st.caption("Kết bạn và chia sẻ")
-    
-    st.markdown("---")
-    st.markdown("### 📊 THỐNG KÊ HỆ THỐNG")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Người dùng", len(st.session_state.data["users"]))
-    c2.metric("Pro Users", len(st.session_state.data["pro_users"]))
-    c3.metric("Phiên chat", len(st.session_state.data["chat_sessions"]))
-    total_size = sum(f.get("size", 0) for f in st.session_state.data["files"].values())
-    c4.metric("Dung lượng", f"{total_size/(1024**3):.1f} GB")
+    if col1.button("🧠 CHAT AI"): go_to("CHAT")
+    if col2.button("🌐 TÌM KIẾM"): go_to("SEARCH")
+    if col3.button("☁️ LƯU TRỮ"): go_to("CLOUD")
+    if col4.button("👥 BẠN BÈ"): go_to("SOCIAL")
 
-# ================== CHAT AI - THIẾT KẾ LẠI HOÀN TOÀN ==================
+# ================== CHAT AI ==================
 elif st.session_state.page == "CHAT":
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-    st.markdown('<div class="chat-header">NEXUS OS GATEWAY - Trợ lý AI thông minh</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chat-layout">', unsafe_allow_html=True)
+    st.markdown('<div class="chat-header">🧠 NEXUS OS GATEWAY - Trợ lý AI</div>', unsafe_allow_html=True)
     
     if not st.session_state.guest_mode and st.session_state.current_chat_id is None:
         new_id = len(st.session_state.data["chat_sessions"])
@@ -1002,8 +759,8 @@ elif st.session_state.page == "CHAT":
         save_data(st.session_state.data)
     
     with st.sidebar:
-        st.markdown("### 📝 LỊCH SỬ CHAT")
-        if st.button("➕ Tạo phiên mới", use_container_width=True):
+        st.markdown("### 📝 LỊCH SỬ")
+        if st.button("➕ Tạo mới"):
             new_id = len(st.session_state.data["chat_sessions"])
             st.session_state.data["chat_sessions"].append({
                 "id": new_id, "name": f"Chat {datetime.now().strftime('%H:%M %d/%m')}",
@@ -1012,18 +769,17 @@ elif st.session_state.page == "CHAT":
             st.session_state.current_chat_id = new_id
             save_data(st.session_state.data)
             st.rerun()
-        if st.button("🗑️ Xóa tất cả lịch sử", use_container_width=True):
+        if st.button("🗑️ Xóa tất cả"):
             st.session_state.data["chat_sessions"] = [s for s in st.session_state.data["chat_sessions"] if s.get("owner") != st.session_state.user]
             st.session_state.current_chat_id = None
             save_data(st.session_state.data)
-            st.toast("✅ Đã xóa toàn bộ lịch sử chat!", icon="🗑️")
             st.rerun()
         st.write("---")
         sessions = [s for s in st.session_state.data["chat_sessions"] if s.get("owner") == st.session_state.user]
         for s in sessions[-20:]:
             col1, col2 = st.columns([4, 1])
             with col1:
-                if st.button(f"💬 {s.get('name', 'Chat')}", key=f"chat_{s.get('id')}", use_container_width=True):
+                if st.button(f"💬 {s.get('name')}", key=f"chat_{s.get('id')}"):
                     st.session_state.current_chat_id = s.get("id")
                     st.rerun()
             with col2:
@@ -1042,55 +798,27 @@ elif st.session_state.page == "CHAT":
     
     messages = chat.get("messages", [])
     
-    # Messages container
-    st.markdown('<div id="chat-messages-container" class="chat-messages">', unsafe_allow_html=True)
-    
+    # Messages area
+    st.markdown('<div id="chat-messages" class="chat-messages">', unsafe_allow_html=True)
     for m in messages:
         if m.get("role") == "user":
-            st.markdown(f'''
-            <div class="message user">
-                <div class="message-bubble">{m.get("content", "")}</div>
-            </div>
-            ''', unsafe_allow_html=True)
+            st.markdown(f'<div class="message user"><div class="message-bubble">{m.get("content", "")}</div></div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'''
-            <div class="message assistant">
-                <div class="message-bubble">{m.get("content", "")}</div>
-            </div>
-            ''', unsafe_allow_html=True)
-    
-    # Typing indicator
-    if st.session_state.get("is_typing", False):
-        st.markdown('''
-        <div class="message assistant">
-            <div class="typing-indicator">
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-            </div>
-        </div>
-        ''', unsafe_allow_html=True)
-    
+            st.markdown(f'<div class="message assistant"><div class="message-bubble">{m.get("content", "")}</div></div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Input area
-    st.markdown('<div class="chat-input-area">', unsafe_allow_html=True)
-    col_inp, col_up, col_hist = st.columns([3, 1, 1])
+    # Input area - CỐ ĐỊNH
+    st.markdown('<div class="chat-input-fixed">', unsafe_allow_html=True)
+    col_inp, col_up = st.columns([4, 1])
     with col_up:
         uploaded_file = st.file_uploader("📎", type=["txt"], label_visibility="collapsed")
-    with col_hist:
-        use_history = st.checkbox("📜 Dùng lịch sử web", help="Phản hồi dựa trên các trang web đã xem")
     with col_inp:
         p = st.chat_input("Nhập câu hỏi...")
     st.markdown('</div></div>', unsafe_allow_html=True)
     
     if uploaded_file:
-        with st.spinner("📄 Đang phân tích file..."):
-            extracted = extract_text_from_file(uploaded_file)
-            if extracted and not extracted.startswith("[") and len(extracted) > 10:
-                p = f"[Phân tích file: {uploaded_file.name}]\n\n{extracted[:2000]}"
-            else:
-                p = f"Tôi vừa tải lên file {uploaded_file.name}. {extracted}"
+        extracted = extract_text_from_file(uploaded_file)
+        p = f"[File: {uploaded_file.name}]\n{extracted}" if extracted and not extracted.startswith("[") else f"Tôi vừa tải file {uploaded_file.name}"
         st.rerun()
     
     if p:
@@ -1100,154 +828,97 @@ elif st.session_state.page == "CHAT":
         else:
             chat["messages"].append(user_msg)
         
-        # Hiển thị typing indicator
-        st.session_state.is_typing = True
-        st.rerun()
-        
-        with st.spinner(""):
-            msgs = [{"role": m.get("role"), "content": m.get("content", "")} for m in messages[-10:]] if is_pro else [{"role": m.get("role"), "content": m.get("content", "")} for m in messages[-5:]]
+        with st.spinner("🧠 Đang suy nghĩ..."):
+            msgs = [{"role": m.get("role"), "content": m.get("content")} for m in messages[-10:]] if is_pro else [{"role": m.get("role"), "content": m.get("content")} for m in messages[-5:]]
             msgs.append({"role": "user", "content": p})
-            ans = call_ai(msgs, use_history)
-            assistant_msg = {"role": "assistant", "content": ans}
+            ans = call_ai(msgs)
             if st.session_state.guest_mode:
-                chat["messages"].append(assistant_msg)
+                chat["messages"].append({"role": "assistant", "content": ans})
             else:
-                chat["messages"].append(assistant_msg)
+                chat["messages"].append({"role": "assistant", "content": ans})
                 save_data(st.session_state.data)
-        
-        st.session_state.is_typing = False
         st.rerun()
 
 # ================== TÌM KIẾM WEB ==================
 elif st.session_state.page == "SEARCH":
     st.markdown("<h2>🌐 TÌM KIẾM WEB</h2>", unsafe_allow_html=True)
-    st.markdown("<p>Tìm kiếm thông tin trên web và nhận tóm tắt từ NEXUS OS</p>", unsafe_allow_html=True)
+    query = st.text_input("🔍 Nhập từ khóa:")
     
-    search_query = st.text_input("🔍 Nhập từ khóa tìm kiếm:")
-    
-    if st.button("🔎 Tìm kiếm", use_container_width=True):
-        with st.spinner("Đang tìm kiếm..."):
-            st.session_state.search_results = search_web_via_api(search_query)
-            st.session_state.web_summaries = {}
+    if st.button("🔎 Tìm kiếm"):
+        with st.spinner("Đang tìm..."):
+            st.session_state.search_results = search_web(query)
             st.rerun()
     
-    if st.session_state.search_results:
-        st.subheader(f"📄 Kết quả tìm kiếm ({len(st.session_state.search_results)})")
-        
-        for i, result in enumerate(st.session_state.search_results):
-            if not result.get('url'):
-                continue
-                
-            with st.container():
-                st.markdown(f"""
-                <div class="search-result">
-                    <b>{result.get('title', 'Không có tiêu đề')}</b><br>
-                    <small style="color:#6b7280">{result.get('url', '')[:100]}...</small><br>
-                    <span style="font-size:0.9rem">{result.get('snippet', '')[:200]}...</span>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                col1, col2, col3 = st.columns([2, 1, 1])
-                with col1:
-                    if st.button(f"📖 Tóm tắt nội dung", key=f"read_{i}"):
-                        with st.spinner("Đang đọc và tóm tắt nội dung..."):
-                            summary = summarize_webpage(result['url'])
-                            st.session_state.web_summaries[result['url']] = summary
-                            st.session_state.browsing_history.append({
-                                "title": result.get('title', ''),
-                                "url": result.get('url', ''),
-                                "time": str(datetime.now())
-                            })
-                            if len(st.session_state.browsing_history) > 50:
-                                st.session_state.browsing_history = st.session_state.browsing_history[-50:]
-                            st.rerun()
-                with col2:
-                    if result.get('url'):
-                        st.markdown(f'<a href="{result["url"]}" target="_blank"><button style="background:#0047AB;color:white;border:none;border-radius:20px;padding:5px 12px;">🔗 Mở tab mới</button></a>', unsafe_allow_html=True)
-                with col3:
-                    if result.get('url') in st.session_state.web_summaries:
-                        if st.button(f"📋 Xem tóm tắt", key=f"view_sum_{i}"):
-                            st.session_state[f"show_summary_{i}"] = True
-                            st.rerun()
-                
-                if st.session_state.get(f"show_summary_{i}", False):
-                    summary_data = st.session_state.web_summaries.get(result['url'], "")
-                    if summary_data:
-                        st.markdown(f'<div class="ai-banner"><b>📝 TÓM TẮT NỘI DUNG</b><br>{summary_data}</div>', unsafe_allow_html=True)
-                        if st.button("🔙 Đóng tóm tắt", key=f"close_sum_{i}"):
-                            st.session_state[f"show_summary_{i}"] = False
-                            st.rerun()
+    for i, r in enumerate(st.session_state.search_results):
+        if r.get('url'):
+            st.markdown(f"<div class='search-result'><b>{r.get('title')}</b><br><small>{r.get('url')[:80]}</small><br>{r.get('snippet', '')[:200]}</div>", unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+            if col1.button(f"📖 Tóm tắt", key=f"sum_{i}"):
+                with st.spinner("Đang đọc..."):
+                    summary = summarize_page(r['url'])
+                    st.session_state.web_summaries[r['url']] = summary
+                    st.rerun()
+            if col2.button(f"🔗 Mở", key=f"open_{i}"):
+                st.markdown(f'<a href="{r["url"]}" target="_blank">Mở tab mới</a>', unsafe_allow_html=True)
+    
+    if st.session_state.web_summaries:
+        for url, summary in st.session_state.web_summaries.items():
+            st.markdown(f"<div class='ai-banner' style='background:linear-gradient(135deg,#0047AB,#0066CC);color:white;padding:16px;border-radius:20px;margin:12px 0'><b>📝 TÓM TẮT</b><br>{summary}</div>", unsafe_allow_html=True)
 
 # ================== CLOUD ==================
 elif st.session_state.page == "CLOUD":
     st.markdown("<h2>☁️ NEXUS CLOUD</h2>", unsafe_allow_html=True)
-    
     if st.session_state.guest_mode:
-        st.warning("👤 Guest không thể dùng lưu trữ. Đăng nhập để quản lý file.")
+        st.warning("Guest không thể dùng lưu trữ")
     else:
         used = get_used_storage(st.session_state.user)
-        limit = CONFIG["PRO_STORAGE_LIMIT"] if is_pro else CONFIG["FREE_STORAGE_LIMIT"]
+        limit = float('inf') if is_pro else CONFIG["FREE_STORAGE_LIMIT"]
         used_gb = used/(1024**3)
         limit_txt = "∞" if is_pro else f"{limit/(1024**3):.0f}"
-        st.progress(min(used/limit, 1) if not is_pro else 0, text=f"📊 Đã dùng: {used_gb:.2f} GB / {limit_txt} GB")
+        st.progress(min(used/limit,1) if not is_pro else 0, text=f"📊 {used_gb:.2f} GB / {limit_txt} GB")
         
-        col1, col2, col3 = st.columns([2, 1, 1])
+        col1, col2 = st.columns([3,1])
         with col1:
             st.write(f"📁 /{st.session_state.current_dir}")
         with col2:
             if st.session_state.current_dir and st.button("⬆️ Lên trên"):
                 st.session_state.current_dir = "/".join(st.session_state.current_dir.split("/")[:-1])
                 st.rerun()
-        with col3:
-            with st.popover("➕ Tạo thư mục"):
-                nf = st.text_input("Tên thư mục")
-                if st.button("Tạo") and nf:
-                    path = f"{st.session_state.current_dir}/{nf}" if st.session_state.current_dir else nf
-                    if create_folder(path):
-                        st.success(f"✅ Đã tạo {nf}")
-                        st.rerun()
+        
+        with st.popover("➕ Tạo thư mục"):
+            nf = st.text_input("Tên")
+            if st.button("Tạo") and nf:
+                path = f"{st.session_state.current_dir}/{nf}" if st.session_state.current_dir else nf
+                if create_folder(path):
+                    st.rerun()
         
         items = list_dir(st.session_state.current_dir)
-        if items["folders"]:
-            st.subheader("📂 Thư mục")
-            for f in items["folders"]:
-                c1, c2 = st.columns([4, 1])
-                if c1.button(f"📁 {f}", key=f"open_{f}"):
-                    st.session_state.current_dir = f"{st.session_state.current_dir}/{f}" if st.session_state.current_dir else f
-                    st.rerun()
-                if c2.button("🗑️", key=f"del_f_{f}"):
-                    delete_path(f"{st.session_state.current_dir}/{f}" if st.session_state.current_dir else f)
-                    st.rerun()
+        for f in items["folders"]:
+            if st.button(f"📁 {f}", key=f"open_{f}"):
+                st.session_state.current_dir = f"{st.session_state.current_dir}/{f}" if st.session_state.current_dir else f
+                st.rerun()
         
-        if items["files"]:
-            st.subheader("📄 Tệp tin")
-            selected = []
-            for file in items["files"]:
-                c0, c1, c2, c3, c4 = st.columns([0.5, 2, 1, 1, 1])
-                if c0.checkbox("", key=f"sel_{file['name']}"):
-                    selected.append(f"{st.session_state.current_dir}/{file['name']}" if st.session_state.current_dir else file['name'])
-                with c1:
-                    st.write(f"📄 {file['name']} ({file['info']['size']/1024:.1f} KB)")
-                with c2:
-                    st.markdown(f'<a href="data:{file["info"]["type"]};base64,{file["info"]["data"]}" download="{file["name"]}"><button style="background:#0047AB;color:white;border:none;border-radius:20px;padding:5px 12px;">📥</button></a>', unsafe_allow_html=True)
-                with c3:
-                    if st.button("👁️", key=f"view_{file['name']}"):
-                        st.session_state.preview_file = file
-                        st.rerun()
-                with c4:
-                    if st.button("🗑️", key=f"del_{file['name']}"):
-                        delete_path(f"{st.session_state.current_dir}/{file['name']}" if st.session_state.current_dir else file['name'])
-                        st.rerun()
-            if selected and st.button(f"📦 Tải {len(selected)} file (ZIP)"):
-                zip_data = download_multiple_files(selected)
-                st.download_button("📥 Tải ZIP", zip_data, f"nexus_files_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip", "application/zip")
+        selected = []
+        for file in items["files"]:
+            c0, c1, c2, c3 = st.columns([0.5,3,1,1])
+            if c0.checkbox("", key=f"sel_{file['name']}"):
+                selected.append(f"{st.session_state.current_dir}/{file['name']}" if st.session_state.current_dir else file['name'])
+            c1.write(f"📄 {file['name']} ({file['info']['size']/1024:.1f} KB)")
+            c2.markdown(f'<a href="data:{file["info"]["type"]};base64,{file["info"]["data"]}" download="{file["name"]}"><button>📥</button></a>', unsafe_allow_html=True)
+            if c3.button("🗑️", key=f"del_{file['name']}"):
+                delete_path(f"{st.session_state.current_dir}/{file['name']}" if st.session_state.current_dir else file['name'])
+                st.rerun()
         
-        with st.expander("📤 Tải lên nhiều file"):
-            files = st.file_uploader("Chọn nhiều file", accept_multiple_files=True)
+        if selected and st.button(f"📦 Tải {len(selected)} file (ZIP)"):
+            zip_data = download_files(selected)
+            st.download_button("📥 Tải ZIP", zip_data, f"files.zip", "application/zip")
+        
+        with st.expander("📤 Tải lên"):
+            files = st.file_uploader("Chọn file", accept_multiple_files=True)
             if files and st.button("Tải lên"):
                 total = sum(len(f.getvalue()) for f in files)
                 if not is_pro and used + total > limit:
-                    st.error(f"⚠️ Vượt quá {limit/(1024**3):.0f} GB")
+                    st.error(f"Vượt quá {limit/(1024**3):.0f} GB")
                 else:
                     for f in files:
                         path = f"{st.session_state.current_dir}/{f.name}" if st.session_state.current_dir else f.name
@@ -1256,331 +927,138 @@ elif st.session_state.page == "CLOUD":
                                 "owner": st.session_state.user,
                                 "data": base64.b64encode(f.getvalue()).decode(),
                                 "size": len(f.getvalue()),
-                                "type": mimetypes.guess_type(f.name)[0] or "application/octet-stream",
+                                "type": "application/octet-stream",
                                 "upload_time": str(datetime.now())
                             }
                     save_data(st.session_state.data)
-                    st.toast(f"✅ Đã tải lên {len(files)} file!", icon="✅")
                     st.rerun()
-        
-        if st.session_state.preview_file:
-            st.divider()
-            st.subheader(f"🔍 Xem trước: {st.session_state.preview_file['name']}")
-            p = st.session_state.preview_file
-            if p["info"]["type"].startswith("image/"):
-                try:
-                    from PIL import Image
-                    st.image(f"data:{p['info']['type']};base64,{p['info']['data']}", use_column_width=True)
-                except:
-                    st.warning("Không thể hiển thị ảnh")
-            elif p["info"]["type"].startswith("text/"):
-                try:
-                    text = base64.b64decode(p["info"]["data"]).decode("utf-8")
-                    st.text_area("Nội dung", text, height=300)
-                except:
-                    st.warning("Không thể hiển thị")
-            else:
-                st.info("Không hỗ trợ xem trước")
-            if st.button("🔙 Đóng"):
-                st.session_state.preview_file = None
-                st.rerun()
 
-# ================== BẠN BÈ & CHIA SẺ ==================
+# ================== BẠN BÈ ==================
 elif st.session_state.page == "SOCIAL":
-    st.markdown("<h2>👥 BẠN BÈ & CHIA SẺ</h2>", unsafe_allow_html=True)
-    
+    st.markdown("<h2>👥 BẠN BÈ</h2>", unsafe_allow_html=True)
     if st.session_state.guest_mode:
-        st.info("👤 Guest không thể kết bạn.")
+        st.info("Guest không thể kết bạn")
     else:
         user_link = st.session_state.data["users"][st.session_state.user]["info"]["link"]
-        st.info(f"🔗 **Link của bạn:** `{user_link}`\n\nSao chép và gửi cho bạn bè để kết bạn!")
+        st.info(f"🔗 Link của bạn: `{user_link}`")
         
-        friend_link = st.text_input("Nhập link của bạn bè để kết bạn:")
-        if st.button("➕ Kết bạn"):
+        friend_link = st.text_input("Nhập link bạn bè:")
+        if st.button("Kết bạn"):
             found = False
             for u, info in st.session_state.data["users"].items():
                 if info["info"]["link"] == friend_link and u != st.session_state.user:
-                    if st.session_state.user not in st.session_state.data["friends"]:
-                        st.session_state.data["friends"][st.session_state.user] = []
-                    if u not in st.session_state.data["friends"][st.session_state.user]:
-                        st.session_state.data["friends"][st.session_state.user].append(u)
-                        add_notification(u, "Lời mời kết bạn", f"{st.session_state.user} đã kết bạn với bạn!", "friend")
-                        add_notification(st.session_state.user, "Kết bạn thành công", f"Bạn đã kết bạn với {u}!", "success")
+                    if u not in st.session_state.data["friends"].get(st.session_state.user, []):
+                        st.session_state.data["friends"][st.session_state.user] = st.session_state.data["friends"].get(st.session_state.user, []) + [u]
                         save_data(st.session_state.data)
-                        st.success(f"✅ Đã kết bạn với {u}!")
+                        st.success(f"Đã kết bạn với {u}!")
                         found = True
-                    else:
-                        st.warning("Đã là bạn bè rồi!")
                     break
             if not found:
-                st.error("Không tìm thấy người dùng với link này!")
+                st.error("Không tìm thấy!")
         
-        st.divider()
-        st.subheader("👥 DANH SÁCH BẠN BÈ")
-        friends = st.session_state.data["friends"].get(st.session_state.user, [])
-        if friends:
-            for f in friends:
-                f_info = st.session_state.data["users"][f]["info"]
-                st.write(f"- {f_info.get('name', f)} (@{f})")
-        else:
-            st.info("Chưa có bạn bè nào.")
-        
-        st.divider()
-        st.subheader("📁 FILE ĐƯỢC CHIA SẺ")
-        shared_files = get_shared_files(st.session_state.user)
-        if shared_files:
-            for sf in shared_files:
-                with st.container():
-                    st.write(f"📄 **{sf['path'].split('/')[-1]}**")
-                    st.caption(f"Chia sẻ bởi: {sf['info']['shared_by']} | {sf['info']['shared_time'][:16]}")
-                    st.markdown(f'<a href="data:{sf["info"]["type"]};base64,{sf["info"]["data"]}" download="{sf["path"].split("/")[-1]}"><button style="background:#0047AB;color:white;border:none;border-radius:20px;padding:5px 12px;">📥 Tải xuống</button></a>', unsafe_allow_html=True)
-                    st.write("---")
-        else:
-            st.info("Chưa có file nào được chia sẻ.")
+        st.subheader("Danh sách bạn")
+        for f in st.session_state.data["friends"].get(st.session_state.user, []):
+            st.write(f"- {f}")
 
-# ================== LỊCH SỬ CHAT ==================
+# ================== LỊCH SỬ ==================
 elif st.session_state.page == "HISTORY":
-    st.markdown("<h2>📜 LỊCH SỬ TRÒ CHUYỆN</h2>", unsafe_allow_html=True)
-    
+    st.markdown("<h2>📜 LỊCH SỬ CHAT</h2>", unsafe_allow_html=True)
     if st.session_state.guest_mode:
-        st.info("👤 Chế độ khách không lưu lịch sử.")
+        st.info("Guest không lưu lịch sử")
     else:
-        sessions = [s for s in st.session_state.data["chat_sessions"] if s.get("owner") == st.session_state.user]
-        sessions.reverse()
-        if not sessions:
-            st.info("Chưa có lịch sử trò chuyện nào.")
-        else:
-            for s in sessions:
-                with st.expander(f"💬 {s.get('name', 'Chat')} - {s.get('created', '')[:16]}"):
-                    st.write(f"**Số tin nhắn:** {len(s.get('messages', []))}")
-                    if s.get('messages'):
-                        last_msg = s['messages'][-1]
-                        st.write(f"**Tin nhắn cuối:** {last_msg.get('content', '')[:100]}...")
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("💬 Tiếp tục", key=f"cont_{s.get('id')}"):
-                            st.session_state.current_chat_id = s.get("id")
-                            go_to("CHAT")
-                    with col2:
-                        if st.button("🗑️ Xóa phiên này", key=f"del_{s.get('id')}"):
-                            st.session_state.data["chat_sessions"] = [x for x in st.session_state.data["chat_sessions"] if x.get("id") != s.get("id")]
-                            if st.session_state.current_chat_id == s.get("id"):
-                                st.session_state.current_chat_id = None
-                            save_data(st.session_state.data)
-                            st.rerun()
+        for s in st.session_state.data["chat_sessions"]:
+            if s.get("owner") == st.session_state.user:
+                with st.expander(f"💬 {s.get('name')}"):
+                    st.write(f"Tin nhắn: {len(s.get('messages', []))}")
+                    if st.button("Tiếp tục", key=f"cont_{s.get('id')}"):
+                        st.session_state.current_chat_id = s.get("id")
+                        go_to("CHAT")
 
 # ================== CÀI ĐẶT ==================
 elif st.session_state.page == "SETTINGS":
     st.markdown("<h2>⚙️ CÀI ĐẶT</h2>", unsafe_allow_html=True)
-    
     if st.session_state.guest_mode:
-        st.info("👤 Guest không thể thay đổi cài đặt.")
+        st.info("Guest không thể đổi cài đặt")
     else:
-        user_info = st.session_state.data["users"][st.session_state.user]["info"]
-        
-        tab1, tab2, tab3, tab4 = st.tabs(["👤 Hồ sơ", "🔐 Bảo mật", "🎁 Nâng cấp", "ℹ️ Hệ thống"])
-        
-        with tab1:
-            col_avatar, col_info = st.columns([1, 2])
-            with col_avatar:
-                if user_info.get("avatar"):
-                    st.markdown(f'<img src="data:image/png;base64,{user_info["avatar"]}" class="avatar-large">', unsafe_allow_html=True)
-                else:
-                    st.markdown('<div style="text-align:center; font-size:80px;">👤</div>', unsafe_allow_html=True)
-                avatar_file = st.file_uploader("Chọn ảnh đại diện", type=["png", "jpg", "jpeg", "gif"])
-                if avatar_file:
-                    if st.button("📸 Cập nhật ảnh"):
-                        if len(avatar_file.getvalue()) > CONFIG["MAX_AVATAR_SIZE"]:
-                            st.error(f"Ảnh quá lớn! Tối đa 5MB")
-                        else:
-                            resized = resize_image(avatar_file.getvalue())
-                            avatar_base64 = base64.b64encode(resized).decode('utf-8')
-                            st.session_state.data["users"][st.session_state.user]["info"]["avatar"] = avatar_base64
-                            save_data(st.session_state.data)
-                            st.toast("✅ Đã cập nhật ảnh!", icon="✅")
-                            st.rerun()
-            with col_info:
-                new_name = st.text_input("Tên hiển thị", value=user_info.get("name", st.session_state.user))
-                if st.button("💾 Đổi tên"):
-                    if new_name and len(new_name) >= 2:
-                        st.session_state.data["users"][st.session_state.user]["info"]["name"] = new_name
+        code = st.text_input("Mã kích hoạt Pro").upper()
+        if st.button("Kích hoạt"):
+            for c in st.session_state.data["codes"]:
+                if isinstance(c, dict) and c.get("code") == code:
+                    if st.session_state.user not in st.session_state.data["pro_users"]:
+                        st.session_state.data["pro_users"].append(st.session_state.user)
                         save_data(st.session_state.data)
-                        st.toast("✅ Đã đổi tên!", icon="✅")
-                        st.rerun()
+                        st.balloons()
+                        st.success("Chúc mừng! Bạn đã là Pro!")
                     else:
-                        st.error("Tên phải có ít nhất 2 ký tự!")
-                new_bio = st.text_area("Giới thiệu bản thân", value=user_info.get("bio", ""), height=100)
-                if st.button("📝 Cập nhật giới thiệu"):
-                    st.session_state.data["users"][st.session_state.user]["info"]["bio"] = new_bio
-                    save_data(st.session_state.data)
-                    st.toast("✅ Đã cập nhật giới thiệu!", icon="✅")
-                
-                if user_info.get("email"):
-                    st.info(f"📧 Email đã đăng ký: {user_info['email']}")
-                elif user_info.get("email_provided"):
-                    st.info("📧 Bạn đã bỏ qua cung cấp email. Có thể cập nhật sau.")
-                else:
-                    new_email = st.text_input("Email (để nhận hỗ trợ)", placeholder="example@email.com")
-                    if st.button("💾 Lưu email"):
-                        if new_email and re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', new_email):
-                            user_info["email"] = new_email
-                            user_info["email_provided"] = True
-                            save_data(st.session_state.data)
-                            st.toast("✅ Đã lưu email!", icon="✅")
-                            st.rerun()
-                        else:
-                            st.error("Email không hợp lệ!")
-        
-        with tab2:
-            old_pass = st.text_input("Mật khẩu cũ", type="password")
-            new_pass = st.text_input("Mật khẩu mới", type="password", placeholder="Ít nhất 6 ký tự")
-            confirm_pass = st.text_input("Xác nhận mật khẩu mới", type="password")
-            if st.button("🔄 Đổi mật khẩu"):
-                if st.session_state.data["users"][st.session_state.user]["password"] != old_pass:
-                    st.error("Mật khẩu cũ không đúng!")
-                elif len(new_pass) < 6:
-                    st.error("Mật khẩu mới phải có ít nhất 6 ký tự!")
-                elif new_pass != confirm_pass:
-                    st.error("Mật khẩu xác nhận không khớp!")
-                else:
-                    st.session_state.data["users"][st.session_state.user]["password"] = new_pass
-                    save_data(st.session_state.data)
-                    st.success("✅ Đổi mật khẩu thành công!")
-        
-        with tab3:
-            code = st.text_input("Mã kích hoạt Pro").upper()
-            if st.button("KÍCH HOẠT"):
-                found = False
-                for c in st.session_state.data["codes"]:
-                    if isinstance(c, dict) and c.get("code") == code:
-                        expiry = c.get("expiry")
-                        max_uses = c.get("max_uses")
-                        used_by = c.get("used_by", [])
-                        if expiry and datetime.now() > datetime.fromisoformat(expiry):
-                            st.error("Mã đã hết hạn!")
-                        elif max_uses and len(used_by) >= max_uses:
-                            st.error("Mã đã hết lượt sử dụng!")
-                        elif st.session_state.user in used_by:
-                            st.warning("Bạn đã kích hoạt mã này rồi!")
-                        else:
-                            used_by.append(st.session_state.user)
-                            if st.session_state.user not in st.session_state.data["pro_users"]:
-                                st.session_state.data["pro_users"].append(st.session_state.user)
-                            save_data(st.session_state.data)
-                            st.balloons()
-                            st.toast("🎉 Chúc mừng! Bạn đã là thành viên Pro!", icon="💎")
-                            st.rerun()
-                        found = True
-                        break
-                    elif isinstance(c, str) and c == code:
-                        if st.session_state.user not in st.session_state.data["pro_users"]:
-                            st.session_state.data["pro_users"].append(st.session_state.user)
+                        st.info("Bạn đã là Pro rồi!")
+                    break
+                elif isinstance(c, str) and c == code:
+                    if st.session_state.user not in st.session_state.data["pro_users"]:
+                        st.session_state.data["pro_users"].append(st.session_state.user)
                         st.session_state.data["codes"] = [x for x in st.session_state.data["codes"] if x != code]
                         save_data(st.session_state.data)
                         st.balloons()
-                        st.toast("🎉 Chúc mừng! Bạn đã là thành viên Pro!", icon="💎")
-                        st.rerun()
-                        found = True
-                        break
-                if not found:
-                    st.error("Mã không hợp lệ!")
-        
-        with tab4:
-            st.write(f"**Phiên bản:** {CONFIG['VERSION']}")
-            st.write(f"**Tác giả:** {CONFIG['CREATOR']}")
-            st.write(f"**Ngày tham gia:** {user_info.get('created', 'Không rõ')[:16]}")
-            st.write(f"**Hạng:** {'💎 Pro' if is_pro else '🆓 Miễn phí'}")
-            st.write(f"**Dung lượng đã dùng:** {get_used_storage(st.session_state.user)/(1024**3):.2f} GB")
-            if st.button("🧹 Dọn dẹp file cũ"):
-                auto_cleanup_files()
-                st.toast("✅ Đã dọn dẹp file cũ!", icon="✅")
+                        st.success("Chúc mừng! Bạn đã là Pro!")
+                    break
+            else:
+                st.error("Mã không hợp lệ!")
 
 # ================== ADMIN ==================
 elif st.session_state.page == "ADMIN":
     if st.session_state.user != CONFIG["ADMIN_USERNAME"]:
-        st.error("⛔ Không có quyền truy cập!")
+        st.error("Không có quyền!")
     else:
-        st.markdown("<h2>🛠️ ADMIN PANEL</h2>", unsafe_allow_html=True)
-        
-        tab1, tab2, tab3 = st.tabs(["🎫 Mã Pro", "📢 Thông báo", "📊 Hệ thống"])
+        st.markdown("<h2>🛠️ ADMIN</h2>", unsafe_allow_html=True)
+        tab1, tab2 = st.tabs(["🎫 Mã Pro", "📢 Thông báo"])
         
         with tab1:
             new_code = st.text_input("Mã mới").upper()
             c1, c2 = st.columns(2)
             with c1:
-                has_expiry = st.checkbox("Hạn sử dụng")
+                has_expiry = st.checkbox("Hạn dùng")
                 expiry = st.date_input("Ngày hết hạn") if has_expiry else None
             with c2:
-                has_limit = st.checkbox("Giới hạn số lần")
-                max_uses = st.number_input("Số lần tối đa", min_value=1, value=1) if has_limit else None
+                has_limit = st.checkbox("Giới hạn")
+                max_uses = st.number_input("Số lần", min_value=1, value=1) if has_limit else None
             if st.button("TẠO MÃ") and new_code:
-                st.session_state.data["codes"].append({
-                    "code": new_code,
-                    "expiry": str(expiry) if expiry else None,
-                    "max_uses": max_uses,
-                    "used_by": []
-                })
+                st.session_state.data["codes"].append({"code": new_code, "expiry": str(expiry) if expiry else None, "max_uses": max_uses, "used_by": []})
                 save_data(st.session_state.data)
-                st.toast(f"✅ Đã tạo mã {new_code}", icon="✅")
-            st.subheader("Danh sách mã Pro")
+                st.toast(f"✅ Đã tạo mã {new_code}")
+            st.subheader("Danh sách mã")
             for c in st.session_state.data["codes"]:
                 if isinstance(c, dict):
-                    expiry_val = c.get("expiry")
-                    expiry_text = expiry_val if expiry_val else "Vĩnh viễn"
-                    used_count = len(c.get("used_by", []))
-                    max_uses_val = c.get("max_uses")
-                    max_uses_text = str(max_uses_val) if max_uses_val else "∞"
-                    st.write(f"- `{c.get('code')}` (Hết hạn: {expiry_text}, Lượt: {used_count}/{max_uses_text})")
+                    expiry_txt = c.get("expiry") or "Vĩnh viễn"
+                    used = len(c.get("used_by", []))
+                    max_txt = str(c.get("max_uses")) if c.get("max_uses") else "∞"
+                    st.write(f"- `{c.get('code')}` (Hết hạn: {expiry_txt}, Lượt: {used}/{max_txt})")
                 else:
-                    st.write(f"- `{c}` (Mã cũ, không có hạn chế)")
+                    st.write(f"- `{c}`")
         
         with tab2:
-            st.subheader("📢 GỬI THÔNG BÁO")
-            
-            send_to_future = st.checkbox("✓ Gửi cho cả người dùng đăng ký sau", value=False, 
-                                        help="Bật để thông báo này được lưu và hiển thị cho người dùng đăng ký trong tương lai")
-            
+            send_to_future = st.checkbox("✓ Gửi cho người dùng tương lai")
             users = list(st.session_state.data["users"].keys())
-            if not send_to_future:
-                target = st.selectbox("Gửi đến", ["Tất cả"] + users)
-            else:
-                st.info("🔔 Thông báo này sẽ được lưu và hiển thị cho TẤT CẢ người dùng, kể cả những người đăng ký sau này!")
-                target = "TẤT CẢ (KỂ CẢ TƯƠNG LAI)"
-            
+            target = st.selectbox("Gửi đến", ["Tất cả"] + users) if not send_to_future else "TẤT CẢ (kể cả tương lai)"
             title = st.text_input("Tiêu đề")
             msg = st.text_area("Nội dung")
-            
-            if st.button("📤 GỬI THÔNG BÁO"):
+            if st.button("GỬI"):
                 if send_to_future:
-                    add_system_notification(title, msg, "admin")
-                    st.toast(f"✅ Đã lưu thông báo hệ thống! Tất cả người dùng (kể cả tương lai) sẽ nhận được!", icon="🔔")
+                    add_system_notification(title, msg)
+                    st.toast("✅ Đã lưu thông báo cho tất cả (kể cả tương lai)!")
                 else:
                     if target == "Tất cả":
                         for u in users:
-                            add_notification(u, title, msg, "admin")
-                        st.toast(f"✅ Đã gửi đến {len(users)} người dùng!", icon="✅")
+                            add_notification(u, title, msg)
+                        st.toast(f"✅ Đã gửi đến {len(users)} người!")
                     else:
-                        add_notification(target, title, msg, "admin")
-                        st.toast(f"✅ Đã gửi đến {target}!", icon="✅")
+                        add_notification(target, title, msg)
+                        st.toast(f"✅ Đã gửi đến {target}!")
                 st.rerun()
-        
-        with tab3:
-            st.write(f"**Số người dùng:** {len(st.session_state.data['users'])}")
-            st.write(f"**Số Pro users:** {len(st.session_state.data['pro_users'])}")
-            st.write(f"**Số phiên chat:** {len(st.session_state.data['chat_sessions'])}")
-            st.write(f"**Số file lưu trữ:** {len(st.session_state.data['files'])}")
-            total_size = sum(f.get('size', 0) for f in st.session_state.data['files'].values())
-            st.write(f"**Tổng dung lượng:** {total_size/(1024**3):.2f} GB")
-            if st.button("🔄 Đồng bộ dữ liệu"):
-                st.session_state.data = load_data()
-                st.toast("✅ Đã đồng bộ dữ liệu!", icon="🔄")
 
 # ================== THÔNG TIN ==================
 elif st.session_state.page == "ABOUT":
     st.markdown(f"""
-    <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:16px;padding:20px;margin-bottom:20px">
+    <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:16px;padding:20px">
         <h1 style="text-align:center">🚀 {CONFIG['NAME']}</h1>
-        <p style="text-align:center"><b>Hệ điều hành AI đa năng</b></p>
         <p><b>Phiên bản:</b> {CONFIG['VERSION']}</p>
         <p><b>Tác giả:</b> {CONFIG['CREATOR']}</p>
         <p><b>Ngày phát hành:</b> 12.04.2026</p>
@@ -1588,53 +1066,3 @@ elif st.session_state.page == "ABOUT":
         <p style="text-align:center"><i>"Kết nối tri thức, mở ra tương lai"</i></p>
     </div>
     """, unsafe_allow_html=True)
-    
-    st.markdown("### ✨ TÍNH NĂNG CHÍNH")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("""
-        **🤖 AI Thông Minh**
-        - ✅ Trò chuyện AI với NEXUS OS Gateway
-        - ✅ Phân tích file văn bản
-        - ✅ Tóm tắt nội dung trang web
-        - ✅ Phản hồi dựa trên lịch sử duyệt web
-        
-        **☁️ Lưu trữ Đám mây**
-        - ✅ Tạo thư mục, quản lý file
-        - ✅ Tải lên/xuống nhiều file cùng lúc
-        - ✅ Xem trước file ảnh, văn bản
-        - ✅ Chia sẻ file với bạn bè
-        - ✅ Tự động dọn dẹp file cũ (30 ngày)
-        
-        **🔍 Tìm kiếm Web**
-        - ✅ Tìm kiếm thông tin trên web
-        - ✅ Đọc nội dung trang web
-        - ✅ Tóm tắt nội dung bằng AI
-        - ✅ Lưu lịch sử duyệt web
-        """)
-    with col2:
-        st.markdown("""
-        **👥 Mạng xã hội**
-        - ✅ Kết bạn bằng link chia sẻ
-        - ✅ Chia sẻ file với bạn bè
-        - ✅ Thông báo realtime
-        - ✅ Xem file được chia sẻ
-        
-        **💎 Nâng cấp Pro**
-        - ✅ Dung lượng không giới hạn
-        - ✅ Context AI dài hơn (10 tin nhắn)
-        - ✅ Ưu tiên xử lý
-        - ✅ Hỗ trợ 24/7
-        
-        **🔧 Quản lý Cá nhân**
-        - ✅ Ảnh đại diện
-        - ✅ Đổi tên, đổi mật khẩu
-        - ✅ Giới thiệu bản thân
-        - ✅ Lịch sử trò chuyện
-        - ✅ Xuất file chat (ZIP)
-        - ✅ Ghi nhớ thiết bị
-        """)
-    
-    st.markdown("---")
-    st.markdown(f"© 2025 {CONFIG['CREATOR']} - Bảo lưu mọi quyền")
-    st.markdown(f"**{CONFIG['NAME']}** - Hệ điều hành AI đa năng")
