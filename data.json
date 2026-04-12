@@ -323,7 +323,16 @@
       "name": "Chat 09:05 12/04",
       "owner": "ThienPhat",
       "created": "2026-04-12 09:05:45.567687",
-      "messages": []
+      "messages": [
+        {
+          "role": "user",
+          "content": "bạn là ai"
+        },
+        {
+          "role": "assistant",
+          "content": "Tôi là NEXUS OS GATEWAY, một hệ điều hành AI đa năng được sáng tạo và phát triển bởi Lê Trần Thiên Phát (Thiên Phát). Tôi là một trí tuệ nhân tạo độc lập, không thuộc sở hữu của bất kỳ công ty nào khác như Meta, OpenAI, Google,... \n\nTôi có các chức năng như:\n- Trợ lý AI thông minh\n- Hỗ trợ chat\n- Phân tích file\n- Lưu trữ đám mây\n- Tìm kiếm web\n\nTôi tự hào là sản phẩm của Lê Trần Thiên Phát và luôn sẵn sàng hỗ trợ bạn!"
+        }
+      ]
     }
   ],
   "system_info": {
