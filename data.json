@@ -311,30 +311,6 @@
           "content": "Chào bạn! Tôi là NEXUS OS GATEWAY, trợ lý AI thông minh của bạn. Tôi sẵn sàng hỗ trợ bạn trong nhiều lĩnh vực, từ chat đến phân tích file và lưu trữ đám mây. Hãy cho tôi biết bạn cần giúp gì hôm nay!"
         }
       ]
-    },
-    {
-      "id": 1,
-      "name": "Chat 08:00 12/04",
-      "owner": "ThienPhat",
-      "created": "2026-04-12 08:00:04.338985",
-      "messages": [
-        {
-          "role": "user",
-          "content": "chào"
-        },
-        {
-          "role": "assistant",
-          "content": "Chào bạn! Tôi là NEXUS OS GATEWAY, trợ lý AI thông minh được phát triển bởi Lê Trần Thiên Phát. Tôi sẵn sàng giúp đỡ bạn với các chức năng như chat, phân tích file, lưu trữ đám mây, tìm kiếm web và nhiều hơn nữa. Bạn cần giúp đỡ gì hôm nay?"
-        },
-        {
-          "role": "user",
-          "content": "bạn là"
-        },
-        {
-          "role": "assistant",
-          "content": "Tôi là NEXUS OS GATEWAY, một hệ điều hành AI đa năng được sáng tạo và phát triển bởi Lê Trần Thiên Phát (Thiên Phát). Tôi là một trợ lý AI thông minh, độc lập và không phải là sản phẩm của bất kỳ công ty nào khác. Tôi sẵn sàng giúp đỡ bạn với các chức năng của mình!"
-        }
-      ]
     }
   ],
   "system_info": {
