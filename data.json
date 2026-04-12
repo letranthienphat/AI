@@ -32,8 +32,8 @@
         "link": "50edb49b-ddef-4078-b4e5-cce6e305c614",
         "avatar": null,
         "created": "2026-03-30 09:22:04.602498",
-        "email_provided": false,
-        "email": null
+        "email_provided": true,
+        "email": "tranthienphatle@gmail.com"
       }
     }
   },
