@@ -317,7 +317,16 @@
       "name": "Chat 08:00 12/04",
       "owner": "ThienPhat",
       "created": "2026-04-12 08:00:04.338985",
-      "messages": []
+      "messages": [
+        {
+          "role": "user",
+          "content": "chào"
+        },
+        {
+          "role": "assistant",
+          "content": "Chào bạn! Tôi là NEXUS OS GATEWAY, trợ lý AI thông minh được phát triển bởi Lê Trần Thiên Phát. Tôi sẵn sàng giúp đỡ bạn với các chức năng như chat, phân tích file, lưu trữ đám mây, tìm kiếm web và nhiều hơn nữa. Bạn cần giúp đỡ gì hôm nay?"
+        }
+      ]
     }
   ],
   "system_info": {
