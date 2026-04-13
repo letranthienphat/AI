@@ -12,7 +12,8 @@
         "email": null
       },
       "status": "active",
-      "recovery_request": null
+      "recovery_request": null,
+      "role": "user"
     },
     "Thiên Phát": {
       "password": "nexusosgateway",
@@ -26,7 +27,8 @@
         "email": null
       },
       "status": "active",
-      "recovery_request": null
+      "recovery_request": null,
+      "role": "user"
     },
     "ThienPhat": {
       "password": "nexusosgateway",
@@ -40,7 +42,8 @@
         "email": "tranthienphatle@gmail.com"
       },
       "status": "active",
-      "recovery_request": null
+      "recovery_request": null,
+      "role": "user"
     }
   },
   "user_status": {
@@ -422,6 +425,13 @@
       "username": "ThienPhat",
       "expiry": "2026-05-13 10:52:35.081302",
       "device_id": "7c73ef5b8d3235ae"
+    },
+    "18acb0673f8013aaad254ca406e0b8ac80bea9ba0b9871c56a9269a3ffe08504": {
+      "username": "ThienPhat",
+      "expiry": "2026-05-13 11:14:48.004808",
+      "device_id": "7c73ef5b8d3235ae"
     }
-  }
+  },
+  "login_history": {},
+  "registration_history": {}
 }
