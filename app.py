@@ -17,7 +17,7 @@ import mimetypes
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "7.2.0",
+    "VERSION": "7.3.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -28,7 +28,8 @@ CONFIG = {
     "PRO_STORAGE_LIMIT": float('inf'),
     "AUTO_CLEANUP_DAYS": 30,
     "MAX_AVATAR_SIZE": 5 * 1024 * 1024,
-    "SESSION_TOKEN_EXPIRY": 30
+    "SESSION_TOKEN_EXPIRY": 30,
+    "ACCOUNT_RECOVERY_DAYS": 7
 }
 
 SYSTEM_PROMPT = """Bạn là NEXUS OS GATEWAY, một hệ điều hành AI đa năng được sáng tạo và phát triển bởi Lê Trần Thiên Phát (Thiên Phát). 
@@ -37,7 +38,7 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 7.2.0
+- Phiên bản: 7.3.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
@@ -84,7 +85,7 @@ st.markdown("""
     height: 100vh;
 }
 
-/* === CHAT LAYOUT - THANH INPUT NỔI === */
+/* === CHAT LAYOUT - THANH INPUT NỔI CỐ ĐỊNH === */
 .chat-layout {
     display: flex;
     flex-direction: column;
@@ -102,6 +103,18 @@ st.markdown("""
     font-weight: bold;
     font-size: 18px;
     flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-header button {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    border-radius: 20px;
+    padding: 5px 12px;
+    cursor: pointer;
 }
 
 .chat-messages {
@@ -111,7 +124,7 @@ st.markdown("""
     background: #f8f9fa;
 }
 
-/* Input cố định dưới cùng - KHÔNG BAO GIỜ TRÔI */
+/* Input cố định dưới cùng - NỔI TRÊN MỌI THỨ */
 .chat-input-fixed {
     position: sticky;
     bottom: 0;
@@ -122,6 +135,7 @@ st.markdown("""
     border-top: 1px solid #e5e7eb;
     flex-shrink: 0;
     z-index: 100;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
 }
 
 .message {
@@ -223,6 +237,7 @@ st.markdown("""
 .avatar-large { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }
 .search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; }
 .custom-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+.instant-answer { background: linear-gradient(135deg, #e0e7ff, #f0f4ff); padding: 20px; border-radius: 16px; margin-bottom: 20px; border-left: 4px solid #0047AB; }
 
 .pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
 
@@ -248,33 +263,54 @@ function scrollChatToBottom() {
     var container = document.getElementById('chat-messages');
     if (container) container.scrollTop = container.scrollHeight;
 }
+function clearChat() {
+    if (confirm('Bạn có chắc muốn xóa toàn bộ cuộc trò chuyện này?')) {
+        window.location.href = '?clear_chat=true';
+    }
+}
 setTimeout(scrollChatToBottom, 200);
 </script>
 """, unsafe_allow_html=True)
 
-# ================== HÀM TÌM KIẾM WEB ==================
+# ================== HÀM TÌM KIẾM WEB NÂNG CAO ==================
 def search_web(query: str) -> List[Dict]:
+    """Tìm kiếm web và lấy danh sách URL"""
     results = []
     try:
         url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
-        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/7.2"}, timeout=10)
+        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/7.3"}, timeout=10)
+        
         if response.status_code == 200:
             data = response.json()
+            
+            # Abstract
             if data.get("AbstractText"):
                 results.append({
                     'title': data.get("Heading", query),
                     'url': data.get("AbstractURL", ""),
                     'snippet': data.get("AbstractText", "")[:300]
                 })
-            for topic in data.get("RelatedTopics", [])[:10]:
+            
+            # Related Topics
+            for topic in data.get("RelatedTopics", [])[:15]:
                 if isinstance(topic, dict):
                     text = topic.get("Text", "")
                     url_topic = topic.get("FirstURL", "")
                     if text and url_topic:
                         parts = text.split(" - ", 1)
-                        results.append({'title': parts[0][:100], 'url': url_topic, 'snippet': parts[1][:200] if len(parts) > 1 else ""})
+                        results.append({
+                            'title': parts[0][:100],
+                            'url': url_topic,
+                            'snippet': parts[1][:200] if len(parts) > 1 else ""
+                        })
+            
+            # Fallback
             if not results:
-                results.append({'title': f"Tìm kiếm: {query}", 'url': f"https://duckduckgo.com/?q={query}", 'snippet': "Nhấn để mở trang tìm kiếm"})
+                results.append({
+                    'title': f"Tìm kiếm trên DuckDuckGo: {query}",
+                    'url': f"https://duckduckgo.com/?q={query}",
+                    'snippet': "Nhấn để mở trang tìm kiếm"
+                })
         else:
             results.append({'title': 'Lỗi kết nối', 'url': '', 'snippet': f'Mã lỗi: {response.status_code}'})
     except Exception as e:
@@ -282,6 +318,7 @@ def search_web(query: str) -> List[Dict]:
     return results
 
 def get_page_content(url: str) -> str:
+    """Lấy nội dung trang web"""
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
@@ -291,26 +328,42 @@ def get_page_content(url: str) -> str:
             text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
             text = re.sub(r'<[^>]+>', ' ', text)
             text = re.sub(r'\s+', ' ', text)
-            return text.strip()[:5000] if text else "Không thể trích xuất nội dung."
-        return f"Lỗi: {response.status_code}"
-    except Exception as e:
-        return f"Lỗi: {str(e)}"
+            return text.strip()[:5000] if text else ""
+        return ""
+    except:
+        return ""
 
-def summarize_page(url: str) -> str:
-    content = get_page_content(url)
-    if not content or len(content) < 50:
-        return "Không đủ nội dung để tóm tắt."
+def get_ai_instant_answer(query: str, results: List[Dict]) -> str:
+    """Dùng AI đọc các trang web hàng đầu và đưa ra câu trả lời nhanh"""
+    if not results:
+        return "Không tìm thấy kết quả nào."
+    
+    # Lấy nội dung từ 3 trang đầu
+    contents = []
+    for r in results[:3]:
+        if r.get('url') and r['url'].startswith('http'):
+            content = get_page_content(r['url'])
+            if content and len(content) > 200:
+                contents.append(f"--- Trang: {r['title']} ---\n{content[:2000]}")
+    
+    if not contents:
+        return "Không thể đọc nội dung từ các trang web. Vui lòng thử lại sau."
+    
     try:
         from openai import OpenAI
         client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
+        
+        all_content = "\n\n".join(contents)
         messages = [
-            {"role": "system", "content": "Bạn là NEXUS OS GATEWAY. Tóm tắt nội dung sau ngắn gọn, 200-300 từ."},
-            {"role": "user", "content": f"Nội dung:\n{content[:4000]}\n\nTóm tắt:"}
+            {"role": "system", "content": f"""Bạn là NEXUS OS GATEWAY, trợ lý AI thông minh. 
+Hãy trả lời câu hỏi: "{query}" dựa trên nội dung các trang web dưới đây.
+Trả lời ngắn gọn, chính xác, khoảng 200-300 từ. Nếu thông tin không đủ, hãy nói rõ."""},
+            {"role": "user", "content": f"Nội dung tham khảo:\n{all_content}\n\nCâu hỏi: {query}\n\nTrả lời:"}
         ]
         res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.5, max_tokens=1024)
         return res.choices[0].message.content
     except Exception as e:
-        return f"Lỗi: {str(e)}"
+        return f"Lỗi AI: {str(e)}"
 
 # ================== HÀM THÔNG BÁO ==================
 def load_system_notifications() -> List[Dict]:
@@ -367,9 +420,11 @@ def get_default_data() -> Dict:
             CONFIG["ADMIN_USERNAME"]: {
                 "password": CONFIG["ADMIN_PASSWORD"],
                 "info": {
-                    "name": "Admin", "bio": "", "link": str(uuid.uuid4()),
+                    "name": "Admin", "bio": "Chủ nhân của NEXUS OS GATEWAY", "link": str(uuid.uuid4()),
                     "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False
-                }
+                },
+                "status": "active",
+                "recovery_request": None
             }
         },
         "codes": [{"code": "PHAT2026", "expiry": None, "max_uses": None, "used_by": []}],
@@ -402,7 +457,8 @@ def load_data() -> Dict:
             if CONFIG["ADMIN_USERNAME"] not in data.get("users", {}):
                 data["users"][CONFIG["ADMIN_USERNAME"]] = {
                     "password": CONFIG["ADMIN_PASSWORD"],
-                    "info": {"name": "Admin", "bio": "", "link": str(uuid.uuid4()), "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False}
+                    "info": {"name": "Admin", "bio": "Chủ nhân của NEXUS OS GATEWAY", "link": str(uuid.uuid4()), "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False},
+                    "status": "active", "recovery_request": None
                 }
             data = migrate_codes(data)
             defaults = {
@@ -420,6 +476,10 @@ def load_data() -> Dict:
                     ud["info"]["email_provided"] = False
                 if "email" not in ud["info"]:
                     ud["info"]["email"] = None
+                if "status" not in ud:
+                    ud["status"] = "active"
+                if "recovery_request" not in ud:
+                    ud["recovery_request"] = None
             return data
         return get_default_data()
     except:
@@ -547,8 +607,8 @@ def init_session():
         st.session_state.preview_file = None
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
-    if 'web_summaries' not in st.session_state:
-        st.session_state.web_summaries = {}
+    if 'instant_answer' not in st.session_state:
+        st.session_state.instant_answer = ""
     if 'browsing_history' not in st.session_state:
         st.session_state.browsing_history = []
     auto_cleanup_files()
@@ -672,15 +732,21 @@ with st.sidebar:
             login_pass = st.text_input("Mật khẩu", type="password")
             remember = st.checkbox("💾 Ghi nhớ thiết bị")
             if st.form_submit_button("Đăng nhập"):
-                if login_user in st.session_state.data["users"] and st.session_state.data["users"][login_user]["password"] == login_pass:
-                    st.session_state.user = login_user
-                    st.session_state.guest_mode = False
-                    if remember:
-                        create_session_token(login_user)
-                    load_system_notifs_for_user(login_user)
-                    st.rerun()
+                if login_user in st.session_state.data["users"]:
+                    user_data = st.session_state.data["users"][login_user]
+                    if user_data.get("status") == "banned":
+                        st.error("⚠️ Tài khoản của bạn đã bị khóa! Vui lòng liên hệ admin.")
+                    elif user_data.get("password") == login_pass:
+                        st.session_state.user = login_user
+                        st.session_state.guest_mode = False
+                        if remember:
+                            create_session_token(login_user)
+                        load_system_notifs_for_user(login_user)
+                        st.rerun()
+                    else:
+                        st.error("Sai mật khẩu!")
                 else:
-                    st.error("Sai tài khoản hoặc mật khẩu!")
+                    st.error("Tài khoản không tồn tại!")
         
         if CONFIG["GUEST_ENABLED"] and st.button("👤 DÙNG THỬ"):
             st.session_state.user = "guest"
@@ -697,7 +763,8 @@ with st.sidebar:
                     if reg_user not in st.session_state.data["users"]:
                         st.session_state.data["users"][reg_user] = {
                             "password": reg_pass,
-                            "info": {"name": reg_name or reg_user, "bio": "", "link": str(uuid.uuid4()), "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False}
+                            "info": {"name": reg_name or reg_user, "bio": "", "link": str(uuid.uuid4()), "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False},
+                            "status": "active", "recovery_request": None
                         }
                         save_data(st.session_state.data)
                         load_system_notifs_for_user(reg_user)
@@ -706,39 +773,17 @@ with st.sidebar:
                         st.error("Tên đã tồn tại!")
     else:
         st.markdown("### 🚀 TIỆN ÍCH")
-        
-        # Dashboard
-        if st.button("🏠 TRANG CHÍNH", use_container_width=True):
-            go_to("DASHBOARD")
-        # Chat
-        if st.button("🧠 CHAT AI", use_container_width=True):
-            go_to("CHAT")
-        # Tìm kiếm
-        if st.button("🌐 TÌM KIẾM WEB", use_container_width=True):
-            go_to("SEARCH")
-        # Lưu trữ
-        if st.button("☁️ LƯU TRỮ", use_container_width=True):
-            go_to("CLOUD")
-        # Bạn bè
-        if st.button("👥 BẠN BÈ", use_container_width=True):
-            go_to("SOCIAL")
-        # Lịch sử chat
-        if st.button("📜 LỊCH SỬ CHAT", use_container_width=True):
-            go_to("HISTORY")
-        # Cài đặt
-        if st.button("⚙️ CÀI ĐẶT", use_container_width=True):
-            go_to("SETTINGS")
-        # Thông báo
-        if st.button("🔔 THÔNG BÁO", use_container_width=True):
-            go_to("NOTIFICATIONS")
-        # Thông tin
-        if st.button("ℹ️ THÔNG TIN", use_container_width=True):
-            go_to("ABOUT")
-        # Admin
-        if st.session_state.user == CONFIG["ADMIN_USERNAME"] and st.button("🛠️ ADMIN", use_container_width=True):
-            go_to("ADMIN")
-        # Đăng xuất
-        if st.button("🚪 ĐĂNG XUẤT", use_container_width=True):
+        if st.button("🏠 TRANG CHÍNH"): go_to("DASHBOARD")
+        if st.button("🧠 CHAT AI"): go_to("CHAT")
+        if st.button("🌐 TÌM KIẾM WEB"): go_to("SEARCH")
+        if st.button("☁️ LƯU TRỮ"): go_to("CLOUD")
+        if st.button("👥 BẠN BÈ"): go_to("SOCIAL")
+        if st.button("📜 LỊCH SỬ CHAT"): go_to("HISTORY")
+        if st.button("⚙️ CÀI ĐẶT"): go_to("SETTINGS")
+        if st.button("🔔 THÔNG BÁO"): go_to("NOTIFICATIONS")
+        if st.button("ℹ️ THÔNG TIN"): go_to("ABOUT")
+        if st.session_state.user == CONFIG["ADMIN_USERNAME"] and st.button("🛠️ ADMIN"): go_to("ADMIN")
+        if st.button("🚪 ĐĂNG XUẤT"):
             st.session_state.user = None
             st.rerun()
     
@@ -757,26 +802,26 @@ if st.session_state.page == "DASHBOARD":
 # ================== CHAT AI ==================
 elif st.session_state.page == "CHAT":
     st.markdown('<div class="chat-layout">', unsafe_allow_html=True)
-    st.markdown('<div class="chat-header">🧠 NEXUS OS GATEWAY - Trợ lý AI</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chat-header">🧠 NEXUS OS GATEWAY - Trợ lý AI<button onclick="clearChat()">🗑️ Xóa chat</button></div>', unsafe_allow_html=True)
     
-    # CHỈ TẠO CUỘC TRÒ CHUYỆN KHI THỰC SỰ NHẮN TIN
-    # Không tạo sẵn khi vào trang
+    # Xóa chat nếu có request
+    if st.query_params.get("clear_chat"):
+        if st.session_state.current_chat_id is not None:
+            st.session_state.data["chat_sessions"] = [s for s in st.session_state.data["chat_sessions"] if s.get("id") != st.session_state.current_chat_id]
+            st.session_state.current_chat_id = None
+            save_data(st.session_state.data)
+        st.query_params.clear()
+        st.rerun()
     
     with st.sidebar:
         st.markdown("### 📝 LỊCH SỬ")
         if st.button("➕ Tạo mới"):
-            # Tạo cuộc trò chuyện mới
             new_id = len(st.session_state.data["chat_sessions"])
             st.session_state.data["chat_sessions"].append({
                 "id": new_id, "name": f"Chat {datetime.now().strftime('%H:%M %d/%m')}",
                 "owner": st.session_state.user, "created": str(datetime.now()), "messages": []
             })
             st.session_state.current_chat_id = new_id
-            save_data(st.session_state.data)
-            st.rerun()
-        if st.button("🗑️ Xóa tất cả"):
-            st.session_state.data["chat_sessions"] = [s for s in st.session_state.data["chat_sessions"] if s.get("owner") != st.session_state.user]
-            st.session_state.current_chat_id = None
             save_data(st.session_state.data)
             st.rerun()
         st.write("---")
@@ -803,7 +848,6 @@ elif st.session_state.page == "CHAT":
             sessions = [s for s in st.session_state.data["chat_sessions"] if s.get("id") == st.session_state.current_chat_id]
             chat = sessions[0] if sessions else {"messages": []}
         else:
-            # Hiển thị trạng thái chưa có cuộc trò chuyện
             chat = None
     
     # Messages area
@@ -821,7 +865,7 @@ elif st.session_state.page == "CHAT":
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Input area - CỐ ĐỊNH DƯỚI CÙNG, NỔI LÊN TRÊN MỌI THỨ
+    # Input area - CỐ ĐỊNH DƯỚI CÙNG, NỔI TRÊN MỌI THỨ
     st.markdown('<div class="chat-input-fixed">', unsafe_allow_html=True)
     col_inp, col_up = st.columns([4, 1])
     with col_up:
@@ -864,31 +908,50 @@ elif st.session_state.page == "CHAT":
                 save_data(st.session_state.data)
         st.rerun()
 
-# ================== TÌM KIẾM WEB ==================
+# ================== TÌM KIẾM WEB NÂNG CAO ==================
 elif st.session_state.page == "SEARCH":
     st.markdown("<h2>🌐 TÌM KIẾM WEB</h2>", unsafe_allow_html=True)
-    query = st.text_input("🔍 Nhập từ khóa:")
     
-    if st.button("🔎 Tìm kiếm"):
-        with st.spinner("Đang tìm..."):
+    query = st.text_input("🔍 Nhập từ khóa hoặc câu hỏi:")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        search_btn = st.button("🔎 Tìm kiếm", use_container_width=True)
+    with col2:
+        ai_summary_btn = st.button("🤖 AI đọc tất cả trang web", use_container_width=True, help="AI sẽ đọc nội dung các trang web hàng đầu và tổng hợp câu trả lời")
+    
+    if search_btn and query:
+        with st.spinner("Đang tìm kiếm..."):
             st.session_state.search_results = search_web(query)
+            st.session_state.instant_answer = ""
             st.rerun()
     
-    for i, r in enumerate(st.session_state.search_results):
-        if r.get('url'):
-            st.markdown(f"<div class='search-result'><b>{r.get('title')}</b><br><small>{r.get('url')[:80]}</small><br>{r.get('snippet', '')[:200]}</div>", unsafe_allow_html=True)
-            col1, col2 = st.columns(2)
-            if col1.button(f"📖 Tóm tắt", key=f"sum_{i}"):
-                with st.spinner("Đang đọc..."):
-                    summary = summarize_page(r['url'])
-                    st.session_state.web_summaries[r['url']] = summary
-                    st.rerun()
-            if col2.button(f"🔗 Mở", key=f"open_{i}"):
-                st.markdown(f'<a href="{r["url"]}" target="_blank">Mở tab mới</a>', unsafe_allow_html=True)
+    if ai_summary_btn and query:
+        with st.spinner("🤖 AI đang đọc nội dung các trang web..."):
+            results = search_web(query)
+            st.session_state.instant_answer = get_ai_instant_answer(query, results)
+            st.session_state.search_results = results
+            st.rerun()
     
-    if st.session_state.web_summaries:
-        for url, summary in st.session_state.web_summaries.items():
-            st.markdown(f"<div class='ai-banner' style='background:linear-gradient(135deg,#0047AB,#0066CC);color:white;padding:16px;border-radius:20px;margin:12px 0'><b>📝 TÓM TẮT</b><br>{summary}</div>", unsafe_allow_html=True)
+    # Hiển thị Instant Answer
+    if st.session_state.instant_answer:
+        st.markdown(f'<div class="instant-answer"><b>📖 Câu trả lời từ AI:</b><br>{st.session_state.instant_answer}</div>', unsafe_allow_html=True)
+    
+    # Hiển thị kết quả tìm kiếm
+    if st.session_state.search_results:
+        st.subheader(f"📄 Kết quả tìm kiếm ({len(st.session_state.search_results)})")
+        
+        for i, r in enumerate(st.session_state.search_results):
+            if r.get('url'):
+                st.markdown(f"<div class='search-result'><b>{r.get('title')}</b><br><small>{r.get('url')[:80]}</small><br>{r.get('snippet', '')[:200]}</div>", unsafe_allow_html=True)
+                col1, col2 = st.columns(2)
+                if col1.button(f"📖 Tóm tắt trang này", key=f"sum_{i}"):
+                    with st.spinner("Đang đọc..."):
+                        summary = get_ai_instant_answer(f"Tóm tắt trang {r.get('title')}", [r])
+                        st.session_state.instant_answer = summary
+                        st.rerun()
+                if col2.button(f"🔗 Mở", key=f"open_{i}"):
+                    st.markdown(f'<a href="{r["url"]}" target="_blank">Mở tab mới</a>', unsafe_allow_html=True)
 
 # ================== CLOUD ==================
 elif st.session_state.page == "CLOUD":
@@ -1004,7 +1067,7 @@ elif st.session_state.page == "HISTORY":
                     st.session_state.current_chat_id = s.get("id")
                     go_to("CHAT")
 
-# ================== THÔNG BÁO (MỤC RIÊNG) ==================
+# ================== THÔNG BÁO ==================
 elif st.session_state.page == "NOTIFICATIONS":
     st.markdown("<h2>📢 THÔNG BÁO</h2>", unsafe_allow_html=True)
     
@@ -1020,10 +1083,10 @@ elif st.session_state.page == "NOTIFICATIONS":
             for n in notifs:
                 with st.container():
                     st.markdown(f"""
-                    <div class="notification-item {"unread" if not n.get("read") else ""}" style="background: {'#e0e7ff' if not n.get("read") else 'white'}; border-radius: 12px; margin-bottom: 10px;">
-                        <div class="notification-title">{n.get("title", "")}</div>
-                        <div class="notification-message">{n.get("message", "")}</div>
-                        <div class="notification-time">{n.get("time", "")[:16]}</div>
+                    <div style="background: {'#e0e7ff' if not n.get('read') else 'white'}; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb;">
+                        <div style="font-weight: bold;">{n.get("title", "")}</div>
+                        <div style="color: #6b7280; margin: 5px 0;">{n.get("message", "")}</div>
+                        <div style="font-size: 11px; color: #9ca3af;">{n.get("time", "")[:16]}</div>
                     </div>
                     """, unsafe_allow_html=True)
                     if not n.get("read"):
@@ -1036,28 +1099,69 @@ elif st.session_state.page == "SETTINGS":
     if st.session_state.guest_mode:
         st.info("Guest không thể đổi cài đặt")
     else:
-        code = st.text_input("Mã kích hoạt Pro").upper()
-        if st.button("Kích hoạt"):
-            for c in st.session_state.data["codes"]:
-                if isinstance(c, dict) and c.get("code") == code:
-                    if st.session_state.user not in st.session_state.data["pro_users"]:
-                        st.session_state.data["pro_users"].append(st.session_state.user)
-                        save_data(st.session_state.data)
-                        st.balloons()
-                        st.success("Chúc mừng! Bạn đã là Pro!")
-                    else:
-                        st.info("Bạn đã là Pro rồi!")
-                    break
-                elif isinstance(c, str) and c == code:
-                    if st.session_state.user not in st.session_state.data["pro_users"]:
-                        st.session_state.data["pro_users"].append(st.session_state.user)
-                        st.session_state.data["codes"] = [x for x in st.session_state.data["codes"] if x != code]
-                        save_data(st.session_state.data)
-                        st.balloons()
-                        st.success("Chúc mừng! Bạn đã là Pro!")
-                    break
-            else:
-                st.error("Mã không hợp lệ!")
+        user_info = st.session_state.data["users"][st.session_state.user]["info"]
+        
+        tab1, tab2, tab3 = st.tabs(["👤 Cá nhân", "🎁 Nâng cấp", "ℹ️ Hệ thống"])
+        
+        with tab1:
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                if user_info.get("avatar"):
+                    st.markdown(f'<img src="data:image/png;base64,{user_info["avatar"]}" style="width:100px;height:100px;border-radius:50%;object-fit:cover;">', unsafe_allow_html=True)
+                else:
+                    st.markdown('<div style="font-size:80px;text-align:center">👤</div>', unsafe_allow_html=True)
+                avatar_file = st.file_uploader("Ảnh đại diện", type=["png", "jpg", "jpeg"])
+                if avatar_file and st.button("Cập nhật ảnh"):
+                    resized = resize_image(avatar_file.getvalue())
+                    user_info["avatar"] = base64.b64encode(resized).decode('utf-8')
+                    save_data(st.session_state.data)
+                    st.rerun()
+            with col2:
+                new_name = st.text_input("Tên hiển thị", value=user_info.get("name", st.session_state.user))
+                if st.button("Đổi tên"):
+                    user_info["name"] = new_name
+                    save_data(st.session_state.data)
+                    st.success("Đã đổi tên!")
+                
+                new_bio = st.text_area("Giới thiệu", value=user_info.get("bio", ""), height=100)
+                if st.button("Cập nhật giới thiệu"):
+                    user_info["bio"] = new_bio
+                    save_data(st.session_state.data)
+                    st.success("Đã cập nhật!")
+                
+                st.divider()
+                st.write(f"**Link kết bạn:** `{user_info.get('link')}`")
+        
+        with tab2:
+            code = st.text_input("Mã kích hoạt Pro").upper()
+            if st.button("Kích hoạt"):
+                for c in st.session_state.data["codes"]:
+                    if isinstance(c, dict) and c.get("code") == code:
+                        if st.session_state.user not in st.session_state.data["pro_users"]:
+                            st.session_state.data["pro_users"].append(st.session_state.user)
+                            save_data(st.session_state.data)
+                            st.balloons()
+                            st.success("Chúc mừng! Bạn đã là Pro!")
+                        else:
+                            st.info("Bạn đã là Pro rồi!")
+                        break
+                    elif isinstance(c, str) and c == code:
+                        if st.session_state.user not in st.session_state.data["pro_users"]:
+                            st.session_state.data["pro_users"].append(st.session_state.user)
+                            st.session_state.data["codes"] = [x for x in st.session_state.data["codes"] if x != code]
+                            save_data(st.session_state.data)
+                            st.balloons()
+                            st.success("Chúc mừng! Bạn đã là Pro!")
+                        break
+                else:
+                    st.error("Mã không hợp lệ!")
+        
+        with tab3:
+            st.write(f"**Phiên bản:** {CONFIG['VERSION']}")
+            st.write(f"**Tác giả:** {CONFIG['CREATOR']}")
+            st.write(f"**Ngày tham gia:** {user_info.get('created', 'Không rõ')[:16]}")
+            st.write(f"**Hạng:** {'💎 Pro' if is_pro else '🆓 Miễn phí'}")
+            st.write(f"**Dung lượng đã dùng:** {get_used_storage(st.session_state.user)/(1024**3):.2f} GB")
 
 # ================== ADMIN ==================
 elif st.session_state.page == "ADMIN":
@@ -1065,7 +1169,7 @@ elif st.session_state.page == "ADMIN":
         st.error("Không có quyền!")
     else:
         st.markdown("<h2>🛠️ ADMIN</h2>", unsafe_allow_html=True)
-        tab1, tab2 = st.tabs(["🎫 Mã Pro", "📢 Thông báo"])
+        tab1, tab2, tab3 = st.tabs(["🎫 Mã Pro", "📢 Thông báo", "👥 Quản lý người dùng"])
         
         with tab1:
             new_code = st.text_input("Mã mới").upper()
@@ -1109,6 +1213,42 @@ elif st.session_state.page == "ADMIN":
                         add_notification(target, title, msg)
                         st.toast(f"✅ Đã gửi đến {target}!")
                 st.rerun()
+        
+        with tab3:
+            st.subheader("👥 DANH SÁCH NGƯỜI DÙNG")
+            
+            for u, user_data in st.session_state.data["users"].items():
+                status = user_data.get("status", "active")
+                recovery = user_data.get("recovery_request")
+                
+                with st.container():
+                    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+                    col1.write(f"**{u}** ({user_data['info'].get('name', u)})")
+                    col2.write(f"Trạng thái: {'🟢 Hoạt động' if status == 'active' else '🔴 Đã khóa'}")
+                    
+                    if status == "active":
+                        if col3.button(f"🔒 Khóa", key=f"ban_{u}"):
+                            if u == CONFIG["ADMIN_USERNAME"]:
+                                st.error("Không thể khóa tài khoản admin!")
+                            else:
+                                recovery_date = datetime.now() + timedelta(days=CONFIG["ACCOUNT_RECOVERY_DAYS"])
+                                user_data["status"] = "banned"
+                                user_data["recovery_request"] = str(recovery_date)
+                                save_data(st.session_state.data)
+                                add_notification(u, "⚠️ Tài khoản bị khóa", f"Tài khoản của bạn đã bị khóa. Vui lòng liên hệ admin để biết thêm chi tiết. Thời gian chờ: {CONFIG['ACCOUNT_RECOVERY_DAYS']} ngày.")
+                                st.rerun()
+                    else:
+                        if col3.button(f"🔓 Mở khóa", key=f"unban_{u}"):
+                            user_data["status"] = "active"
+                            user_data["recovery_request"] = None
+                            save_data(st.session_state.data)
+                            add_notification(u, "✅ Tài khoản được mở khóa", "Tài khoản của bạn đã được admin mở khóa. Bạn có thể đăng nhập lại.")
+                            st.rerun()
+                    
+                    if recovery:
+                        col4.caption(f"Chờ đến: {recovery[:16]}")
+                    
+                    st.divider()
 
 # ================== THÔNG TIN ==================
 elif st.session_state.page == "ABOUT":
@@ -1122,3 +1262,16 @@ elif st.session_state.page == "ABOUT":
         <p style="text-align:center"><i>"Kết nối tri thức, mở ra tương lai"</i></p>
     </div>
     """, unsafe_allow_html=True)
+    
+    st.markdown("### ✨ TÍNH NĂNG")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.write("✅ Chat AI với NEXUS OS Gateway")
+        st.write("✅ Tìm kiếm web + AI tóm tắt")
+        st.write("✅ Lưu trữ đám mây (30GB Free, Pro không giới hạn)")
+        st.write("✅ Kết bạn và chia sẻ file")
+    with col2:
+        st.write("✅ Lịch sử chat, xuất file ZIP")
+        st.write("✅ Cá nhân hóa hồ sơ")
+        st.write("✅ Thông báo realtime")
+        st.write("✅ Ghi nhớ thiết bị")
