@@ -1,20 +1,5 @@
 {
   "users": {
-    "admin": {
-      "password": "123",
-      "info": {
-        "name": "admin",
-        "bio": "",
-        "link": "8de4ad25-1096-4ad8-baca-8a2b0333151c",
-        "avatar": null,
-        "created": "2026-03-30 09:22:04.602466",
-        "email_provided": false,
-        "email": null
-      },
-      "status": "active",
-      "recovery_request": null,
-      "role": "user"
-    },
     "Thiên Phát": {
       "password": "nexusosgateway",
       "info": {
