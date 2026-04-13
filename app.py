@@ -17,7 +17,7 @@ import mimetypes
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "7.1.0",
+    "VERSION": "7.2.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -37,7 +37,7 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 7.1.0
+- Phiên bản: 7.2.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
@@ -64,11 +64,27 @@ st.markdown("""
 
 .main-container { display: flex; height: 100vh; width: 100%; overflow: hidden; }
 
-.sidebar { width: 280px; background: white; border-right: 1px solid #e5e7eb; overflow-y: auto; padding: 20px; flex-shrink: 0; height: 100vh; }
+/* Sidebar */
+.sidebar { 
+    width: 280px; 
+    background: white; 
+    border-right: 1px solid #e5e7eb; 
+    overflow-y: auto; 
+    padding: 20px; 
+    flex-shrink: 0; 
+    height: 100vh;
+    z-index: 10;
+}
 
-.content-area { flex: 1; overflow-y: auto; padding: 20px; height: 100vh; }
+/* Content area */
+.content-area { 
+    flex: 1; 
+    overflow-y: auto; 
+    padding: 20px; 
+    height: 100vh;
+}
 
-/* === CHAT LAYOUT CỐ ĐỊNH === */
+/* === CHAT LAYOUT - THANH INPUT NỔI === */
 .chat-layout {
     display: flex;
     flex-direction: column;
@@ -95,11 +111,23 @@ st.markdown("""
     background: #f8f9fa;
 }
 
+/* Input cố định dưới cùng - KHÔNG BAO GIỜ TRÔI */
+.chat-input-fixed {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 15px 20px;
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    flex-shrink: 0;
+    z-index: 100;
+}
+
 .message {
     margin-bottom: 16px;
     display: flex;
 }
-
 .message.user { justify-content: flex-end; }
 .message.assistant { justify-content: flex-start; }
 
@@ -110,26 +138,17 @@ st.markdown("""
     word-wrap: break-word;
     line-height: 1.4;
 }
-
 .message.user .message-bubble {
     background: #0047AB;
     color: white;
     border-bottom-right-radius: 4px;
 }
-
 .message.assistant .message-bubble {
     background: white;
     color: #1f2937;
     border: 1px solid #e5e7eb;
     border-bottom-left-radius: 4px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-.chat-input-fixed {
-    padding: 15px 20px;
-    background: white;
-    border-top: 1px solid #e5e7eb;
-    flex-shrink: 0;
 }
 
 /* === NOTIFICATION === */
@@ -148,10 +167,8 @@ st.markdown("""
     cursor: pointer;
     z-index: 1000;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    transition: transform 0.2s;
 }
 .notification-bell:hover { transform: scale(1.05); }
-
 .notification-badge {
     position: absolute;
     top: -5px;
@@ -166,7 +183,6 @@ st.markdown("""
     align-items: center;
     justify-content: center;
 }
-
 .notification-panel {
     position: fixed;
     top: 80px;
@@ -181,7 +197,6 @@ st.markdown("""
     display: none;
 }
 .notification-panel.show { display: block; }
-
 .notification-header {
     padding: 15px;
     background: #0047AB;
@@ -191,7 +206,6 @@ st.markdown("""
     justify-content: space-between;
     cursor: pointer;
 }
-
 .notification-list { max-height: 400px; overflow-y: auto; }
 .notification-item { padding: 12px 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
 .notification-item:hover { background: #f8f9fa; }
@@ -211,6 +225,18 @@ st.markdown("""
 .custom-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
 .pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
+
+/* Menu item */
+.menu-item {
+    padding: 12px 15px;
+    margin: 5px 0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+.menu-item:hover { background: #f0f2f6; }
+.menu-item.active { background: #e0e7ff; color: #0047AB; }
 </style>
 
 <script>
@@ -218,7 +244,6 @@ function toggleNotifications() {
     var panel = document.getElementById('notification-panel');
     if (panel) panel.classList.toggle('show');
 }
-
 function scrollChatToBottom() {
     var container = document.getElementById('chat-messages');
     if (container) container.scrollTop = container.scrollHeight;
@@ -227,65 +252,46 @@ setTimeout(scrollChatToBottom, 200);
 </script>
 """, unsafe_allow_html=True)
 
-# ================== HÀM TÌM KIẾM WEB (DÙNG API) ==================
+# ================== HÀM TÌM KIẾM WEB ==================
 def search_web(query: str) -> List[Dict]:
-    """Tìm kiếm web dùng DuckDuckGo API - không bị chuyển hướng"""
     results = []
     try:
-        # Dùng DuckDuckGo API
         url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
-        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/7.1"}, timeout=10)
-        
+        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/7.2"}, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            
-            # Abstract
             if data.get("AbstractText"):
                 results.append({
                     'title': data.get("Heading", query),
                     'url': data.get("AbstractURL", ""),
                     'snippet': data.get("AbstractText", "")[:300]
                 })
-            
-            # Related Topics
             for topic in data.get("RelatedTopics", [])[:10]:
                 if isinstance(topic, dict):
                     text = topic.get("Text", "")
                     url_topic = topic.get("FirstURL", "")
                     if text and url_topic:
                         parts = text.split(" - ", 1)
-                        title = parts[0][:100]
-                        snippet = parts[1][:200] if len(parts) > 1 else ""
-                        results.append({'title': title, 'url': url_topic, 'snippet': snippet})
-            
-            # Fallback
+                        results.append({'title': parts[0][:100], 'url': url_topic, 'snippet': parts[1][:200] if len(parts) > 1 else ""})
             if not results:
-                results.append({
-                    'title': f"Tìm kiếm trên DuckDuckGo: {query}",
-                    'url': f"https://duckduckgo.com/?q={query}",
-                    'snippet': "Nhấn để mở trang tìm kiếm"
-                })
+                results.append({'title': f"Tìm kiếm: {query}", 'url': f"https://duckduckgo.com/?q={query}", 'snippet': "Nhấn để mở trang tìm kiếm"})
         else:
             results.append({'title': 'Lỗi kết nối', 'url': '', 'snippet': f'Mã lỗi: {response.status_code}'})
     except Exception as e:
         results.append({'title': 'Lỗi tìm kiếm', 'url': '', 'snippet': str(e)})
-    
     return results
 
 def get_page_content(url: str) -> str:
-    """Lấy nội dung trang web đơn giản"""
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
-        
         if response.status_code == 200:
             text = response.text
             text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
             text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
             text = re.sub(r'<[^>]+>', ' ', text)
             text = re.sub(r'\s+', ' ', text)
-            text = text.strip()
-            return text[:5000] if text else "Không thể trích xuất nội dung."
+            return text.strip()[:5000] if text else "Không thể trích xuất nội dung."
         return f"Lỗi: {response.status_code}"
     except Exception as e:
         return f"Lỗi: {str(e)}"
@@ -294,7 +300,6 @@ def summarize_page(url: str) -> str:
     content = get_page_content(url)
     if not content or len(content) < 50:
         return "Không đủ nội dung để tóm tắt."
-    
     try:
         from openai import OpenAI
         client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
@@ -362,25 +367,16 @@ def get_default_data() -> Dict:
             CONFIG["ADMIN_USERNAME"]: {
                 "password": CONFIG["ADMIN_PASSWORD"],
                 "info": {
-                    "name": "Admin",
-                    "bio": "",
-                    "link": str(uuid.uuid4()),
-                    "avatar": None,
-                    "created": str(datetime.now()),
-                    "email": None,
-                    "email_provided": False
+                    "name": "Admin", "bio": "", "link": str(uuid.uuid4()),
+                    "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False
                 }
             }
         },
         "codes": [{"code": "PHAT2026", "expiry": None, "max_uses": None, "used_by": []}],
         "pro_users": [],
         "chat_sessions": [],
-        "files": {},
-        "shared_files": {},
-        "notifications": {},
-        "friends": {},
-        "browsing_history": [],
-        "session_tokens": {},
+        "files": {}, "shared_files": {}, "notifications": {}, "friends": {},
+        "browsing_history": [], "session_tokens": {},
         "system_info": {"created": str(datetime.now()), "creator": CONFIG["CREATOR"], "system_name": CONFIG["NAME"]}
     }
 
@@ -406,15 +402,7 @@ def load_data() -> Dict:
             if CONFIG["ADMIN_USERNAME"] not in data.get("users", {}):
                 data["users"][CONFIG["ADMIN_USERNAME"]] = {
                     "password": CONFIG["ADMIN_PASSWORD"],
-                    "info": {
-                        "name": "Admin",
-                        "bio": "",
-                        "link": str(uuid.uuid4()),
-                        "avatar": None,
-                        "created": str(datetime.now()),
-                        "email": None,
-                        "email_provided": False
-                    }
+                    "info": {"name": "Admin", "bio": "", "link": str(uuid.uuid4()), "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False}
                 }
             data = migrate_codes(data)
             defaults = {
@@ -425,7 +413,6 @@ def load_data() -> Dict:
             for key, val in defaults.items():
                 if key not in data:
                     data[key] = val
-            
             for u, ud in data["users"].items():
                 if "info" not in ud:
                     ud["info"] = {}
@@ -433,7 +420,6 @@ def load_data() -> Dict:
                     ud["info"]["email_provided"] = False
                 if "email" not in ud["info"]:
                     ud["info"]["email"] = None
-            
             return data
         return get_default_data()
     except:
@@ -546,7 +532,7 @@ def init_session():
     if 'data' not in st.session_state:
         st.session_state.data = load_data()
     if 'page' not in st.session_state:
-        st.session_state.page = "AUTH"
+        st.session_state.page = "DASHBOARD"
     if 'user' not in st.session_state:
         st.session_state.user = None
     if 'current_chat_id' not in st.session_state:
@@ -720,15 +706,39 @@ with st.sidebar:
                         st.error("Tên đã tồn tại!")
     else:
         st.markdown("### 🚀 TIỆN ÍCH")
-        if st.button("🧠 CHAT AI"): go_to("CHAT")
-        if st.button("🌐 TÌM KIẾM"): go_to("SEARCH")
-        if st.button("☁️ LƯU TRỮ"): go_to("CLOUD")
-        if st.button("👥 BẠN BÈ"): go_to("SOCIAL")
-        if st.button("📜 LỊCH SỬ"): go_to("HISTORY")
-        if st.button("⚙️ CÀI ĐẶT"): go_to("SETTINGS")
-        if st.button("ℹ️ THÔNG TIN"): go_to("ABOUT")
-        if st.session_state.user == CONFIG["ADMIN_USERNAME"] and st.button("🛠️ ADMIN"): go_to("ADMIN")
-        if st.button("🚪 ĐĂNG XUẤT"):
+        
+        # Dashboard
+        if st.button("🏠 TRANG CHÍNH", use_container_width=True):
+            go_to("DASHBOARD")
+        # Chat
+        if st.button("🧠 CHAT AI", use_container_width=True):
+            go_to("CHAT")
+        # Tìm kiếm
+        if st.button("🌐 TÌM KIẾM WEB", use_container_width=True):
+            go_to("SEARCH")
+        # Lưu trữ
+        if st.button("☁️ LƯU TRỮ", use_container_width=True):
+            go_to("CLOUD")
+        # Bạn bè
+        if st.button("👥 BẠN BÈ", use_container_width=True):
+            go_to("SOCIAL")
+        # Lịch sử chat
+        if st.button("📜 LỊCH SỬ CHAT", use_container_width=True):
+            go_to("HISTORY")
+        # Cài đặt
+        if st.button("⚙️ CÀI ĐẶT", use_container_width=True):
+            go_to("SETTINGS")
+        # Thông báo
+        if st.button("🔔 THÔNG BÁO", use_container_width=True):
+            go_to("NOTIFICATIONS")
+        # Thông tin
+        if st.button("ℹ️ THÔNG TIN", use_container_width=True):
+            go_to("ABOUT")
+        # Admin
+        if st.session_state.user == CONFIG["ADMIN_USERNAME"] and st.button("🛠️ ADMIN", use_container_width=True):
+            go_to("ADMIN")
+        # Đăng xuất
+        if st.button("🚪 ĐĂNG XUẤT", use_container_width=True):
             st.session_state.user = None
             st.rerun()
     
@@ -737,7 +747,7 @@ with st.sidebar:
 
 # ================== DASHBOARD ==================
 if st.session_state.page == "DASHBOARD":
-    st.markdown(f"<div class='custom-card' style='text-align:center'><h1>🚀 {CONFIG['NAME']}</h1><p>Chào mừng, <b>{st.session_state.user}</b>!</p></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='custom-card' style='text-align:center'><h1>🚀 {CONFIG['NAME']}</h1><p>Chào mừng, <b>{st.session_state.user if st.session_state.user else 'khách'}</b>!</p></div>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
     if col1.button("🧠 CHAT AI"): go_to("CHAT")
     if col2.button("🌐 TÌM KIẾM"): go_to("SEARCH")
@@ -749,18 +759,13 @@ elif st.session_state.page == "CHAT":
     st.markdown('<div class="chat-layout">', unsafe_allow_html=True)
     st.markdown('<div class="chat-header">🧠 NEXUS OS GATEWAY - Trợ lý AI</div>', unsafe_allow_html=True)
     
-    if not st.session_state.guest_mode and st.session_state.current_chat_id is None:
-        new_id = len(st.session_state.data["chat_sessions"])
-        st.session_state.data["chat_sessions"].append({
-            "id": new_id, "name": f"Chat {datetime.now().strftime('%H:%M %d/%m')}",
-            "owner": st.session_state.user, "created": str(datetime.now()), "messages": []
-        })
-        st.session_state.current_chat_id = new_id
-        save_data(st.session_state.data)
+    # CHỈ TẠO CUỘC TRÒ CHUYỆN KHI THỰC SỰ NHẮN TIN
+    # Không tạo sẵn khi vào trang
     
     with st.sidebar:
         st.markdown("### 📝 LỊCH SỬ")
         if st.button("➕ Tạo mới"):
+            # Tạo cuộc trò chuyện mới
             new_id = len(st.session_state.data["chat_sessions"])
             st.session_state.data["chat_sessions"].append({
                 "id": new_id, "name": f"Chat {datetime.now().strftime('%H:%M %d/%m')}",
@@ -790,24 +795,33 @@ elif st.session_state.page == "CHAT":
                     save_data(st.session_state.data)
                     st.rerun()
     
+    # Lấy hoặc tạo chat tạm cho guest
     if st.session_state.guest_mode:
         chat = st.session_state.temp_chat
     else:
-        sessions = [s for s in st.session_state.data["chat_sessions"] if s.get("id") == st.session_state.current_chat_id]
-        chat = sessions[0] if sessions else {"messages": []}
-    
-    messages = chat.get("messages", [])
+        if st.session_state.current_chat_id is not None:
+            sessions = [s for s in st.session_state.data["chat_sessions"] if s.get("id") == st.session_state.current_chat_id]
+            chat = sessions[0] if sessions else {"messages": []}
+        else:
+            # Hiển thị trạng thái chưa có cuộc trò chuyện
+            chat = None
     
     # Messages area
     st.markdown('<div id="chat-messages" class="chat-messages">', unsafe_allow_html=True)
-    for m in messages:
-        if m.get("role") == "user":
-            st.markdown(f'<div class="message user"><div class="message-bubble">{m.get("content", "")}</div></div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="message assistant"><div class="message-bubble">{m.get("content", "")}</div></div>', unsafe_allow_html=True)
+    
+    if chat is None:
+        st.markdown('<div style="text-align:center; padding: 40px; color: #9ca3af;">👋 Chưa có cuộc trò chuyện nào. Hãy nhập tin nhắn bên dưới để bắt đầu!</div>', unsafe_allow_html=True)
+    else:
+        messages = chat.get("messages", [])
+        for m in messages:
+            if m.get("role") == "user":
+                st.markdown(f'<div class="message user"><div class="message-bubble">{m.get("content", "")}</div></div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="message assistant"><div class="message-bubble">{m.get("content", "")}</div></div>', unsafe_allow_html=True)
+    
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Input area - CỐ ĐỊNH
+    # Input area - CỐ ĐỊNH DƯỚI CÙNG, NỔI LÊN TRÊN MỌI THỨ
     st.markdown('<div class="chat-input-fixed">', unsafe_allow_html=True)
     col_inp, col_up = st.columns([4, 1])
     with col_up:
@@ -822,15 +836,26 @@ elif st.session_state.page == "CHAT":
         st.rerun()
     
     if p:
-        user_msg = {"role": "user", "content": p}
+        # Nếu chưa có cuộc trò chuyện, tạo mới
+        if not st.session_state.guest_mode and chat is None:
+            new_id = len(st.session_state.data["chat_sessions"])
+            st.session_state.data["chat_sessions"].append({
+                "id": new_id, "name": f"Chat {datetime.now().strftime('%H:%M %d/%m')}",
+                "owner": st.session_state.user, "created": str(datetime.now()), "messages": []
+            })
+            st.session_state.current_chat_id = new_id
+            save_data(st.session_state.data)
+            chat = st.session_state.data["chat_sessions"][-1]
+        
         if st.session_state.guest_mode:
-            chat["messages"].append(user_msg)
+            if "messages" not in chat:
+                chat["messages"] = []
+            chat["messages"].append({"role": "user", "content": p})
         else:
-            chat["messages"].append(user_msg)
+            chat["messages"].append({"role": "user", "content": p})
         
         with st.spinner("🧠 Đang suy nghĩ..."):
-            msgs = [{"role": m.get("role"), "content": m.get("content")} for m in messages[-10:]] if is_pro else [{"role": m.get("role"), "content": m.get("content")} for m in messages[-5:]]
-            msgs.append({"role": "user", "content": p})
+            msgs = [{"role": m.get("role"), "content": m.get("content")} for m in chat["messages"][-10:]] if is_pro else [{"role": m.get("role"), "content": m.get("content")} for m in chat["messages"][-5:]]
             ans = call_ai(msgs)
             if st.session_state.guest_mode:
                 chat["messages"].append({"role": "assistant", "content": ans})
@@ -960,19 +985,50 @@ elif st.session_state.page == "SOCIAL":
         for f in st.session_state.data["friends"].get(st.session_state.user, []):
             st.write(f"- {f}")
 
-# ================== LỊCH SỬ ==================
+# ================== LỊCH SỬ CHAT ==================
 elif st.session_state.page == "HISTORY":
     st.markdown("<h2>📜 LỊCH SỬ CHAT</h2>", unsafe_allow_html=True)
     if st.session_state.guest_mode:
         st.info("Guest không lưu lịch sử")
     else:
-        for s in st.session_state.data["chat_sessions"]:
-            if s.get("owner") == st.session_state.user:
-                with st.expander(f"💬 {s.get('name')}"):
-                    st.write(f"Tin nhắn: {len(s.get('messages', []))}")
-                    if st.button("Tiếp tục", key=f"cont_{s.get('id')}"):
-                        st.session_state.current_chat_id = s.get("id")
-                        go_to("CHAT")
+        sessions = [s for s in st.session_state.data["chat_sessions"] if s.get("owner") == st.session_state.user]
+        sessions.reverse()
+        if not sessions:
+            st.info("Chưa có lịch sử trò chuyện nào.")
+        for s in sessions:
+            with st.expander(f"💬 {s.get('name')} - {s.get('created', '')[:16]}"):
+                st.write(f"Tin nhắn: {len(s.get('messages', []))}")
+                if s.get('messages'):
+                    st.write(f"Cuối: {s['messages'][-1].get('content', '')[:100]}...")
+                if st.button("Tiếp tục", key=f"cont_{s.get('id')}"):
+                    st.session_state.current_chat_id = s.get("id")
+                    go_to("CHAT")
+
+# ================== THÔNG BÁO (MỤC RIÊNG) ==================
+elif st.session_state.page == "NOTIFICATIONS":
+    st.markdown("<h2>📢 THÔNG BÁO</h2>", unsafe_allow_html=True)
+    
+    if st.session_state.guest_mode:
+        st.info("Guest không có thông báo")
+    else:
+        notifs = st.session_state.data.get("notifications", {}).get(st.session_state.user, [])
+        notifs.reverse()
+        
+        if not notifs:
+            st.info("Chưa có thông báo nào")
+        else:
+            for n in notifs:
+                with st.container():
+                    st.markdown(f"""
+                    <div class="notification-item {"unread" if not n.get("read") else ""}" style="background: {'#e0e7ff' if not n.get("read") else 'white'}; border-radius: 12px; margin-bottom: 10px;">
+                        <div class="notification-title">{n.get("title", "")}</div>
+                        <div class="notification-message">{n.get("message", "")}</div>
+                        <div class="notification-time">{n.get("time", "")[:16]}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    if not n.get("read"):
+                        n["read"] = True
+                        save_data(st.session_state.data)
 
 # ================== CÀI ĐẶT ==================
 elif st.session_state.page == "SETTINGS":
