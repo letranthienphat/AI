@@ -17,7 +17,7 @@ import mimetypes
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "7.2.0",
+    "VERSION": "7.3.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -37,7 +37,7 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 7.2.0
+- Phiên bản: 7.3.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
@@ -84,7 +84,7 @@ st.markdown("""
     height: 100vh;
 }
 
-/* === CHAT LAYOUT - THANH INPUT NỔI === */
+/* === CHAT LAYOUT === */
 .chat-layout {
     display: flex;
     flex-direction: column;
@@ -109,24 +109,53 @@ st.markdown("""
     overflow-y: auto;
     padding: 20px;
     background: #f8f9fa;
+    scroll-behavior: smooth;
 }
 
-/* Input cố định dưới cùng - KHÔNG BAO GIỜ TRÔI */
-.chat-input-fixed {
-    position: sticky;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 15px 20px;
+/* Floating Chat Input - CÓ THỂ KÉO THẢ */
+.chat-input-floating {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 380px;
     background: white;
-    border-top: 1px solid #e5e7eb;
-    flex-shrink: 0;
-    z-index: 100;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    z-index: 1000;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: move;
+    resize: both;
+}
+
+.chat-input-header {
+    padding: 10px 15px;
+    background: linear-gradient(135deg, #0047AB, #0066CC);
+    color: white;
+    font-weight: bold;
+    cursor: move;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-input-header span {
+    cursor: pointer;
+}
+
+.chat-input-body {
+    padding: 12px;
+    background: white;
 }
 
 .message {
     margin-bottom: 16px;
     display: flex;
+    animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 .message.user { justify-content: flex-end; }
 .message.assistant { justify-content: flex-start; }
@@ -223,6 +252,7 @@ st.markdown("""
 .avatar-large { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }
 .search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; }
 .custom-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+.summary-box { background: #f0f4ff; border-radius: 12px; padding: 12px; margin-top: 10px; border-left: 4px solid #0047AB; }
 
 .pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
 
@@ -237,6 +267,12 @@ st.markdown("""
 }
 .menu-item:hover { background: #f0f2f6; }
 .menu-item.active { background: #e0e7ff; color: #0047AB; }
+
+/* Draggable */
+.draggable {
+    cursor: move;
+    user-select: none;
+}
 </style>
 
 <script>
@@ -244,11 +280,60 @@ function toggleNotifications() {
     var panel = document.getElementById('notification-panel');
     if (panel) panel.classList.toggle('show');
 }
+
 function scrollChatToBottom() {
     var container = document.getElementById('chat-messages');
-    if (container) container.scrollTop = container.scrollHeight;
+    if (container) {
+        container.scrollTop = container.scrollHeight;
+    }
 }
-setTimeout(scrollChatToBottom, 200);
+
+function makeDraggable(element) {
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    const header = document.getElementById('chat-input-header');
+    if (header) {
+        header.onmousedown = dragMouseDown;
+    }
+    
+    function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+    }
+    
+    function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        let newTop = element.offsetTop - pos2;
+        let newLeft = element.offsetLeft - pos1;
+        let maxLeft = window.innerWidth - element.offsetWidth;
+        let maxTop = window.innerHeight - element.offsetHeight;
+        newLeft = Math.min(Math.max(0, newLeft), maxLeft);
+        newTop = Math.min(Math.max(0, newTop), maxTop);
+        element.style.top = newTop + "px";
+        element.style.left = newLeft + "px";
+        element.style.bottom = "auto";
+        element.style.right = "auto";
+    }
+    
+    function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+    }
+}
+
+setTimeout(() => {
+    const floatingInput = document.getElementById('chat-input-floating');
+    if (floatingInput) makeDraggable(floatingInput);
+    scrollChatToBottom();
+}, 500);
 </script>
 """, unsafe_allow_html=True)
 
@@ -257,7 +342,7 @@ def search_web(query: str) -> List[Dict]:
     results = []
     try:
         url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
-        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/7.2"}, timeout=10)
+        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/7.3"}, timeout=10)
         if response.status_code == 200:
             data = response.json()
             if data.get("AbstractText"):
@@ -304,13 +389,41 @@ def summarize_page(url: str) -> str:
         from openai import OpenAI
         client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
         messages = [
-            {"role": "system", "content": "Bạn là NEXUS OS GATEWAY. Tóm tắt nội dung sau ngắn gọn, 200-300 từ."},
+            {"role": "system", "content": "Bạn là NEXUS OS GATEWAY. Tóm tắt nội dung sau ngắn gọn, 150-200 từ."},
             {"role": "user", "content": f"Nội dung:\n{content[:4000]}\n\nTóm tắt:"}
         ]
         res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.5, max_tokens=1024)
         return res.choices[0].message.content
     except Exception as e:
         return f"Lỗi: {str(e)}"
+
+def summarize_multiple_sources(query: str, results: List[Dict]) -> str:
+    """Đọc và tổng hợp từ nhiều nguồn"""
+    if not results:
+        return "Không có kết quả nào để phân tích."
+    
+    contents = []
+    for i, r in enumerate(results[:5]):
+        if r.get('url') and r['url'].startswith('http'):
+            content = get_page_content(r['url'])
+            if content and len(content) > 200:
+                contents.append(f"--- Nguồn {i+1}: {r['title']} ---\n{content[:2000]}")
+    
+    if not contents:
+        return "Không thể đọc nội dung từ các trang web."
+    
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
+        all_content = "\n\n".join(contents)
+        messages = [
+            {"role": "system", "content": f"Bạn là NEXUS OS GATEWAY. Dựa trên nội dung từ {len(contents)} trang web, hãy tổng hợp câu trả lời cho câu hỏi: '{query}'. Trả lời chi tiết, khoảng 300-400 từ, có trích dẫn nguồn."},
+            {"role": "user", "content": f"Các nội dung tham khảo:\n{all_content}\n\nCâu hỏi: {query}\n\nTổng hợp câu trả lời:"}
+        ]
+        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.5, max_tokens=1500)
+        return res.choices[0].message.content
+    except Exception as e:
+        return f"Lỗi tổng hợp: {str(e)}"
 
 # ================== HÀM THÔNG BÁO ==================
 def load_system_notifications() -> List[Dict]:
@@ -759,13 +872,9 @@ elif st.session_state.page == "CHAT":
     st.markdown('<div class="chat-layout">', unsafe_allow_html=True)
     st.markdown('<div class="chat-header">🧠 NEXUS OS GATEWAY - Trợ lý AI</div>', unsafe_allow_html=True)
     
-    # CHỈ TẠO CUỘC TRÒ CHUYỆN KHI THỰC SỰ NHẮN TIN
-    # Không tạo sẵn khi vào trang
-    
     with st.sidebar:
         st.markdown("### 📝 LỊCH SỬ")
         if st.button("➕ Tạo mới"):
-            # Tạo cuộc trò chuyện mới
             new_id = len(st.session_state.data["chat_sessions"])
             st.session_state.data["chat_sessions"].append({
                 "id": new_id, "name": f"Chat {datetime.now().strftime('%H:%M %d/%m')}",
@@ -795,7 +904,6 @@ elif st.session_state.page == "CHAT":
                     save_data(st.session_state.data)
                     st.rerun()
     
-    # Lấy hoặc tạo chat tạm cho guest
     if st.session_state.guest_mode:
         chat = st.session_state.temp_chat
     else:
@@ -803,10 +911,8 @@ elif st.session_state.page == "CHAT":
             sessions = [s for s in st.session_state.data["chat_sessions"] if s.get("id") == st.session_state.current_chat_id]
             chat = sessions[0] if sessions else {"messages": []}
         else:
-            # Hiển thị trạng thái chưa có cuộc trò chuyện
             chat = None
     
-    # Messages area
     st.markdown('<div id="chat-messages" class="chat-messages">', unsafe_allow_html=True)
     
     if chat is None:
@@ -820,14 +926,24 @@ elif st.session_state.page == "CHAT":
                 st.markdown(f'<div class="message assistant"><div class="message-bubble">{m.get("content", "")}</div></div>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    # Input area - CỐ ĐỊNH DƯỚI CÙNG, NỔI LÊN TRÊN MỌI THỨ
-    st.markdown('<div class="chat-input-fixed">', unsafe_allow_html=True)
+    # Floating Chat Input
+    st.markdown('''
+    <div id="chat-input-floating" class="chat-input-floating">
+        <div id="chat-input-header" class="chat-input-header">
+            <span>💬 Chat với NEXUS OS</span>
+            <span style="cursor:pointer" onclick="this.parentElement.parentElement.style.display='none'">✕</span>
+        </div>
+        <div class="chat-input-body">
+    ''', unsafe_allow_html=True)
+    
     col_inp, col_up = st.columns([4, 1])
     with col_up:
-        uploaded_file = st.file_uploader("📎", type=["txt"], label_visibility="collapsed")
+        uploaded_file = st.file_uploader("📎", type=["txt"], label_visibility="collapsed", key="floating_upload")
     with col_inp:
-        p = st.chat_input("Nhập câu hỏi...")
+        p = st.chat_input("Nhập câu hỏi...", key="floating_input")
+    
     st.markdown('</div></div>', unsafe_allow_html=True)
     
     if uploaded_file:
@@ -836,7 +952,6 @@ elif st.session_state.page == "CHAT":
         st.rerun()
     
     if p:
-        # Nếu chưa có cuộc trò chuyện, tạo mới
         if not st.session_state.guest_mode and chat is None:
             new_id = len(st.session_state.data["chat_sessions"])
             st.session_state.data["chat_sessions"].append({
@@ -862,33 +977,67 @@ elif st.session_state.page == "CHAT":
             else:
                 chat["messages"].append({"role": "assistant", "content": ans})
                 save_data(st.session_state.data)
+        
+        st.markdown('<script>setTimeout(scrollChatToBottom, 100);</script>', unsafe_allow_html=True)
         st.rerun()
 
 # ================== TÌM KIẾM WEB ==================
 elif st.session_state.page == "SEARCH":
     st.markdown("<h2>🌐 TÌM KIẾM WEB</h2>", unsafe_allow_html=True)
-    query = st.text_input("🔍 Nhập từ khóa:")
     
-    if st.button("🔎 Tìm kiếm"):
-        with st.spinner("Đang tìm..."):
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        query = st.text_input("🔍 Nhập từ khóa tìm kiếm:", placeholder="Ví dụ: công nghệ AI, thời tiết hôm nay...")
+    with col2:
+        multi_source = st.button("🤖 AI đọc nhiều nguồn", use_container_width=True, help="Đọc 5 trang web đầu và tổng hợp câu trả lời")
+    
+    if st.button("🔎 Tìm kiếm", use_container_width=True) and query:
+        with st.spinner("Đang tìm kiếm..."):
             st.session_state.search_results = search_web(query)
+            st.session_state.web_summaries = {}
             st.rerun()
     
-    for i, r in enumerate(st.session_state.search_results):
-        if r.get('url'):
-            st.markdown(f"<div class='search-result'><b>{r.get('title')}</b><br><small>{r.get('url')[:80]}</small><br>{r.get('snippet', '')[:200]}</div>", unsafe_allow_html=True)
-            col1, col2 = st.columns(2)
-            if col1.button(f"📖 Tóm tắt", key=f"sum_{i}"):
-                with st.spinner("Đang đọc..."):
-                    summary = summarize_page(r['url'])
-                    st.session_state.web_summaries[r['url']] = summary
-                    st.rerun()
-            if col2.button(f"🔗 Mở", key=f"open_{i}"):
-                st.markdown(f'<a href="{r["url"]}" target="_blank">Mở tab mới</a>', unsafe_allow_html=True)
+    if multi_source and query:
+        with st.spinner("🤖 AI đang đọc và tổng hợp từ nhiều nguồn..."):
+            results = search_web(query)
+            st.session_state.search_results = results
+            summary = summarize_multiple_sources(query, results)
+            st.session_state.web_summaries = {"multi_source": summary}
+            st.rerun()
     
-    if st.session_state.web_summaries:
-        for url, summary in st.session_state.web_summaries.items():
-            st.markdown(f"<div class='ai-banner' style='background:linear-gradient(135deg,#0047AB,#0066CC);color:white;padding:16px;border-radius:20px;margin:12px 0'><b>📝 TÓM TẮT</b><br>{summary}</div>", unsafe_allow_html=True)
+    if st.session_state.search_results:
+        st.subheader(f"📄 Kết quả tìm kiếm ({len(st.session_state.search_results)})")
+        
+        for i, r in enumerate(st.session_state.search_results):
+            if r.get('url'):
+                with st.container():
+                    st.markdown(f"""
+                    <div class="search-result">
+                        <b>{r.get('title')}</b><br>
+                        <small style="color:#6b7280">{r.get('url')[:80]}...</small><br>
+                        <span style="font-size:0.9rem">{r.get('snippet', '')[:200]}...</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button(f"📖 Tóm tắt trang này", key=f"sum_{i}"):
+                            with st.spinner("Đang đọc..."):
+                                summary = summarize_page(r['url'])
+                                st.session_state.web_summaries[r['url']] = summary
+                                st.rerun()
+                    with col2:
+                        if st.button(f"🔗 Mở", key=f"open_{i}"):
+                            st.markdown(f'<a href="{r["url"]}" target="_blank">Mở tab mới</a>', unsafe_allow_html=True)
+                    
+                    # Hiển thị tóm tắt ngay bên dưới kết quả
+                    if r['url'] in st.session_state.web_summaries:
+                        st.markdown(f'<div class="summary-box"><b>📝 Tóm tắt:</b><br>{st.session_state.web_summaries[r["url"]]}</div>', unsafe_allow_html=True)
+        
+        # Hiển thị tổng hợp nhiều nguồn
+        if "multi_source" in st.session_state.web_summaries:
+            st.markdown("---")
+            st.markdown('<div class="summary-box" style="background:linear-gradient(135deg,#e0e7ff,#f0f4ff)"><b>🤖 AI TỔNG HỢP TỪ NHIỀU NGUỒN</b><br><br>' + st.session_state.web_summaries["multi_source"] + '</div>', unsafe_allow_html=True)
 
 # ================== CLOUD ==================
 elif st.session_state.page == "CLOUD":
@@ -1004,7 +1153,7 @@ elif st.session_state.page == "HISTORY":
                     st.session_state.current_chat_id = s.get("id")
                     go_to("CHAT")
 
-# ================== THÔNG BÁO (MỤC RIÊNG) ==================
+# ================== THÔNG BÁO ==================
 elif st.session_state.page == "NOTIFICATIONS":
     st.markdown("<h2>📢 THÔNG BÁO</h2>", unsafe_allow_html=True)
     
