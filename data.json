@@ -441,6 +441,11 @@
       "username": "ThienPhat",
       "expiry": "2026-05-14 11:25:11.607244",
       "device_id": "7c73ef5b8d3235ae"
+    },
+    "0bb80f263e2c698653f42e96afea82e6af937003a297b3c4f9b742a54e1026f9": {
+      "username": "ThienPhat",
+      "expiry": "2026-05-14 11:44:37.187977",
+      "device_id": "7c73ef5b8d3235ae"
     }
   },
   "login_history": {
@@ -454,5 +459,6 @@
       }
     ]
   },
-  "registration_history": {}
+  "registration_history": {},
+  "ai_call_counts": {}
 }
