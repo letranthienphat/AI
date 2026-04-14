@@ -456,6 +456,12 @@
         "device_id": "7c73ef5b8d3235ae",
         "ip": "192.168.1.57, 10.13.72.12",
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+      },
+      {
+        "time": "2026-04-14 11:44:39.386335",
+        "status": "success",
+        "device_id": "7c73ef5b8d3235ae",
+        "ip": "192.168.15.247, 10.12.222.8"
       }
     ]
   },
