@@ -17,7 +17,7 @@ import mimetypes
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "8.1.0",
+    "VERSION": "8.2.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -38,7 +38,7 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 8.1.0
+- Phiên bản: 8.2.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
@@ -82,7 +82,7 @@ st.markdown("""
     height: 100vh;
 }
 
-/* CHAT LAYOUT - QUAN TRỌNG */
+/* CHAT LAYOUT - THANH NHẬP CỐ ĐỊNH */
 .chat-wrapper {
     display: flex;
     flex-direction: column;
@@ -120,19 +120,37 @@ st.markdown("""
     overflow-y: auto;
     padding: 20px;
     background: #f8f9fa;
+    padding-bottom: 80px;
 }
 
-/* VÙNG NHẬP - CỐ ĐỊNH, KHÔNG BAO GIỜ TRÔI */
-.chat-input-area {
+/* THANH NHẬP - CỐ ĐỊNH Ở DƯỚI CÙNG MÀN HÌNH */
+.chat-input-fixed {
+    position: fixed;
+    bottom: 0;
+    left: 280px;
+    right: 0;
     padding: 15px 20px;
     background: white;
     border-top: 1px solid #e5e7eb;
-    flex-shrink: 0;
+    z-index: 1000;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+}
+
+/* Điều chỉnh cho màn hình nhỏ */
+@media (max-width: 768px) {
+    .chat-input-fixed {
+        left: 0;
+    }
 }
 
 .message {
     margin-bottom: 16px;
     display: flex;
+    animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 .message.user { justify-content: flex-end; }
 .message.assistant { justify-content: flex-start; }
@@ -251,11 +269,11 @@ function deleteChat(chatId) {
     }
 }
 function deleteAllChats() {
-    if (confirm('Bạn có chắc muốn xóa TẤT CẢ cuộc trò chuyện?')) {
+    if (confirm('⚠️ CẢNH BÁO: Bạn có chắc muốn xóa TẤT CẢ cuộc trò chuyện? Hành động này không thể hoàn tác!')) {
         window.location.href = '?delete_all_chats=true';
     }
 }
-setTimeout(scrollChatToBottom, 200);
+setTimeout(scrollChatToBottom, 500);
 </script>
 """, unsafe_allow_html=True)
 
@@ -264,7 +282,7 @@ def search_web(query: str) -> List[Dict]:
     results = []
     try:
         url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
-        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/8.1"}, timeout=10)
+        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/8.2"}, timeout=10)
         if response.status_code == 200:
             data = response.json()
             if data.get("AbstractText"):
@@ -571,7 +589,7 @@ def init_session():
         st.session_state.browsing_history = []
     auto_cleanup_files()
     
-    # Xóa chat
+    # Xóa chat nếu có request
     if st.query_params.get("delete_chat"):
         chat_id = int(st.query_params.get("delete_chat"))
         st.session_state.data["chat_sessions"] = [s for s in st.session_state.data["chat_sessions"] if s.get("id") != chat_id]
@@ -806,7 +824,7 @@ elif st.session_state.page == "CHAT":
                     st.rerun()
             with col2:
                 if st.button("🗑️", key=f"del_{s.get('id')}"):
-                    st.markdown(f'<button onclick="deleteChat({s.get("id")})">🗑️</button>', unsafe_allow_html=True)
+                    st.markdown(f'<button onclick="deleteChat({s.get("id")})" style="background:#dc2626; color:white; border:none; border-radius:20px; padding:5px 10px; cursor:pointer;">🗑️</button>', unsafe_allow_html=True)
     
     if st.session_state.guest_mode:
         chat = st.session_state.temp_chat
@@ -832,13 +850,16 @@ elif st.session_state.page == "CHAT":
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # VÙNG NHẬP - CỐ ĐỊNH
-    st.markdown('<div class="chat-input-area">', unsafe_allow_html=True)
-    col_inp, col_up = st.columns([4, 1])
+    # VÙNG NHẬP - CỐ ĐỊNH Ở DƯỚI CÙNG MÀN HÌNH
+    st.markdown('<div class="chat-input-fixed">', unsafe_allow_html=True)
+    
+    # Upload file và input
+    col_up, col_inp = st.columns([1, 5])
     with col_up:
         uploaded_file = st.file_uploader("📎", type=["txt"], label_visibility="collapsed")
     with col_inp:
         p = st.chat_input("Nhập câu hỏi...")
+    
     st.markdown('</div></div>', unsafe_allow_html=True)
     
     if uploaded_file:
@@ -872,6 +893,9 @@ elif st.session_state.page == "CHAT":
             else:
                 chat["messages"].append({"role": "assistant", "content": ans})
                 save_data(st.session_state.data)
+        
+        # Cuộn xuống cuối sau khi có tin nhắn mới
+        st.markdown('<script>setTimeout(scrollChatToBottom, 100);</script>', unsafe_allow_html=True)
         st.rerun()
 
 # ================== TÌM KIẾM WEB ==================
@@ -1034,7 +1058,7 @@ elif st.session_state.page == "HISTORY":
                         go_to("CHAT")
                 with col2:
                     if st.button("🗑️ Xóa", key=f"del_{s.get('id')}"):
-                        st.markdown(f'<button onclick="deleteChat({s.get("id")})">🗑️ Xóa</button>', unsafe_allow_html=True)
+                        st.markdown(f'<button onclick="deleteChat({s.get("id")})" style="background:#dc2626; color:white; border:none; border-radius:20px; padding:5px 10px; cursor:pointer;">🗑️ Xóa</button>', unsafe_allow_html=True)
 
 # ================== THÔNG BÁO ==================
 elif st.session_state.page == "NOTIFICATIONS":
