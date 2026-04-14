@@ -17,7 +17,7 @@ import mimetypes
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "8.2.0",
+    "VERSION": "8.3.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -38,7 +38,7 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 8.2.0
+- Phiên bản: 8.3.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
@@ -65,8 +65,9 @@ st.markdown("""
 
 .main-container { display: flex; height: 100vh; width: 100%; overflow: hidden; }
 
+/* Sidebar */
 .sidebar { 
-    width: 280px; 
+    width: 260px; 
     background: white; 
     border-right: 1px solid #e5e7eb; 
     overflow-y: auto; 
@@ -75,20 +76,22 @@ st.markdown("""
     height: 100vh;
 }
 
-.content-area { 
-    flex: 1; 
-    overflow-y: auto; 
-    padding: 20px; 
+/* Content area - 2 cột */
+.content-area {
+    flex: 1;
+    display: flex;
     height: 100vh;
+    overflow: hidden;
 }
 
-/* CHAT LAYOUT - THANH NHẬP CỐ ĐỊNH */
-.chat-wrapper {
+/* Cột chat bên trái */
+.chat-column {
+    flex: 2;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 80px);
     background: white;
     border-radius: 20px;
+    margin: 10px;
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
 }
@@ -114,35 +117,38 @@ st.markdown("""
     cursor: pointer;
 }
 
-/* VÙNG TIN NHẮN - CÓ THỂ CUỘN */
 .chat-messages-area {
     flex: 1;
     overflow-y: auto;
     padding: 20px;
     background: #f8f9fa;
-    padding-bottom: 80px;
 }
 
-/* THANH NHẬP - CỐ ĐỊNH Ở DƯỚI CÙNG MÀN HÌNH */
-.chat-input-fixed {
-    position: fixed;
-    bottom: 0;
-    left: 280px;
-    right: 0;
-    padding: 15px 20px;
+/* Cột input bên phải - LUÔN HIỂN THỊ */
+.input-column {
+    width: 320px;
     background: white;
-    border-top: 1px solid #e5e7eb;
-    z-index: 1000;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+    border-left: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    gap: 15px;
+    overflow-y: auto;
 }
 
-/* Điều chỉnh cho màn hình nhỏ */
-@media (max-width: 768px) {
-    .chat-input-fixed {
-        left: 0;
-    }
+.input-card {
+    background: #f8f9fa;
+    border-radius: 16px;
+    padding: 15px;
+    margin-bottom: 15px;
 }
 
+.input-card h4 {
+    margin-bottom: 10px;
+    color: #0047AB;
+}
+
+/* Message bubbles */
 .message {
     margin-bottom: 16px;
     display: flex;
@@ -156,7 +162,7 @@ st.markdown("""
 .message.assistant { justify-content: flex-start; }
 
 .message-bubble {
-    max-width: 75%;
+    max-width: 80%;
     padding: 10px 16px;
     border-radius: 18px;
     word-wrap: break-word;
@@ -245,11 +251,27 @@ st.markdown("""
 .pro-badge { background: linear-gradient(135deg, #FFD700, #FFB347); }
 .version-badge { background: #6c757d; color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; }
 .avatar-large { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }
-.search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; }
+.search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; cursor: pointer; }
+.search-result:hover { background: #f9fafb; }
 .custom-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 .instant-answer { background: linear-gradient(135deg, #e0e7ff, #f0f4ff); padding: 20px; border-radius: 16px; margin-bottom: 20px; border-left: 4px solid #0047AB; }
 
 .pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
+
+/* Search result item */
+.search-item {
+    background: white;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.search-item:hover {
+    background: #f0f4ff;
+    transform: translateX(4px);
+}
 </style>
 
 <script>
@@ -282,7 +304,7 @@ def search_web(query: str) -> List[Dict]:
     results = []
     try:
         url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
-        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/8.2"}, timeout=10)
+        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/8.3"}, timeout=10)
         if response.status_code == 200:
             data = response.json()
             if data.get("AbstractText"):
@@ -587,6 +609,8 @@ def init_session():
         st.session_state.instant_answer = ""
     if 'browsing_history' not in st.session_state:
         st.session_state.browsing_history = []
+    if 'search_context' not in st.session_state:
+        st.session_state.search_context = ""
     auto_cleanup_files()
     
     # Xóa chat nếu có request
@@ -624,12 +648,19 @@ def go_to(page):
     st.session_state.page = page
     st.rerun()
 
-def call_ai(messages: List[Dict]) -> str:
+def call_ai(messages: List[Dict], context: str = "") -> str:
     try:
         from openai import OpenAI
         client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
-        messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
-        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.7, max_tokens=2048)
+        
+        full_messages = []
+        if context:
+            full_messages.append({"role": "system", "content": f"{SYSTEM_PROMPT}\n\nNgữ cảnh từ kết quả tìm kiếm:\n{context}"})
+        else:
+            full_messages.append({"role": "system", "content": SYSTEM_PROMPT})
+        
+        full_messages.extend(messages)
+        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=full_messages, temperature=0.7, max_tokens=2048)
         return res.choices[0].message.content
     except Exception as e:
         return f"❌ Lỗi: {str(e)}"
@@ -793,9 +824,12 @@ if st.session_state.page == "DASHBOARD":
     if col3.button("☁️ LƯU TRỮ"): go_to("CLOUD")
     if col4.button("👥 BẠN BÈ"): go_to("SOCIAL")
 
-# ================== CHAT AI ==================
+# ================== CHAT AI - 2 CỘT ==================
 elif st.session_state.page == "CHAT":
-    st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
+    st.markdown('<div class="content-area">', unsafe_allow_html=True)
+    
+    # Cột chat bên trái
+    st.markdown('<div class="chat-column">', unsafe_allow_html=True)
     st.markdown('<div class="chat-header">🧠 NEXUS OS GATEWAY - Trợ lý AI<button onclick="deleteAllChats()">🗑️ Xóa tất cả</button></div>', unsafe_allow_html=True)
     
     with st.sidebar:
@@ -839,7 +873,7 @@ elif st.session_state.page == "CHAT":
     st.markdown('<div id="chat-messages-area" class="chat-messages-area">', unsafe_allow_html=True)
     
     if chat is None:
-        st.markdown('<div style="text-align:center; padding: 40px; color: #9ca3af;">👋 Chưa có cuộc trò chuyện nào. Hãy nhập tin nhắn bên dưới để bắt đầu!</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center; padding: 40px; color: #9ca3af;">👋 Chưa có cuộc trò chuyện nào. Hãy nhập tin nhắn bên phải để bắt đầu!</div>', unsafe_allow_html=True)
     else:
         messages = chat.get("messages", [])
         for m in messages:
@@ -849,23 +883,105 @@ elif st.session_state.page == "CHAT":
                 st.markdown(f'<div class="message assistant"><div class="message-bubble">{m.get("content", "")}</div></div>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    # VÙNG NHẬP - CỐ ĐỊNH Ở DƯỚI CÙNG MÀN HÌNH
-    st.markdown('<div class="chat-input-fixed">', unsafe_allow_html=True)
+    # Cột input bên phải - LUÔN HIỂN THỊ
+    st.markdown('<div class="input-column">', unsafe_allow_html=True)
     
-    # Upload file và input
-    col_up, col_inp = st.columns([1, 5])
+    # Card nhập tin nhắn
+    st.markdown('<div class="input-card">', unsafe_allow_html=True)
+    st.markdown('<h4>💬 Nhập tin nhắn</h4>', unsafe_allow_html=True)
+    
+    col_up, col_inp = st.columns([1, 3])
     with col_up:
         uploaded_file = st.file_uploader("📎", type=["txt"], label_visibility="collapsed")
     with col_inp:
         p = st.chat_input("Nhập câu hỏi...")
     
-    st.markdown('</div></div>', unsafe_allow_html=True)
-    
     if uploaded_file:
         extracted = extract_text_from_file(uploaded_file)
         p = f"[File: {uploaded_file.name}]\n{extracted}" if extracted and not extracted.startswith("[") else f"Tôi vừa tải file {uploaded_file.name}"
         st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Card tìm kiếm web
+    st.markdown('<div class="input-card">', unsafe_allow_html=True)
+    st.markdown('<h4>🌐 Tìm kiếm web</h4>', unsafe_allow_html=True)
+    search_q = st.text_input("Tìm kiếm:", placeholder="Nhập từ khóa...", key="search_input")
+    if st.button("🔎 Tìm kiếm", use_container_width=True):
+        with st.spinner("Đang tìm kiếm..."):
+            st.session_state.search_results = search_web(search_q)
+            st.session_state.instant_answer = ""
+            st.session_state.search_context = ""
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Card kết quả tìm kiếm
+    if st.session_state.search_results:
+        st.markdown('<div class="input-card">', unsafe_allow_html=True)
+        st.markdown('<h4>📄 Kết quả tìm kiếm</h4>', unsafe_allow_html=True)
+        
+        for i, r in enumerate(st.session_state.search_results[:5]):
+            if r.get('url'):
+                st.markdown(f'<div class="search-item" onclick="document.getElementById(\'ask_{i}\').click()"><b>{r.get("title", "")[:60]}</b><br><small style="color:#6b7280">{r.get("url", "")[:50]}...</small></div>', unsafe_allow_html=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button(f"📖 Tóm tắt", key=f"sum_{i}"):
+                        with st.spinner("Đang đọc..."):
+                            summary = get_ai_instant_answer(f"Tóm tắt trang {r.get('title')}", [r])
+                            st.session_state.instant_answer = summary
+                            st.rerun()
+                with col2:
+                    if st.button(f"💬 Hỏi AI về trang này", key=f"ask_{i}"):
+                        st.session_state.search_context = f"Người dùng đang hỏi về trang web: {r.get('title')}\nURL: {r.get('url')}\nNội dung trang: {get_page_content(r.get('url'))[:3000]}"
+                        st.rerun()
+        
+        if st.session_state.instant_answer:
+            st.markdown(f'<div style="background:#e0e7ff; border-radius:12px; padding:12px; margin-top:10px;"><b>📝 Tóm tắt:</b><br>{st.session_state.instant_answer}</div>', unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Card hỏi AI với context
+    if st.session_state.search_context:
+        st.markdown('<div class="input-card">', unsafe_allow_html=True)
+        st.markdown('<h4>🤖 Hỏi AI về kết quả tìm kiếm</h4>', unsafe_allow_html=True)
+        follow_up = st.text_input("Câu hỏi của bạn:", placeholder="Ví dụ: Trang web này nói gì về...")
+        if st.button("💬 Gửi câu hỏi", use_container_width=True):
+            if follow_up:
+                if not st.session_state.guest_mode and chat is None:
+                    new_id = len(st.session_state.data["chat_sessions"])
+                    st.session_state.data["chat_sessions"].append({
+                        "id": new_id, "name": f"Chat {datetime.now().strftime('%H:%M %d/%m')}",
+                        "owner": st.session_state.user, "created": str(datetime.now()), "messages": []
+                    })
+                    st.session_state.current_chat_id = new_id
+                    save_data(st.session_state.data)
+                    chat = st.session_state.data["chat_sessions"][-1]
+                
+                user_msg = {"role": "user", "content": follow_up}
+                if st.session_state.guest_mode:
+                    chat["messages"].append(user_msg)
+                else:
+                    chat["messages"].append(user_msg)
+                
+                with st.spinner("🧠 Đang suy nghĩ..."):
+                    msgs = [{"role": m.get("role"), "content": m.get("content")} for m in chat["messages"][-10:]] if is_pro else [{"role": m.get("role"), "content": m.get("content")} for m in chat["messages"][-5:]]
+                    ans = call_ai(msgs, st.session_state.search_context)
+                    assistant_msg = {"role": "assistant", "content": ans}
+                    if st.session_state.guest_mode:
+                        chat["messages"].append(assistant_msg)
+                    else:
+                        chat["messages"].append(assistant_msg)
+                        save_data(st.session_state.data)
+                
+                st.session_state.search_context = ""
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
     if p:
         if not st.session_state.guest_mode and chat is None:
@@ -894,52 +1010,8 @@ elif st.session_state.page == "CHAT":
                 chat["messages"].append({"role": "assistant", "content": ans})
                 save_data(st.session_state.data)
         
-        # Cuộn xuống cuối sau khi có tin nhắn mới
         st.markdown('<script>setTimeout(scrollChatToBottom, 100);</script>', unsafe_allow_html=True)
         st.rerun()
-
-# ================== TÌM KIẾM WEB ==================
-elif st.session_state.page == "SEARCH":
-    st.markdown("<h2>🌐 TÌM KIẾM WEB</h2>", unsafe_allow_html=True)
-    
-    query = st.text_input("🔍 Nhập từ khóa hoặc câu hỏi:")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        search_btn = st.button("🔎 Tìm kiếm", use_container_width=True)
-    with col2:
-        ai_summary_btn = st.button("🤖 AI đọc tất cả trang web", use_container_width=True)
-    
-    if search_btn and query:
-        with st.spinner("Đang tìm kiếm..."):
-            st.session_state.search_results = search_web(query)
-            st.session_state.instant_answer = ""
-            st.rerun()
-    
-    if ai_summary_btn and query:
-        with st.spinner("🤖 AI đang đọc nội dung các trang web..."):
-            results = search_web(query)
-            st.session_state.instant_answer = get_ai_instant_answer(query, results)
-            st.session_state.search_results = results
-            st.rerun()
-    
-    if st.session_state.instant_answer:
-        st.markdown(f'<div class="instant-answer"><b>📖 Câu trả lời từ AI:</b><br>{st.session_state.instant_answer}</div>', unsafe_allow_html=True)
-    
-    if st.session_state.search_results:
-        st.subheader(f"📄 Kết quả tìm kiếm ({len(st.session_state.search_results)})")
-        
-        for i, r in enumerate(st.session_state.search_results):
-            if r.get('url'):
-                st.markdown(f"<div class='search-result'><b>{r.get('title')}</b><br><small>{r.get('url')[:80]}</small><br>{r.get('snippet', '')[:200]}</div>", unsafe_allow_html=True)
-                col1, col2 = st.columns(2)
-                if col1.button(f"📖 Tóm tắt trang này", key=f"sum_{i}"):
-                    with st.spinner("Đang đọc..."):
-                        summary = get_ai_instant_answer(f"Tóm tắt trang {r.get('title')}", [r])
-                        st.session_state.instant_answer = summary
-                        st.rerun()
-                if col2.button(f"🔗 Mở", key=f"open_{i}"):
-                    st.markdown(f'<a href="{r["url"]}" target="_blank">Mở tab mới</a>', unsafe_allow_html=True)
 
 # ================== CLOUD ==================
 elif st.session_state.page == "CLOUD":
@@ -1264,6 +1336,7 @@ elif st.session_state.page == "ABOUT":
         - ✅ Trò chuyện AI với NEXUS OS Gateway
         - ✅ Phân tích file văn bản
         - ✅ Tìm kiếm web + AI tóm tắt
+        - ✅ Hỏi AI về kết quả tìm kiếm
         
         **☁️ Lưu trữ Đám mây**
         - ✅ Tạo thư mục, quản lý file
