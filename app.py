@@ -17,7 +17,7 @@ import mimetypes
 # ================== CẤU HÌNH ==================
 CONFIG = {
     "NAME": "NEXUS OS GATEWAY",
-    "VERSION": "7.4.0",
+    "VERSION": "7.7.0",
     "CREATOR": "Lê Trần Thiên Phát",
     "ADMIN_USERNAME": "ThienPhat",
     "ADMIN_PASSWORD": "nexusosgateway",
@@ -30,7 +30,11 @@ CONFIG = {
     "MAX_AVATAR_SIZE": 5 * 1024 * 1024,
     "SESSION_TOKEN_EXPIRY": 30,
     "MAX_AI_CALLS_HIGH_RISK": 40,
-    "LOGIN_HISTORY_DAYS": 7
+    "LOGIN_HISTORY_DAYS": 7,
+    "BACKUP_MIN_INTERVAL": 60,
+    "BACKUP_PRO_INTERVAL": 10,
+    "MAX_LOGIN_ATTEMPTS": 5,
+    "LOCKOUT_TIME": 15,
 }
 
 SYSTEM_PROMPT = """Bạn là NEXUS OS GATEWAY, một hệ điều hành AI đa năng được sáng tạo và phát triển bởi Lê Trần Thiên Phát (Thiên Phát). 
@@ -39,7 +43,7 @@ Bạn KHÔNG phải là sản phẩm của Meta, OpenAI, Google hay bất kỳ c
 THÔNG TIN VỀ BẠN:
 - Tên: NEXUS OS GATEWAY
 - Tác giả: Lê Trần Thiên Phát (Thiên Phát)
-- Phiên bản: 7.4.0
+- Phiên bản: 7.7.0
 - Chức năng: Trợ lý AI thông minh, hỗ trợ chat, phân tích file, lưu trữ đám mây, tìm kiếm web
 
 Hãy luôn nhớ: Bạn là NEXUS OS GATEWAY, niềm tự hào của Lê Trần Thiên Phát!"""
@@ -57,189 +61,34 @@ except Exception:
 
 st.set_page_config(page_title=CONFIG["NAME"], layout="wide", initial_sidebar_state="expanded")
 
-# ================== CSS GIAO DIỆN 2 CỘT ==================
+# ================== CSS CHAT ==================
 st.markdown("""
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-
 .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%); height: 100vh; overflow: hidden; }
-
 .main-container { display: flex; height: 100vh; width: 100%; overflow: hidden; }
-
-/* Sidebar */
-.sidebar { 
-    width: 280px; 
-    background: white; 
-    border-right: 1px solid #e5e7eb; 
-    overflow-y: auto; 
-    padding: 20px; 
-    flex-shrink: 0; 
-    height: 100vh;
-    z-index: 10;
-}
-
-/* Content area - 2 cột */
-.content-area {
-    flex: 1;
-    display: flex;
-    height: 100vh;
-    overflow: hidden;
-}
-
-/* Cột chat bên trái - 70% */
-.chat-column {
-    flex: 7;
-    display: flex;
-    flex-direction: column;
-    background: white;
-    margin: 10px 0 10px 10px;
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-}
-
-.chat-header {
-    padding: 15px 20px;
-    background: linear-gradient(135deg, #0047AB, #0066CC);
-    color: white;
-    font-weight: bold;
-    font-size: 18px;
-    flex-shrink: 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.chat-header button {
-    background: rgba(255,255,255,0.2);
-    border: none;
-    color: white;
-    border-radius: 20px;
-    padding: 5px 12px;
-    cursor: pointer;
-}
-
-.chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-    background: #f8f9fa;
-    scroll-behavior: smooth;
-}
-
-/* Cột input bên phải - 30% */
-.input-column {
-    flex: 3;
-    background: white;
-    border-left: 1px solid #e5e7eb;
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-    margin: 10px 10px 10px 0;
-    border-radius: 20px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-}
-
-.input-card {
-    background: #f8f9fa;
-    border-radius: 16px;
-    padding: 15px;
-    margin-bottom: 20px;
-}
-
-.input-card h4 {
-    margin-bottom: 10px;
-    color: #0047AB;
-}
-
-/* Message bubbles */
-.message {
-    margin-bottom: 16px;
-    display: flex;
-    animation: fadeIn 0.3s ease;
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
+.sidebar { width: 320px; background: white; border-right: 1px solid #e5e7eb; overflow-y: auto; padding: 20px; flex-shrink: 0; height: 100vh; display: flex; flex-direction: column; }
+.content-area { flex: 1; overflow-y: auto; padding: 20px; height: 100vh; display: flex; flex-direction: column; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 20px; background: #f8f9fa; border-radius: 20px; scroll-behavior: smooth; }
+.chat-header { padding: 15px 20px; background: linear-gradient(135deg, #0047AB, #0066CC); color: white; font-weight: bold; font-size: 18px; border-radius: 20px 20px 0 0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.chat-header button { background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 20px; padding: 5px 12px; cursor: pointer; }
+.message { margin-bottom: 16px; display: flex; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .message.user { justify-content: flex-end; }
 .message.assistant { justify-content: flex-start; }
-
-.message-bubble {
-    max-width: 80%;
-    padding: 10px 16px;
-    border-radius: 18px;
-    word-wrap: break-word;
-    line-height: 1.4;
-}
-.message.user .message-bubble {
-    background: #0047AB;
-    color: white;
-    border-bottom-right-radius: 4px;
-}
-.message.assistant .message-bubble {
-    background: white;
-    color: #1f2937;
-    border: 1px solid #e5e7eb;
-    border-bottom-left-radius: 4px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-/* Notification */
-.notification-bell {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #0047AB;
-    color: white;
-    border-radius: 50%;
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    z-index: 1000;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
+.message-bubble { max-width: 75%; padding: 10px 16px; border-radius: 18px; word-wrap: break-word; line-height: 1.4; }
+.message.user .message-bubble { background: #0047AB; color: white; border-bottom-right-radius: 4px; }
+.message.assistant .message-bubble { background: white; color: #1f2937; border: 1px solid #e5e7eb; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.input-card { background: #f8f9fa; border-radius: 16px; padding: 15px; margin-bottom: 20px; }
+.input-card h4 { margin-bottom: 10px; color: #0047AB; }
+.search-result { background: white; border-radius: 12px; padding: 12px; margin-bottom: 10px; border: 1px solid #e5e7eb; }
+.summary-box { background: #f0f4ff; border-radius: 12px; padding: 12px; margin-top: 10px; border-left: 4px solid #0047AB; }
+.notification-bell { position: fixed; top: 20px; right: 20px; background: #0047AB; color: white; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 .notification-bell:hover { transform: scale(1.05); }
-.notification-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: #ef4444;
-    color: white;
-    border-radius: 50%;
-    width: 22px;
-    height: 22px;
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.notification-panel {
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    width: 360px;
-    max-height: 500px;
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-    z-index: 1000;
-    overflow: hidden;
-    display: none;
-}
+.notification-badge { position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+.notification-panel { position: fixed; top: 80px; right: 20px; width: 360px; max-height: 500px; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); z-index: 1000; overflow: hidden; display: none; }
 .notification-panel.show { display: block; }
-.notification-header {
-    padding: 15px;
-    background: #0047AB;
-    color: white;
-    font-weight: bold;
-    display: flex;
-    justify-content: space-between;
-    cursor: pointer;
-}
+.notification-header { padding: 15px; background: #0047AB; color: white; font-weight: bold; display: flex; justify-content: space-between; cursor: pointer; }
 .notification-list { max-height: 400px; overflow-y: auto; }
 .notification-item { padding: 12px 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
 .notification-item:hover { background: #f8f9fa; }
@@ -247,21 +96,16 @@ st.markdown("""
 .notification-title { font-weight: bold; margin-bottom: 4px; }
 .notification-message { font-size: 13px; color: #6b7280; margin-bottom: 4px; }
 .notification-time { font-size: 11px; color: #9ca3af; }
-
-/* Common */
 .stButton>button { border-radius: 40px; font-weight: 600; background: #0047AB; color: white; border: none; width: 100%; }
 .stButton>button:hover { background: #003399; }
 .guest-badge { background: #FFD966; padding: 4px 12px; border-radius: 40px; font-size: 0.8rem; font-weight: bold; display: inline-block; }
 .pro-badge { background: linear-gradient(135deg, #FFD700, #FFB347); }
 .version-badge { background: #6c757d; color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; }
 .avatar-large { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; }
-.search-result { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #e5e7eb; }
 .custom-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-.summary-box { background: #f0f4ff; border-radius: 12px; padding: 12px; margin-top: 10px; border-left: 4px solid #0047AB; }
 .risk-badge-low { background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
 .risk-badge-medium { background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
 .risk-badge-high { background: #ef4444; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
-
 .pull-to-refresh { text-align: center; padding: 10px; color: #6b7280; font-size: 12px; cursor: pointer; }
 </style>
 
@@ -272,9 +116,7 @@ function toggleNotifications() {
 }
 function scrollChatToBottom() {
     var container = document.getElementById('chat-messages');
-    if (container) {
-        container.scrollTop = container.scrollHeight;
-    }
+    if (container) container.scrollTop = container.scrollHeight;
 }
 function deleteChat(chatId) {
     if (confirm('Bạn có chắc muốn xóa cuộc trò chuyện này?')) {
@@ -282,7 +124,7 @@ function deleteChat(chatId) {
     }
 }
 function deleteAllChats() {
-    if (confirm('⚠️ CẢNH BÁO: Bạn có chắc muốn xóa TẤT CẢ cuộc trò chuyện? Hành động này không thể hoàn tác!')) {
+    if (confirm('⚠️ Bạn có chắc muốn xóa TẤT CẢ cuộc trò chuyện?')) {
         window.location.href = '?delete_all_chats=true';
     }
 }
@@ -295,7 +137,7 @@ def search_web(query: str) -> List[Dict]:
     results = []
     try:
         url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
-        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/7.4"}, timeout=10)
+        response = requests.get(url, headers={"User-Agent": "NEXUS-OS/7.7"}, timeout=10)
         if response.status_code == 200:
             data = response.json()
             if data.get("AbstractText"):
@@ -370,7 +212,7 @@ def summarize_multiple_sources(query: str, results: List[Dict]) -> str:
     except Exception as e:
         return f"Lỗi tổng hợp: {str(e)}"
 
-# ================== HÀM BẢO MẬT ==================
+# ================== HÀM BẢO MẬT & SAO LƯU ==================
 def get_device_info() -> Dict:
     ua = st.context.headers.get("User-Agent", "Unknown")
     return {
@@ -381,19 +223,14 @@ def get_device_info() -> Dict:
     }
 
 def assess_risk(username: str) -> int:
-    """Đánh giá mức độ rủi ro 0-10"""
     risk_score = 0
     user_data = st.session_state.data.get("users", {}).get(username, {})
     login_history = st.session_state.data.get("login_history", {}).get(username, [])
-    
-    # Nhiều lần đăng nhập thất bại
     failed_logins = [h for h in login_history if h.get("status") == "failed"]
     if len(failed_logins) > 5:
         risk_score += 2
     if len(failed_logins) > 10:
         risk_score += 3
-    
-    # Nhiều thiết bị khác nhau
     devices = set()
     for h in login_history:
         if h.get("device_id"):
@@ -402,14 +239,11 @@ def assess_risk(username: str) -> int:
         risk_score += 2
     if len(devices) > 5:
         risk_score += 3
-    
-    # Tài khoản mới (< 7 ngày)
     created = user_data.get("info", {}).get("created")
     if created:
         created_date = datetime.fromisoformat(created)
         if (datetime.now() - created_date).days < 7:
             risk_score += 1
-    
     return min(risk_score, 10)
 
 def add_login_history(username: str, status: str):
@@ -430,7 +264,6 @@ def add_login_history(username: str, status: str):
     save_data(st.session_state.data)
 
 def add_ai_call_count(username: str):
-    """Tăng số lần gọi AI"""
     if "ai_call_counts" not in st.session_state.data:
         st.session_state.data["ai_call_counts"] = {}
     if username not in st.session_state.data["ai_call_counts"]:
@@ -439,12 +272,86 @@ def add_ai_call_count(username: str):
     save_data(st.session_state.data)
 
 def get_remaining_ai_calls(username: str) -> int:
-    """Lấy số lượt AI còn lại"""
     risk = assess_risk(username)
     if risk >= 10:
         used = st.session_state.data.get("ai_call_counts", {}).get(username, 0)
         return max(0, CONFIG["MAX_AI_CALLS_HIGH_RISK"] - used)
-    return 999999  # Không giới hạn
+    return 999999
+
+def create_backup(username: str, backup_type: str = "manual"):
+    backups = st.session_state.data.get("user_backups", {}).get(username, [])
+    backup_id = str(uuid.uuid4())
+    backup_data = {
+        "id": backup_id,
+        "time": str(datetime.now()),
+        "type": backup_type,
+        "data": {
+            "chat_sessions": [s for s in st.session_state.data.get("chat_sessions", []) if s.get("owner") == username],
+            "files": {k: v for k, v in st.session_state.data.get("files", {}).items() if v.get("owner") == username},
+            "friends": st.session_state.data.get("friends", {}).get(username, []),
+            "browsing_history": st.session_state.data.get("browsing_history", []),
+        }
+    }
+    if "user_backups" not in st.session_state.data:
+        st.session_state.data["user_backups"] = {}
+    if username not in st.session_state.data["user_backups"]:
+        st.session_state.data["user_backups"][username] = []
+    st.session_state.data["user_backups"][username].append(backup_data)
+    if len(st.session_state.data["user_backups"][username]) > 20:
+        st.session_state.data["user_backups"][username] = st.session_state.data["user_backups"][username][-20:]
+    save_data(st.session_state.data)
+    return backup_id
+
+def restore_backup(username: str, backup_id: str):
+    backups = st.session_state.data.get("user_backups", {}).get(username, [])
+    for b in backups:
+        if b["id"] == backup_id:
+            new_chats = [s for s in st.session_state.data.get("chat_sessions", []) if s.get("owner") != username]
+            new_chats.extend(b["data"]["chat_sessions"])
+            st.session_state.data["chat_sessions"] = new_chats
+            for f in b["data"]["files"]:
+                st.session_state.data["files"][f] = b["data"]["files"][f]
+            st.session_state.data["friends"][username] = b["data"]["friends"]
+            st.session_state.data["browsing_history"] = b["data"]["browsing_history"]
+            save_data(st.session_state.data)
+            return True
+    return False
+
+def delete_backup(username: str, backup_id: str):
+    backups = st.session_state.data.get("user_backups", {}).get(username, [])
+    st.session_state.data["user_backups"][username] = [b for b in backups if b["id"] != backup_id]
+    save_data(st.session_state.data)
+
+def generate_2fa_secret(username: str) -> str:
+    secret = hashlib.sha256(f"{username}{uuid.uuid4()}".encode()).hexdigest()[:16]
+    if "user_2fa" not in st.session_state.data:
+        st.session_state.data["user_2fa"] = {}
+    st.session_state.data["user_2fa"][username] = {"secret": secret, "enabled": False}
+    save_data(st.session_state.data)
+    return secret
+
+def verify_2fa_code(username: str, code: str) -> bool:
+    if "user_2fa" not in st.session_state.data or username not in st.session_state.data["user_2fa"]:
+        return False
+    secret = st.session_state.data["user_2fa"][username]["secret"]
+    expected = hashlib.md5(f"{secret}{int(datetime.now().timestamp()) // 30}".encode()).hexdigest()[:6]
+    return code == expected
+
+def generate_temp_pin(username: str) -> str:
+    pin = str(random.randint(100000, 999999))
+    if "temp_pins" not in st.session_state.data:
+        st.session_state.data["temp_pins"] = {}
+    st.session_state.data["temp_pins"][username] = {"pin": pin, "expiry": str(datetime.now() + timedelta(minutes=5))}
+    save_data(st.session_state.data)
+    return pin
+
+def verify_temp_pin(username: str, pin: str) -> bool:
+    if "temp_pins" not in st.session_state.data or username not in st.session_state.data["temp_pins"]:
+        return False
+    pin_data = st.session_state.data["temp_pins"][username]
+    if datetime.now() > datetime.fromisoformat(pin_data["expiry"]):
+        return False
+    return pin_data["pin"] == pin
 
 # ================== HÀM THÔNG BÁO ==================
 def load_system_notifications() -> List[Dict]:
@@ -503,7 +410,10 @@ def get_default_data() -> Dict:
                 "info": {
                     "name": "Admin", "bio": "", "link": str(uuid.uuid4()),
                     "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False
-                }
+                },
+                "login_attempts": 0,
+                "locked_until": None,
+                "backup_settings": {"auto_backup": False, "interval": 60, "mode": "smart"}
             }
         },
         "codes": [{"code": "PHAT2026", "expiry": None, "max_uses": None, "used_by": []}],
@@ -511,7 +421,7 @@ def get_default_data() -> Dict:
         "chat_sessions": [],
         "files": {}, "shared_files": {}, "notifications": {}, "friends": {},
         "browsing_history": [], "session_tokens": {}, "login_history": {},
-        "ai_call_counts": {},
+        "ai_call_counts": {}, "user_backups": {}, "user_2fa": {}, "temp_pins": {},
         "system_info": {"created": str(datetime.now()), "creator": CONFIG["CREATOR"], "system_name": CONFIG["NAME"]}
     }
 
@@ -537,13 +447,16 @@ def load_data() -> Dict:
             if CONFIG["ADMIN_USERNAME"] not in data.get("users", {}):
                 data["users"][CONFIG["ADMIN_USERNAME"]] = {
                     "password": CONFIG["ADMIN_PASSWORD"],
-                    "info": {"name": "Admin", "bio": "", "link": str(uuid.uuid4()), "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False}
+                    "info": {"name": "Admin", "bio": "", "link": str(uuid.uuid4()), "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False},
+                    "login_attempts": 0, "locked_until": None,
+                    "backup_settings": {"auto_backup": False, "interval": 60, "mode": "smart"}
                 }
             data = migrate_codes(data)
             defaults = {
                 "codes": [], "pro_users": [], "chat_sessions": [], "files": {},
                 "shared_files": {}, "notifications": {}, "friends": {}, "browsing_history": [],
-                "session_tokens": {}, "login_history": {}, "ai_call_counts": {}, "system_info": {}
+                "session_tokens": {}, "login_history": {}, "ai_call_counts": {}, "user_backups": {},
+                "user_2fa": {}, "temp_pins": {}, "system_info": {}
             }
             for key, val in defaults.items():
                 if key not in data:
@@ -555,6 +468,12 @@ def load_data() -> Dict:
                     ud["info"]["email_provided"] = False
                 if "email" not in ud["info"]:
                     ud["info"]["email"] = None
+                if "login_attempts" not in ud:
+                    ud["login_attempts"] = 0
+                if "locked_until" not in ud:
+                    ud["locked_until"] = None
+                if "backup_settings" not in ud:
+                    ud["backup_settings"] = {"auto_backup": False, "interval": 60, "mode": "smart"}
             return data
         return get_default_data()
     except:
@@ -597,7 +516,6 @@ def load_system_notifs_for_user(username: str):
         mark_system_notif_read(username, n["id"])
     save_data(st.session_state.data)
 
-# ================== HÀM GHI NHỚ THIẾT BỊ ==================
 def create_session_token(username: str) -> str:
     token = hashlib.sha256(f"{username}{uuid.uuid4()}{datetime.now()}".encode()).hexdigest()
     expiry = datetime.now() + timedelta(days=CONFIG["SESSION_TOKEN_EXPIRY"])
@@ -622,7 +540,6 @@ def check_remembered_device() -> Optional[str]:
                 save_data(st.session_state.data)
     return None
 
-# ================== HÀM XỬ LÝ FILE ==================
 def extract_text_from_file(uploaded_file) -> str:
     if uploaded_file.name.endswith('.txt'):
         try:
@@ -642,7 +559,6 @@ def resize_image(img_bytes, max_size=(200, 200)):
     except:
         return img_bytes
 
-# ================== HÀM DỌN DẸP ==================
 def auto_cleanup_files():
     if 'last_cleanup' not in st.session_state:
         st.session_state.last_cleanup = datetime.now()
@@ -682,24 +598,41 @@ def init_session():
         st.session_state.web_summaries = {}
     if 'browsing_history' not in st.session_state:
         st.session_state.browsing_history = []
+    if 'last_auto_backup' not in st.session_state:
+        st.session_state.last_auto_backup = datetime.now()
     auto_cleanup_files()
     
-    # Xóa chat
     if st.query_params.get("delete_chat"):
-        chat_id = int(st.query_params.get("delete_chat"))
-        st.session_state.data["chat_sessions"] = [s for s in st.session_state.data["chat_sessions"] if s.get("id") != chat_id]
-        if st.session_state.current_chat_id == chat_id:
-            st.session_state.current_chat_id = None
-        save_data(st.session_state.data)
+        try:
+            chat_id = int(st.query_params.get("delete_chat"))
+            st.session_state.data["chat_sessions"] = [s for s in st.session_state.data["chat_sessions"] if s.get("id") != chat_id]
+            if st.session_state.current_chat_id == chat_id:
+                st.session_state.current_chat_id = None
+            save_data(st.session_state.data)
+        except:
+            pass
         st.query_params.clear()
         st.rerun()
     
     if st.query_params.get("delete_all_chats"):
-        st.session_state.data["chat_sessions"] = [s for s in st.session_state.data["chat_sessions"] if s.get("owner") != st.session_state.user]
-        st.session_state.current_chat_id = None
-        save_data(st.session_state.data)
+        try:
+            st.session_state.data["chat_sessions"] = [s for s in st.session_state.data["chat_sessions"] if s.get("owner") != st.session_state.user]
+            st.session_state.current_chat_id = None
+            save_data(st.session_state.data)
+        except:
+            pass
         st.query_params.clear()
         st.rerun()
+    
+    if st.session_state.user and not st.session_state.guest_mode:
+        user_settings = st.session_state.data["users"][st.session_state.user].get("backup_settings", {})
+        if user_settings.get("auto_backup", False):
+            interval = user_settings.get("interval", 60)
+            now = datetime.now()
+            if (now - st.session_state.last_auto_backup).seconds >= interval:
+                create_backup(st.session_state.user, "auto")
+                st.session_state.last_auto_backup = now
+                save_data(st.session_state.data)
 
 init_session()
 
@@ -715,27 +648,24 @@ is_pro = (st.session_state.user in st.session_state.data.get("pro_users", [])) i
 unread_count = sum(1 for n in st.session_state.data.get("notifications", {}).get(st.session_state.user, []) if not n.get("read", False)) if st.session_state.user else 0
 is_admin = st.session_state.user == CONFIG["ADMIN_USERNAME"] if st.session_state.user else False
 
-# Đánh giá rủi ro cho user hiện tại
 risk_score = 0
 remaining_ai_calls = 999999
 if st.session_state.user and not st.session_state.guest_mode:
     risk_score = assess_risk(st.session_state.user)
     remaining_ai_calls = get_remaining_ai_calls(st.session_state.user)
     if risk_score >= 10:
-        st.warning(f"⚠️ **CẢNH BÁO BẢO MẬT CAO!** Tài khoản của bạn có mức độ rủi ro {risk_score}/10. Bạn chỉ còn {remaining_ai_calls} lượt gọi AI. Vui lòng liên hệ admin để được hỗ trợ.")
+        st.sidebar.warning(f"⚠️ Rủi ro {risk_score}/10! Bạn chỉ còn {remaining_ai_calls} lượt AI.")
 
 def go_to(page):
     st.session_state.page = page
     st.rerun()
 
 def call_ai(messages: List[Dict]) -> str:
-    # Kiểm tra giới hạn lượt gọi AI
     if st.session_state.user and not st.session_state.guest_mode:
         remaining = get_remaining_ai_calls(st.session_state.user)
         if remaining <= 0:
-            return "❌ Bạn đã hết lượt gọi AI do rủi ro bảo mật cao. Vui lòng liên hệ admin để được hỗ trợ."
+            return "❌ Bạn đã hết lượt gọi AI do rủi ro bảo mật cao. Vui lòng liên hệ admin."
         add_ai_call_count(st.session_state.user)
-    
     try:
         from openai import OpenAI
         client = OpenAI(api_key=random.choice(GROQ_KEYS), base_url="https://api.groq.com/openai/v1")
@@ -747,7 +677,11 @@ def call_ai(messages: List[Dict]) -> str:
 
 # ================== CLOUD FUNCTIONS ==================
 def get_used_storage(user: str) -> int:
-    return sum(info.get("size", 0) for path, info in st.session_state.data.get("files", {}).items() if info.get("owner") == user)
+    total = 0
+    for path, info in st.session_state.data.get("files", {}).items():
+        if info.get("owner") == user:
+            total += info.get("size", 0)
+    return total
 
 def list_dir(path: str) -> Dict:
     folders, files = set(), []
@@ -829,13 +763,10 @@ with st.sidebar:
         else:
             st.markdown(f'<div style="text-align:center"><span class="guest-badge {"pro-badge" if is_pro else ""}">{"💎 PRO" if is_pro else "🆓 FREE"}</span></div>', unsafe_allow_html=True)
         
-        # Hiển thị mức độ rủi ro
         if not st.session_state.guest_mode:
             risk_class = "risk-badge-low" if risk_score < 3 else "risk-badge-medium" if risk_score < 7 else "risk-badge-high"
             risk_text = "Thấp" if risk_score < 3 else "Trung bình" if risk_score < 7 else "Cao"
             st.markdown(f'<div style="text-align:center; margin-top: 10px;"><span class="{risk_class}">⚠️ Rủi ro: {risk_text} ({risk_score}/10)</span></div>', unsafe_allow_html=True)
-            if risk_score >= 10:
-                st.warning(f"📊 Lượt AI còn lại: {remaining_ai_calls}/{CONFIG['MAX_AI_CALLS_HIGH_RISK']}")
     st.divider()
     
     if not st.session_state.user:
@@ -847,17 +778,35 @@ with st.sidebar:
             if st.form_submit_button("Đăng nhập"):
                 if login_user in st.session_state.data["users"]:
                     user_data = st.session_state.data["users"][login_user]
+                    if user_data.get("locked_until"):
+                        locked_until = datetime.fromisoformat(user_data["locked_until"])
+                        if datetime.now() < locked_until:
+                            st.error(f"Tài khoản bị khóa đến {locked_until.strftime('%H:%M:%S %d/%m/%Y')}. Vui lòng thử lại sau.")
+                            continue
                     if user_data.get("password") == login_pass:
-                        st.session_state.user = login_user
-                        st.session_state.guest_mode = False
-                        if remember:
-                            create_session_token(login_user)
-                        load_system_notifs_for_user(login_user)
-                        add_login_history(login_user, "success")
-                        st.rerun()
+                        user_data["login_attempts"] = 0
+                        user_data["locked_until"] = None
+                        if st.session_state.data.get("user_2fa", {}).get(login_user, {}).get("enabled", False):
+                            st.session_state.temp_2fa_user = login_user
+                            st.session_state.page = "2FA"
+                            st.rerun()
+                        else:
+                            st.session_state.user = login_user
+                            st.session_state.guest_mode = False
+                            if remember:
+                                create_session_token(login_user)
+                            load_system_notifs_for_user(login_user)
+                            add_login_history(login_user, "success")
+                            st.rerun()
                     else:
-                        st.error("Sai mật khẩu!")
+                        user_data["login_attempts"] = user_data.get("login_attempts", 0) + 1
+                        if user_data["login_attempts"] >= CONFIG["MAX_LOGIN_ATTEMPTS"]:
+                            user_data["locked_until"] = str(datetime.now() + timedelta(minutes=CONFIG["LOCKOUT_TIME"]))
+                            st.error(f"Sai quá nhiều lần! Tài khoản bị khóa {CONFIG['LOCKOUT_TIME']} phút.")
+                        else:
+                            st.error(f"Sai mật khẩu! Còn {CONFIG['MAX_LOGIN_ATTEMPTS'] - user_data['login_attempts']} lần thử.")
                         add_login_history(login_user, "failed")
+                        save_data(st.session_state.data)
                 else:
                     st.error("Tài khoản không tồn tại!")
                     add_login_history(login_user, "failed_notfound")
@@ -877,7 +826,9 @@ with st.sidebar:
                     if reg_user not in st.session_state.data["users"]:
                         st.session_state.data["users"][reg_user] = {
                             "password": reg_pass,
-                            "info": {"name": reg_name or reg_user, "bio": "", "link": str(uuid.uuid4()), "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False}
+                            "info": {"name": reg_name or reg_user, "bio": "", "link": str(uuid.uuid4()), "avatar": None, "created": str(datetime.now()), "email": None, "email_provided": False},
+                            "login_attempts": 0, "locked_until": None,
+                            "backup_settings": {"auto_backup": False, "interval": 60, "mode": "smart"}
                         }
                         save_data(st.session_state.data)
                         load_system_notifs_for_user(reg_user)
@@ -899,9 +850,60 @@ with st.sidebar:
         if st.button("🚪 ĐĂNG XUẤT"):
             st.session_state.user = None
             st.rerun()
-    
-    st.divider()
-    st.caption(f"© 2025 {CONFIG['CREATOR']}")
+        
+        st.divider()
+        
+        st.markdown('<div class="input-card">', unsafe_allow_html=True)
+        st.markdown('<h4>💬 Nhập tin nhắn</h4>', unsafe_allow_html=True)
+        with st.form(key="chat_form", clear_on_submit=True):
+            col_up, col_inp = st.columns([1, 3])
+            with col_up:
+                uploaded_file = st.file_uploader("📎", type=["txt"], label_visibility="collapsed", key="sidebar_upload")
+            with col_inp:
+                p = st.text_input("", placeholder="Nhập câu hỏi...", key="sidebar_input")
+            submitted = st.form_submit_button("📤 Gửi", use_container_width=True)
+            if submitted and p:
+                st.session_state.pending_message = p
+                if uploaded_file:
+                    st.session_state.pending_file = uploaded_file
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown('<div class="input-card">', unsafe_allow_html=True)
+        st.markdown('<h4>🌐 Tìm kiếm web</h4>', unsafe_allow_html=True)
+        search_q = st.text_input("Tìm kiếm:", placeholder="Nhập từ khóa...", key="sidebar_search")
+        col_s1, col_s2 = st.columns(2)
+        with col_s1:
+            if st.button("🔎 Tìm", key="search_btn_side", use_container_width=True):
+                with st.spinner("Đang tìm..."):
+                    st.session_state.search_results = search_web(search_q)
+                    st.session_state.web_summaries = {}
+                    st.rerun()
+        with col_s2:
+            if st.button("🤖 AI đọc nhiều", key="multi_side", use_container_width=True):
+                with st.spinner("Đang tổng hợp..."):
+                    results = search_web(search_q)
+                    st.session_state.search_results = results
+                    summary = summarize_multiple_sources(search_q, results)
+                    st.session_state.web_summaries = {"multi_source": summary}
+                    st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ================== TRANG 2FA ==================
+if st.session_state.page == "2FA":
+    st.markdown("<h2>🔐 XÁC THỰC HAI YẾU TỐ</h2>", unsafe_allow_html=True)
+    st.write(f"Chào {st.session_state.temp_2fa_user}, vui lòng nhập mã xác thực từ ứng dụng của bạn.")
+    code = st.text_input("Mã 6 số:")
+    if st.button("Xác nhận"):
+        if verify_2fa_code(st.session_state.temp_2fa_user, code):
+            st.session_state.user = st.session_state.temp_2fa_user
+            st.session_state.guest_mode = False
+            del st.session_state.temp_2fa_user
+            load_system_notifs_for_user(st.session_state.user)
+            add_login_history(st.session_state.user, "success")
+            st.rerun()
+        else:
+            st.error("Mã không đúng!")
 
 # ================== DASHBOARD ==================
 if st.session_state.page == "DASHBOARD":
@@ -912,17 +914,13 @@ if st.session_state.page == "DASHBOARD":
     if col3.button("☁️ LƯU TRỮ"): go_to("CLOUD")
     if col4.button("👥 BẠN BÈ"): go_to("SOCIAL")
 
-# ================== CHAT AI - 2 CỘT ==================
+# ================== CHAT AI ==================
 elif st.session_state.page == "CHAT":
-    st.markdown('<div class="content-area">', unsafe_allow_html=True)
-    
-    # Cột chat bên trái
-    st.markdown('<div class="chat-column">', unsafe_allow_html=True)
     st.markdown('<div class="chat-header">🧠 NEXUS OS GATEWAY - Trợ lý AI<button onclick="deleteAllChats()">🗑️ Xóa tất cả</button></div>', unsafe_allow_html=True)
     
     with st.sidebar:
-        st.markdown("### 📝 LỊCH SỬ")
-        if st.button("➕ Tạo mới"):
+        st.markdown("### 📝 LỊCH SỬ CHAT")
+        if st.button("➕ Tạo mới", use_container_width=True):
             new_id = len(st.session_state.data["chat_sessions"])
             st.session_state.data["chat_sessions"].append({
                 "id": new_id, "name": f"Chat {datetime.now().strftime('%H:%M %d/%m')}",
@@ -931,7 +929,7 @@ elif st.session_state.page == "CHAT":
             st.session_state.current_chat_id = new_id
             save_data(st.session_state.data)
             st.rerun()
-        if st.button("🗑️ Xóa tất cả lịch sử"):
+        if st.button("🗑️ Xóa tất cả lịch sử", use_container_width=True):
             st.session_state.data["chat_sessions"] = [s for s in st.session_state.data["chat_sessions"] if s.get("owner") != st.session_state.user]
             st.session_state.current_chat_id = None
             save_data(st.session_state.data)
@@ -941,7 +939,7 @@ elif st.session_state.page == "CHAT":
         for s in sessions[-20:]:
             col1, col2 = st.columns([3, 1])
             with col1:
-                if st.button(f"💬 {s.get('name')}", key=f"chat_{s.get('id')}"):
+                if st.button(f"💬 {s.get('name')}", key=f"chat_{s.get('id')}", use_container_width=True):
                     st.session_state.current_chat_id = s.get("id")
                     st.rerun()
             with col2:
@@ -957,11 +955,10 @@ elif st.session_state.page == "CHAT":
         else:
             chat = None
     
-    # VÙNG TIN NHẮN
     st.markdown('<div id="chat-messages" class="chat-messages">', unsafe_allow_html=True)
     
     if chat is None:
-        st.markdown('<div style="text-align:center; padding: 40px; color: #9ca3af;">👋 Chưa có cuộc trò chuyện nào. Hãy nhập tin nhắn bên phải để bắt đầu!</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center; padding: 40px; color: #9ca3af;">👋 Chưa có cuộc trò chuyện nào. Hãy nhập tin nhắn bên cạnh để bắt đầu!</div>', unsafe_allow_html=True)
     else:
         messages = chat.get("messages", [])
         for m in messages:
@@ -971,137 +968,46 @@ elif st.session_state.page == "CHAT":
                 st.markdown(f'<div class="message assistant"><div class="message-bubble">{m.get("content", "")}</div></div>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    # Cột input bên phải
-    st.markdown('<div class="input-column">', unsafe_allow_html=True)
-    
-    # Card nhập tin nhắn
-    st.markdown('<div class="input-card">', unsafe_allow_html=True)
-    st.markdown('<h4>💬 Nhập tin nhắn</h4>', unsafe_allow_html=True)
-    
-    with st.form(key="chat_form", clear_on_submit=True):
-        col_up, col_inp = st.columns([1, 3])
-        with col_up:
-            uploaded_file = st.file_uploader("📎", type=["txt"], label_visibility="collapsed")
-        with col_inp:
-            p = st.text_input("", placeholder="Nhập câu hỏi...", key="chat_input_field")
-        submitted = st.form_submit_button("📤 Gửi", use_container_width=True)
-        
-        if submitted and p:
-            if not st.session_state.guest_mode and chat is None:
-                new_id = len(st.session_state.data["chat_sessions"])
-                st.session_state.data["chat_sessions"].append({
-                    "id": new_id, "name": f"Chat {datetime.now().strftime('%H:%M %d/%m')}",
-                    "owner": st.session_state.user, "created": str(datetime.now()), "messages": []
-                })
-                st.session_state.current_chat_id = new_id
-                save_data(st.session_state.data)
-                chat = st.session_state.data["chat_sessions"][-1]
-            
+    if st.session_state.get("pending_message"):
+        p = st.session_state.pending_message
+        uploaded_file = st.session_state.get("pending_file")
+        if uploaded_file:
+            extracted = extract_text_from_file(uploaded_file)
+            p = f"[File: {uploaded_file.name}]\n{extracted}" if extracted and not extracted.startswith("[") else f"Tôi vừa tải file {uploaded_file.name}"
+        if not st.session_state.guest_mode and chat is None:
+            new_id = len(st.session_state.data["chat_sessions"])
+            st.session_state.data["chat_sessions"].append({
+                "id": new_id, "name": f"Chat {datetime.now().strftime('%H:%M %d/%m')}",
+                "owner": st.session_state.user, "created": str(datetime.now()), "messages": []
+            })
+            st.session_state.current_chat_id = new_id
+            save_data(st.session_state.data)
+            chat = st.session_state.data["chat_sessions"][-1]
+        if st.session_state.guest_mode:
+            if "messages" not in chat:
+                chat["messages"] = []
+            chat["messages"].append({"role": "user", "content": p})
+        else:
+            chat["messages"].append({"role": "user", "content": p})
+        with st.spinner("🧠 Đang suy nghĩ..."):
+            msgs = [{"role": m.get("role"), "content": m.get("content")} for m in chat["messages"][-10:]] if is_pro else [{"role": m.get("role"), "content": m.get("content")} for m in chat["messages"][-5:]]
+            ans = call_ai(msgs)
             if st.session_state.guest_mode:
-                if "messages" not in chat:
-                    chat["messages"] = []
-                chat["messages"].append({"role": "user", "content": p})
+                chat["messages"].append({"role": "assistant", "content": ans})
             else:
-                chat["messages"].append({"role": "user", "content": p})
-            
-            with st.spinner("🧠 Đang suy nghĩ..."):
-                msgs = [{"role": m.get("role"), "content": m.get("content")} for m in chat["messages"][-10:]] if is_pro else [{"role": m.get("role"), "content": m.get("content")} for m in chat["messages"][-5:]]
-                ans = call_ai(msgs)
-                if st.session_state.guest_mode:
-                    chat["messages"].append({"role": "assistant", "content": ans})
-                else:
-                    chat["messages"].append({"role": "assistant", "content": ans})
-                    save_data(st.session_state.data)
-            st.rerun()
-    
-    if uploaded_file and not p:
-        extracted = extract_text_from_file(uploaded_file)
-        p = extracted if extracted and not extracted.startswith("[") else f"Tôi vừa tải file {uploaded_file.name}"
+                chat["messages"].append({"role": "assistant", "content": ans})
+                save_data(st.session_state.data)
+        st.session_state.pending_message = None
+        st.session_state.pending_file = None
         st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Card tìm kiếm web
-    st.markdown('<div class="input-card">', unsafe_allow_html=True)
-    st.markdown('<h4>🌐 Tìm kiếm web</h4>', unsafe_allow_html=True)
-    search_q = st.text_input("Tìm kiếm:", placeholder="Nhập từ khóa...", key="search_input_sidebar")
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        if st.button("🔎 Tìm kiếm", key="search_btn", use_container_width=True):
-            with st.spinner("Đang tìm kiếm..."):
-                st.session_state.search_results = search_web(search_q)
-                st.session_state.web_summaries = {}
-                st.rerun()
-    with col_s2:
-        if st.button("🤖 AI đọc nhiều nguồn", key="multi_source_btn", use_container_width=True):
-            with st.spinner("Đang đọc và tổng hợp..."):
-                results = search_web(search_q)
-                st.session_state.search_results = results
-                summary = summarize_multiple_sources(search_q, results)
-                st.session_state.web_summaries = {"multi_source": summary}
-                st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Card kết quả tìm kiếm
-    if st.session_state.search_results:
-        st.markdown('<div class="input-card">', unsafe_allow_html=True)
-        st.markdown('<h4>📄 Kết quả tìm kiếm</h4>', unsafe_allow_html=True)
-        
-        for i, r in enumerate(st.session_state.search_results[:5]):
-            if r.get('url'):
-                st.markdown(f"<div class='search-result'><b>{r.get('title', '')[:60]}</b><br><small>{r.get('url', '')[:50]}...</small></div>", unsafe_allow_html=True)
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button(f"📖 Tóm tắt", key=f"sum_{i}"):
-                        with st.spinner("Đang đọc..."):
-                            summary = summarize_page(r['url'])
-                            st.session_state.web_summaries[r['url']] = summary
-                            st.rerun()
-                with col2:
-                    if st.button(f"🔗 Mở", key=f"open_{i}"):
-                        st.markdown(f'<a href="{r["url"]}" target="_blank">Mở tab mới</a>', unsafe_allow_html=True)
-                
-                if r['url'] in st.session_state.web_summaries:
-                    st.markdown(f'<div class="summary-box"><b>📝 Tóm tắt:</b><br>{st.session_state.web_summaries[r["url"]]}</div>', unsafe_allow_html=True)
-        
-        if "multi_source" in st.session_state.web_summaries:
-            st.markdown(f'<div class="summary-box" style="background:linear-gradient(135deg,#e0e7ff,#f0f4ff); margin-top:10px;"><b>🤖 AI TỔNG HỢP TỪ NHIỀU NGUỒN</b><br><br>{st.session_state.web_summaries["multi_source"]}</div>', unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # ================== TÌM KIẾM WEB ==================
 elif st.session_state.page == "SEARCH":
     st.markdown("<h2>🌐 TÌM KIẾM WEB</h2>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        query = st.text_input("🔍 Nhập từ khóa tìm kiếm:")
-    with col2:
-        multi_source = st.button("🤖 AI đọc nhiều nguồn", use_container_width=True)
-    
-    if st.button("🔎 Tìm kiếm", use_container_width=True) and query:
-        with st.spinner("Đang tìm kiếm..."):
-            st.session_state.search_results = search_web(query)
-            st.session_state.web_summaries = {}
-            st.rerun()
-    
-    if multi_source and query:
-        with st.spinner("🤖 AI đang đọc và tổng hợp từ nhiều nguồn..."):
-            results = search_web(query)
-            st.session_state.search_results = results
-            summary = summarize_multiple_sources(query, results)
-            st.session_state.web_summaries = {"multi_source": summary}
-            st.rerun()
-    
     if st.session_state.search_results:
         st.subheader(f"📄 Kết quả tìm kiếm ({len(st.session_state.search_results)})")
-        
         for i, r in enumerate(st.session_state.search_results):
             if r.get('url'):
                 with st.container():
@@ -1112,10 +1018,9 @@ elif st.session_state.page == "SEARCH":
                         <span style="font-size:0.9rem">{r.get('snippet', '')[:200]}...</span>
                     </div>
                     """, unsafe_allow_html=True)
-                    
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button(f"📖 Tóm tắt trang này", key=f"sum_{i}"):
+                        if st.button(f"📖 Tóm tắt", key=f"sum_{i}"):
                             with st.spinner("Đang đọc..."):
                                 summary = summarize_page(r['url'])
                                 st.session_state.web_summaries[r['url']] = summary
@@ -1123,13 +1028,13 @@ elif st.session_state.page == "SEARCH":
                     with col2:
                         if st.button(f"🔗 Mở", key=f"open_{i}"):
                             st.markdown(f'<a href="{r["url"]}" target="_blank">Mở tab mới</a>', unsafe_allow_html=True)
-                    
                     if r['url'] in st.session_state.web_summaries:
                         st.markdown(f'<div class="summary-box"><b>📝 Tóm tắt:</b><br>{st.session_state.web_summaries[r["url"]]}</div>', unsafe_allow_html=True)
-        
         if "multi_source" in st.session_state.web_summaries:
             st.markdown("---")
             st.markdown('<div class="summary-box" style="background:linear-gradient(135deg,#e0e7ff,#f0f4ff)"><b>🤖 AI TỔNG HỢP TỪ NHIỀU NGUỒN</b><br><br>' + st.session_state.web_summaries["multi_source"] + '</div>', unsafe_allow_html=True)
+    else:
+        st.info("Nhập từ khóa vào ô tìm kiếm bên cạnh để bắt đầu")
 
 # ================== CLOUD ==================
 elif st.session_state.page == "CLOUD":
@@ -1207,7 +1112,6 @@ elif st.session_state.page == "SOCIAL":
     else:
         user_link = st.session_state.data["users"][st.session_state.user]["info"]["link"]
         st.info(f"🔗 Link của bạn: `{user_link}`")
-        
         friend_link = st.text_input("Nhập link bạn bè:")
         if st.button("Kết bạn"):
             found = False
@@ -1221,7 +1125,6 @@ elif st.session_state.page == "SOCIAL":
                     break
             if not found:
                 st.error("Không tìm thấy!")
-        
         st.subheader("Danh sách bạn")
         for f in st.session_state.data["friends"].get(st.session_state.user, []):
             st.write(f"- {f}")
@@ -1253,13 +1156,11 @@ elif st.session_state.page == "HISTORY":
 # ================== THÔNG BÁO ==================
 elif st.session_state.page == "NOTIFICATIONS":
     st.markdown("<h2>📢 THÔNG BÁO</h2>", unsafe_allow_html=True)
-    
     if st.session_state.guest_mode:
         st.info("Guest không có thông báo")
     else:
         notifs = st.session_state.data.get("notifications", {}).get(st.session_state.user, [])
         notifs.reverse()
-        
         if not notifs:
             st.info("Chưa có thông báo nào")
         else:
@@ -1283,8 +1184,9 @@ elif st.session_state.page == "SETTINGS":
         st.info("Guest không thể đổi cài đặt")
     else:
         user_info = st.session_state.data["users"][st.session_state.user]["info"]
+        backup_settings = st.session_state.data["users"][st.session_state.user].get("backup_settings", {"auto_backup": False, "interval": 60, "mode": "smart"})
         
-        tab1, tab2, tab3 = st.tabs(["👤 Cá nhân", "🎁 Nâng cấp", "ℹ️ Hệ thống"])
+        tab1, tab2, tab3, tab4 = st.tabs(["👤 Cá nhân", "🎁 Nâng cấp", "🔒 Bảo mật", "💾 Sao lưu"])
         
         with tab1:
             col1, col2 = st.columns([1, 2])
@@ -1305,13 +1207,11 @@ elif st.session_state.page == "SETTINGS":
                     user_info["name"] = new_name
                     save_data(st.session_state.data)
                     st.success("Đã đổi tên!")
-                
                 new_bio = st.text_area("Giới thiệu", value=user_info.get("bio", ""), height=100)
                 if st.button("Cập nhật giới thiệu"):
                     user_info["bio"] = new_bio
                     save_data(st.session_state.data)
                     st.success("Đã cập nhật!")
-                
                 st.divider()
                 st.write(f"**Link kết bạn:** `{user_info.get('link')}`")
         
@@ -1340,19 +1240,97 @@ elif st.session_state.page == "SETTINGS":
                     st.error("Mã không hợp lệ!")
         
         with tab3:
-            st.write(f"**Phiên bản:** {CONFIG['VERSION']}")
-            st.write(f"**Tác giả:** {CONFIG['CREATOR']}")
-            st.write(f"**Ngày tham gia:** {user_info.get('created', 'Không rõ')[:16]}")
-            st.write(f"**Hạng:** {'💎 Pro' if is_pro else '🆓 Miễn phí'}")
-            st.write(f"**Dung lượng đã dùng:** {get_used_storage(st.session_state.user)/(1024**3):.2f} GB")
-            
-            # Hiển thị đánh giá rủi ro
-            risk = assess_risk(st.session_state.user)
-            risk_text = "Thấp" if risk < 3 else "Trung bình" if risk < 7 else "Cao"
-            risk_color = "green" if risk < 3 else "orange" if risk < 7 else "red"
-            st.write(f"**Mức độ rủi ro:** :{risk_color}[{risk_text}] ({risk}/10)")
-            if risk >= 10:
-                st.warning(f"⚠️ Tài khoản của bạn đang bị giới hạn. Số lượt AI còn lại: {get_remaining_ai_calls(st.session_state.user)}/{CONFIG['MAX_AI_CALLS_HIGH_RISK']}")
+            st.subheader("🔐 Xác thực hai yếu tố (2FA)")
+            if st.session_state.data.get("user_2fa", {}).get(st.session_state.user, {}).get("enabled", False):
+                st.success("2FA đã được bật.")
+                if st.button("Tắt 2FA"):
+                    st.session_state.data["user_2fa"][st.session_state.user]["enabled"] = False
+                    save_data(st.session_state.data)
+                    st.rerun()
+            else:
+                st.warning("2FA chưa được bật. Đây là lớp bảo vệ bổ sung cho tài khoản của bạn.")
+                if st.button("Bật 2FA"):
+                    secret = generate_2fa_secret(st.session_state.user)
+                    st.info(f"Mã bí mật của bạn: `{secret}`. Hãy nhập mã này vào ứng dụng xác thực (Google Authenticator, Authy,...) để nhận mã 6 số.")
+                    test_code = st.text_input("Nhập mã xác thực để xác nhận:")
+                    if st.button("Xác nhận bật 2FA"):
+                        if verify_2fa_code(st.session_state.user, test_code):
+                            st.session_state.data["user_2fa"][st.session_state.user]["enabled"] = True
+                            save_data(st.session_state.data)
+                            st.success("2FA đã được bật!")
+                            st.rerun()
+                        else:
+                            st.error("Mã không đúng!")
+            st.divider()
+            st.subheader("🔑 Mã PIN tạm thời")
+            if st.button("Tạo mã PIN dùng một lần"):
+                pin = generate_temp_pin(st.session_state.user)
+                st.success(f"Mã PIN của bạn: `{pin}` (có hiệu lực 5 phút)")
+                st.info("Sử dụng mã này để đăng nhập trong trường hợp khẩn cấp.")
+            st.divider()
+            st.subheader("🔒 Giới hạn đăng nhập sai")
+            st.write(f"Số lần đăng nhập sai tối đa: {CONFIG['MAX_LOGIN_ATTEMPTS']} lần trong {CONFIG['LOCKOUT_TIME']} phút.")
+            st.divider()
+            st.subheader("🔐 Đăng xuất khỏi tất cả thiết bị")
+            if st.button("Đăng xuất tất cả"):
+                tokens = st.session_state.data.get("session_tokens", {})
+                to_delete = []
+                for token, info in tokens.items():
+                    if info.get("username") == st.session_state.user:
+                        to_delete.append(token)
+                for token in to_delete:
+                    del tokens[token]
+                save_data(st.session_state.data)
+                st.success("Đã đăng xuất tất cả thiết bị khác!")
+        
+        with tab4:
+            st.subheader("💾 Sao lưu và khôi phục dữ liệu")
+            auto_backup = st.checkbox("Bật sao lưu tự động", value=backup_settings.get("auto_backup", False))
+            if auto_backup:
+                min_interval = CONFIG["BACKUP_MIN_INTERVAL"] if not is_pro else CONFIG["BACKUP_PRO_INTERVAL"]
+                interval = st.number_input("Khoảng thời gian sao lưu (giây)", min_value=min_interval, value=backup_settings.get("interval", min_interval), step=10)
+                mode = st.selectbox("Chế độ sao lưu", ["smart", "continuous"], index=0 if backup_settings.get("mode", "smart") == "smart" else 1)
+                if mode == "smart":
+                    st.info("💡 Chế độ thông minh: chỉ sao lưu khi có hoạt động thay đổi dữ liệu.")
+                else:
+                    st.warning("⚠️ Sao lưu liên tục có thể làm giảm hiệu năng phần mềm.")
+                if st.button("Lưu cài đặt sao lưu"):
+                    backup_settings["auto_backup"] = auto_backup
+                    backup_settings["interval"] = interval
+                    backup_settings["mode"] = mode
+                    save_data(st.session_state.data)
+                    st.success("Đã lưu cài đặt!")
+            else:
+                if st.button("Lưu cài đặt sao lưu"):
+                    backup_settings["auto_backup"] = False
+                    save_data(st.session_state.data)
+                    st.success("Đã tắt sao lưu tự động!")
+            st.divider()
+            st.subheader("Tạo bản sao lưu thủ công")
+            if st.button("🔄 Tạo backup ngay"):
+                backup_id = create_backup(st.session_state.user, "manual")
+                st.success(f"Đã tạo backup thành công! ID: {backup_id}")
+            st.divider()
+            st.subheader("Khôi phục từ bản sao lưu")
+            backups = st.session_state.data.get("user_backups", {}).get(st.session_state.user, [])
+            if backups:
+                backup_options = {f"{b['type']} - {b['time'][:19]}": b["id"] for b in reversed(backups)}
+                selected_backup = st.selectbox("Chọn bản backup", list(backup_options.keys()))
+                if st.button("Khôi phục"):
+                    if restore_backup(st.session_state.user, backup_options[selected_backup]):
+                        st.success("Khôi phục thành công! Trang sẽ tải lại.")
+                        st.rerun()
+                    else:
+                        st.error("Khôi phục thất bại!")
+            else:
+                st.info("Chưa có bản sao lưu nào.")
+            st.divider()
+            st.subheader("Xóa các bản sao lưu cũ")
+            if backups and st.button("Xóa tất cả backup"):
+                st.session_state.data["user_backups"][st.session_state.user] = []
+                save_data(st.session_state.data)
+                st.success("Đã xóa tất cả backup!")
+            st.info("💡 Lưu ý: Sao lưu thường xuyên giúp bạn khôi phục dữ liệu khi gặp sự cố.")
 
 # ================== ADMIN ==================
 elif st.session_state.page == "ADMIN":
@@ -1416,7 +1394,6 @@ elif st.session_state.page == "ADMIN":
                     col1.write(f"**{u}** ({user_data['info'].get('name', u)})")
                     col2.write(f"Trạng thái: {'🟢 Hoạt động' if status == 'active' else '🔴 Đã khóa'}")
                     col3.write(f"Rủi ro: {risk_text} {risk}/10")
-                    
                     if status == "active":
                         if col4.button(f"🔒 Khóa", key=f"ban_{u}"):
                             if u == CONFIG["ADMIN_USERNAME"]:
@@ -1432,7 +1409,6 @@ elif st.session_state.page == "ADMIN":
                             save_data(st.session_state.data)
                             add_notification(u, "✅ Tài khoản được mở khóa", "Tài khoản của bạn đã được mở khóa.")
                             st.rerun()
-                    
                     if col5.button(f"🗑️ Xóa", key=f"delete_{u}"):
                         if u == CONFIG["ADMIN_USERNAME"]:
                             st.error("Không thể xóa tài khoản admin!")
@@ -1440,7 +1416,6 @@ elif st.session_state.page == "ADMIN":
                             del st.session_state.data["users"][u]
                             save_data(st.session_state.data)
                             st.rerun()
-                    
                     st.divider()
 
 # ================== THÔNG TIN ==================
@@ -1474,15 +1449,17 @@ elif st.session_state.page == "ABOUT":
         """)
     with col2:
         st.markdown("""
+        **🔒 Bảo mật & Sao lưu**
+        - ✅ Xác thực hai yếu tố (2FA)
+        - ✅ Mã PIN tạm thời
+        - ✅ Giới hạn đăng nhập sai
+        - ✅ Sao lưu tự động định kỳ
+        - ✅ Khôi phục dữ liệu
+        - ✅ Đăng xuất tất cả thiết bị
+        
         **👥 Mạng xã hội**
         - ✅ Kết bạn bằng link
         - ✅ Thông báo realtime
-        
-        **🔧 Quản lý Cá nhân**
-        - ✅ Ảnh đại diện, đổi tên
-        - ✅ Lịch sử trò chuyện
-        - ✅ Ghi nhớ thiết bị
-        - ✅ Đánh giá bảo mật
         """)
     
     st.markdown("---")
